@@ -1,0 +1,50 @@
+---
+name: "[SUB] Cypress Tests"
+
+on:
+  workflow_call:
+
+jobs:
+  cypress:
+    name: Cypress Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - uses: actions/cache@v3
+        with:
+          # See here for caching with `yarn` https://github.com/actions/cache/blob/main/examples.md#node---yarn or you can leverage caching with actions/setup-node https://github.com/actions/setup-node
+          path: |
+            ~/.npm
+            ${{ github.workspace }}/.next/cache
+          # Generate a new cache whenever packages or source files change.
+          key:
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{
+            hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          # If source files changed but packages didn't, rebuild from a prior cache.
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+
+      - name: Cypress E2E tests
+        uses: cypress-io/github-action@ebe8b24c4428922d0f793a5c4c96853a633180e3
+        env:
+          DOTENV_KEY: ${{ secrets.DOTENV_KEY }}
+        with:
+          build: npm run build
+          start: npm run start-local
+          wait-on: "http://127.0.0.1:3000"
+          browser: chrome
+
+      - name: Cypress Component tests
+        uses: cypress-io/github-action@ebe8b24c4428922d0f793a5c4c96853a633180e3
+        env:
+          DOTENV_KEY: ${{ secrets.DOTENV_KEY }}
+        with:
+          # we have already installed everything
+          install: false
+          component: true

@@ -1,0 +1,21 @@
+---
+# This workflow deploys the release branch.
+# The trigger should be:
+# on:
+#   pull_request:
+#    types:
+#      - ready_for_review
+#     branches:
+#       - main
+name: "🚀 Deploy Release"
+
+run-name: "${{ github.workflow }} by ${{ github.actor }}"
+
+on:
+  workflow_call:
+
+jobs:
+  deploy-release:
+    name: "Deploy Release"
+    uses: ./.github/workflows/sub-deploy-release.yml
+    secrets: inherit

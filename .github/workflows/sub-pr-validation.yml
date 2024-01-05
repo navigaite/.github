@@ -1,0 +1,21 @@
+---
+name: "[SUB] PR Title Validation"
+
+on:
+  workflow_call:
+
+jobs:
+  main:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a github token
+        id: generate-token
+        uses: actions/create-github-app-token@2986852ad836768dfea7781f31828eb3e17990fa
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+
+      - uses: amannn/action-semantic-pull-request@c3cd5d1ea3580753008872425915e343e351ab54
+        env:
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}

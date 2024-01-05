@@ -1,0 +1,41 @@
+---
+# This workflow is triggered when a PR is opened, reopened, or synchronized.
+# It runs the following jobs:
+# - pr-validation: Validates the PR and adds a label if it is valid
+# - code-validation: Validates the code in the PR and adds a label if it is valid
+# - deploy-pre: Deploys the PR to a pre-production environment
+#
+# The trigger should be:
+# on:
+#   pull_request:
+#     types:
+#       - opened
+#       - synchronize
+#       - reopened
+#       - ready_for_review
+#     branches-ignore: [main, 'release/**']
+name: "🔄 PR Changed"
+
+run-name: "${{ github.workflow }} by ${{ github.actor }}: ${{ github.event.pull_request.number }}"
+
+on:
+  workflow_call:
+
+jobs:
+  pr-validation:
+    if: github.event.action != 'ready_for_review'
+    name: "PR Validation"
+    uses: ./.github/workflows/sub-pr-validation.yml
+    secrets: inherit
+
+  code-validation:
+    if: github.event.action != 'ready_for_review'
+    name: "Code Validation"
+    uses: ./.github/workflows/sub-code-validation.yml
+    secrets: inherit
+
+  deploy-pre:
+    if: github.event.pull_request.draft == false
+    name: "Deploy Branch"
+    uses: ./.github/workflows/sub-deploy-pr.yml
+    secrets: inherit

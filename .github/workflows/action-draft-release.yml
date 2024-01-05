@@ -1,0 +1,99 @@
+---
+# This workflow prepares a new release. It creates a release branch from dev, opens a PR to main
+# and labels it correctly. The package.json version is incremented automatically regarding the increment input.
+#
+# The trigger should be:
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       semver_increment:
+#         description: 'The version you want to release.'
+#         required: true
+#         default: 'patch'
+#         type: choice
+#         options:
+#           - major
+#           - minor
+#           - patch
+name: "📦 Release drafted"
+
+run-name:
+  "${{ github.workflow }} by ${{ github.actor }}: Increment ${{ github.event.inputs.semver_increment
+  }}"
+
+on:
+  workflow_call:
+    inputs:
+      semver_increment:
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Prepare new Release
+    runs-on: ubuntu-latest
+    permissions:
+      # write permission is required to create a github release
+      contents: write
+      # write permission is required for autolabeler
+      # otherwise, read permission is required at least
+      pull-requests: write
+    steps:
+      - name: Generate a github token
+        id: generate-token
+        uses: actions/create-github-app-token@2986852ad836768dfea7781f31828eb3e17990fa
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Update version
+        id: update-version
+        env:
+          VERSION_INCREMENT: ${{ github.event.inputs.semver_increment }}
+        run: |
+          version=$(npm version --no-git-tag-version ${{ env.VERSION_INCREMENT }})
+          echo "New version: $version"
+          echo "NEW_VERSION=${version}" >> $GITHUB_OUTPUT
+
+      - name: Set user
+        env:
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          git config --global user.name "navigaite-workflow-app[bot]"
+          git config --global user.email "123456789+machina[bot]@users.noreply.github.com"
+
+      - name: Create Release Branch
+        run: |
+          git checkout dev
+          git checkout -b release/${{ steps.update-version.outputs.NEW_VERSION }}
+
+      - name: Commit Version Update and push changes
+        run: |
+          git add package.json package-lock.json
+          git commit -m "🔄 ci: Bump version to ${{ steps.update-version.outputs.NEW_VERSION }}"
+          git push origin release/${{ steps.update-version.outputs.NEW_VERSION }}
+
+      - name: Run the Action
+        uses: devops-infra/action-pull-request@v0.5.5
+        with:
+          github_token: ${{ steps.generate-token.outputs.token }}
+          source_branch: release/${{ steps.update-version.outputs.NEW_VERSION }}
+          target_branch: main
+          title: "ci: Release ${{ steps.update-version.outputs.NEW_VERSION }}"
+          body: |
+            **Automated pull request!**
+
+            This PR prepares for the release of version **${{ steps.update-version.outputs.NEW_VERSION }}**
+          label: "type: ci 🔄,automated pr 🤖,new version 🆕"
+          draft: true
