@@ -36,12 +36,12 @@ jobs:
       - uses: actions/add-to-project@31b3f3ccdc584546fc445612dec3f38ff5edb41c # This adds the issue to the project
         id: add-project
         with:
-          project-url: ${{ env.PROJECT_URL }}
+          project-url: ${{ vars.PROJECT_URL }}
           github-token: ${{ steps.generate-token.outputs.token }}
 
       - uses: titoportas/update-project-fields@421a54430b3cdc9eefd8f14f9ce0142ab7678751
         with:
-          project-url: ${{ env.PROJECT_URL }}
+          project-url: ${{ vars.PROJECT_URL }}
           github-token: ${{ steps.generate-token.outputs.token }}
           item-id: ${{ steps.add-project.outputs.itemId }} # Use the item-id output of the previous step
           field-keys: Status
@@ -68,13 +68,13 @@ jobs:
           # Personal Access Token that with `repo` and `org:read` are granted.
           github-token: ${{ steps.generate-token.outputs.token }}
           project-owner: "navigaite"
-          project-number: ${{ env.PROJECT_ID }}
+          project-number: ${{ vars.PROJECT_ID }}
           issue-repository: ${{ github.repository}}
           issue-number: ${{ github.event.issue.number }}
 
       - uses: titoportas/update-project-fields@421a54430b3cdc9eefd8f14f9ce0142ab7678751
         with:
-          project-url: ${{ env.PROJECT_URL }}
+          project-url: ${{ vars.PROJECT_URL }}
           github-token: ${{ steps.generate-token.outputs.token }}
           item-id: ${{ steps.get-item-id.outputs.project-item-id }} # Use the item-id output of the previous step
           field-keys: Status
@@ -140,13 +140,13 @@ jobs:
           # Personal Access Token that with `repo` and `org:read` are granted.
           github-token: ${{ steps.generate-token.outputs.token }}
           project-owner: "navigaite"
-          project-number: ${{ env.PROJECT_ID }}}
+          project-number: ${{ vars.PROJECT_ID }}}
           issue-repository: ${{ github.repository}}
           issue-number: ${{ matrix.nodes.number }}
 
       - uses: titoportas/update-project-fields@421a54430b3cdc9eefd8f14f9ce0142ab7678751
         with:
-          project-url: ${{ env.PROJECT_URL }}
+          project-url: ${{ vars.PROJECT_URL }}
           github-token: ${{ steps.generate-token.outputs.token }}
           item-id: ${{ steps.get-item-id.outputs.project-item-id }} # Use the item-id output of the previous step
           field-keys: Status
@@ -173,13 +173,13 @@ jobs:
           # Personal Access Token that with `repo` and `org:read` are granted.
           github-token: ${{ steps.generate-token.outputs.token }}
           project-owner: "navigaite"
-          project-number: ${{ env.PROJECT_ID }}
+          project-number: ${{ vars.PROJECT_ID }}
           issue-repository: ${{ github.repository}}
           issue-number: ${{ matrix.nodes.number }}
 
       - uses: titoportas/update-project-fields@421a54430b3cdc9eefd8f14f9ce0142ab7678751
         with:
-          project-url: ${{ env.PROJECT_URL }}
+          project-url: ${{ vars.PROJECT_URL }}
           github-token: ${{ steps.generate-token.outputs.token }}
           item-id: ${{ steps.get-item-id.outputs.project-item-id }} # Use the item-id output of the previous step
           field-keys: Status
