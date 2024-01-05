@@ -39,5 +39,5 @@ jobs:
           PR_LABELS: "deployed  🚀"
           PRODUCTION: false
           ALIAS_DOMAINS: |
-            mietkatalog-PR-{PR}.vercel.app
-          PR_PREVIEW_DOMAIN: "mietkatalog-PR-{PR}.vercel.app"
+            ${{ github.event.repository.name }}-PR-{PR}.vercel.app
+          PR_PREVIEW_DOMAIN: "${{ github.event.repository.name }}-PR-{PR}.vercel.app"

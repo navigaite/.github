@@ -53,5 +53,5 @@ jobs:
           PR_LABELS: "deployed  🚀"
           PRODUCTION: false
           ALIAS_DOMAINS: |
-            mietkatalog-release-${{ steps.version.outputs.current_version }}.vercel.app
-          PR_PREVIEW_DOMAIN: "mietkatalog-release-${{ steps.version.outputs.current_version }}.vercel.app"
+            ${{ github.event.repository.name }}-release-${{ steps.version.outputs.current_version }}.vercel.app
+          PR_PREVIEW_DOMAIN: "${{ github.event.repository.name }}-release-${{ steps.version.outputs.current_version }}.vercel.app"
