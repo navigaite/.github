@@ -17,9 +17,6 @@ run-name: "${{ github.workflow }} by ${{ github.actor }}"
 on:
   workflow_call:
 
-env:
-  PROJECT_URL: https://github.com/orgs/navigaite/projects/3
-
 jobs:
   add-item:
     if: github.event_name == 'issues' && github.event.action == 'opened'
@@ -71,8 +68,8 @@ jobs:
           # Personal Access Token that with `repo` and `org:read` are granted.
           github-token: ${{ steps.generate-token.outputs.token }}
           project-owner: "navigaite"
-          project-number: 3
-          issue-repository: "navigaite/maimaldrei-mietkatalog"
+          project-number: ${{ env.PROJECT_ID }}
+          issue-repository: ${{ github.repository}}
           issue-number: ${{ github.event.issue.number }}
 
       - uses: titoportas/update-project-fields@421a54430b3cdc9eefd8f14f9ce0142ab7678751
@@ -143,8 +140,8 @@ jobs:
           # Personal Access Token that with `repo` and `org:read` are granted.
           github-token: ${{ steps.generate-token.outputs.token }}
           project-owner: "navigaite"
-          project-number: 3
-          issue-repository: "navigaite/maimaldrei-mietkatalog"
+          project-number: ${{ env.PROJECT_ID }}}
+          issue-repository: ${{ github.repository}}
           issue-number: ${{ matrix.nodes.number }}
 
       - uses: titoportas/update-project-fields@421a54430b3cdc9eefd8f14f9ce0142ab7678751
@@ -176,8 +173,8 @@ jobs:
           # Personal Access Token that with `repo` and `org:read` are granted.
           github-token: ${{ steps.generate-token.outputs.token }}
           project-owner: "navigaite"
-          project-number: 3
-          issue-repository: "navigaite/maimaldrei-mietkatalog"
+          project-number: ${{ env.PROJECT_ID }}
+          issue-repository: ${{ github.repository}}
           issue-number: ${{ matrix.nodes.number }}
 
       - uses: titoportas/update-project-fields@421a54430b3cdc9eefd8f14f9ce0142ab7678751
