@@ -49,7 +49,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_SCOPE: maimaldrei-navigaite
           GITHUB_DEPLOYMENT: true
-          GITHUB_DEPLOYMENT_ENV: Preview
+          GITHUB_DEPLOYMENT_ENV: Staging
           PR_LABELS: "deployed  🚀"
           PRODUCTION: false
           ALIAS_DOMAINS: |
