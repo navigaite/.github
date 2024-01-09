@@ -23,13 +23,11 @@ on:
 
 jobs:
   pr-validation:
-    if: github.event.action != 'ready_for_review'
     name: "PR Validation"
     uses: ./.github/workflows/sub-pr-validation.yml
     secrets: inherit
 
   code-validation:
-    if: github.event.action != 'ready_for_review'
     name: "Code Validation"
     uses: ./.github/workflows/sub-code-validation.yml
     secrets: inherit

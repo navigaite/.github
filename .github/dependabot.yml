@@ -16,7 +16,8 @@ updates:
     labels:
       - "dependabot 🤖"
     reviewers:
-      - "@navigaite/dev-ops"
+      - "maxbec"
+      - "tmaihoff"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
