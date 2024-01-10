@@ -15,6 +15,16 @@ on:
   workflow_call:
 
 jobs:
+  pr-validation:
+    name: "PR Validation"
+    uses: ./.github/workflows/sub-pr-validation.yml
+    secrets: inherit
+
+  code-validation:
+    name: "Code Validation"
+    uses: ./.github/workflows/sub-code-validation.yml
+    secrets: inherit
+
   deploy-release:
     name: "Deploy Release"
     uses: ./.github/workflows/sub-deploy-release.yml
