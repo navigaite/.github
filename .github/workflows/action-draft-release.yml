@@ -71,7 +71,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           git config --global user.name "navigaite-workflow-app[bot]"
-          git config --global user.email "123456789+machina[bot]@users.noreply.github.com"
+          git config --global user.email "133966083+navigaite-workflow-app[bot]@users.noreply.github.com"
 
       - name: Create Release Branch
         run: |
