@@ -96,4 +96,3 @@ jobs:
 
             This PR prepares for the release of version **${{ steps.update-version.outputs.NEW_VERSION }}**
           label: "type: ci 🔄,automated pr 🤖,new version 🆕"
-          draft: true
