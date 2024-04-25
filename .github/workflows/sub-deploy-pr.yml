@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy to Vercel Action
-        uses: BetaHuhn/deploy-to-vercel-action@0f16bc3af7db7d5171bf68bff6f82679de195113
+        uses: iFixit/deploy-to-vercel-action@master
         env:
           BRANCH: ${{ github.head_ref }}
         with:
