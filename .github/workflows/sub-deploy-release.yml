@@ -40,6 +40,9 @@ jobs:
           echo "current_version=$(node -p "require('./package.json').version.replace(/\./g, '-')")"
           >> $GITHUB_OUTPUT
 
+      - name: Install Vercel CLI
+        run: npm install -g vercel@37.8.0
+
       - name: Deploy to Vercel Action
         uses: iFixit/deploy-to-vercel-action@master
         env:
