@@ -42,3 +42,4 @@ jobs:
           ALIAS_DOMAINS: |
             ${{ github.event.repository.name }}-dev.vercel.app
           PR_PREVIEW_DOMAIN: "${{ github.event.repository.name }}-dev.vercel.app"
+          FORCE: true
