@@ -35,7 +35,7 @@ jobs:
         env:
           DOTENV_KEY: ${{ secrets.DOTENV_KEY }}
         with:
-          install-command: npm run install --force
+          install-command: npm install --force
           build: npm run build
           start: npm run start-local
           wait-on: "http://127.0.0.1:3000"
