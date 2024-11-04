@@ -17,7 +17,7 @@ jobs:
 
       - name: Install ESLint dependencies
         shell: bash
-        run: npm install
+        run: npm install --force
 
       - name: Trunk Check
         uses: trunk-io/trunk-action@main

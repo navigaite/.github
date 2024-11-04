@@ -16,7 +16,6 @@ jobs:
         with:
           node-version-file: /.nvmrc
 
-
       - uses: actions/cache@v3
         with:
           # See here for caching with `yarn` https://github.com/actions/cache/blob/main/examples.md#node---yarn or you can leverage caching with actions/setup-node https://github.com/actions/setup-node
@@ -36,6 +35,7 @@ jobs:
         env:
           DOTENV_KEY: ${{ secrets.DOTENV_KEY }}
         with:
+          install: npm run install --force
           build: npm run build
           start: npm run start-local
           wait-on: "http://127.0.0.1:3000"
