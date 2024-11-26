@@ -26,7 +26,7 @@ jobs:
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@v3 # v3.6.0
+        uses: actions/checkout@v4
 
       - name: "Remove old artifacts"
         uses: c-hive/gha-remove-artifacts@abbb1f6264cd712663bcb880716d3ccd251095ca
