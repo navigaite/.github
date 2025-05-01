@@ -1,0 +1,14 @@
+{
+  "hash": "89505dd9dbe56ec7aed40e65d2e29a5b7c1079f4c06f7be62e01d2936c0fb115",
+  "prompts": [],
+  "consistency": {
+    "english": {
+      "localLanguage": "english",
+      "commitFix": "fix(server): change variable 'port' to uppercase 'PORT'",
+      "commitFeat": "feat(server): allow server to listen on env-specified port",
+      "commitFixOmitScope": "fix: change variable 'port' to uppercase 'PORT'",
+      "commitFeatOmitScope": "feat: allow server to listen on env-specified port",
+      "commitDescription": "Updated variable name to 'PORT' and added env var support."
+    }
+  }
+}
