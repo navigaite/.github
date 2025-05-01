@@ -1,0 +1,55 @@
+name: Setup
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version to use"
+        required: false
+        type: string
+        default: "18"
+      cache-npm:
+        description: "Whether to cache NPM packages"
+        required: false
+        type: boolean
+        default: true
+      install-dependencies:
+        description: "Whether to install dependencies"
+        required: false
+        type: boolean
+        default: true
+      checkout-depth:
+        description: "Depth for git checkout"
+        required: false
+        type: number
+        default: 1
+
+jobs:
+  setup:
+    name: Setup Environment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ inputs.checkout-depth }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: ${{ inputs.cache-npm && 'npm' || '' }}
+
+      - name: Install dependencies
+        if: ${{ inputs.install-dependencies }}
+        run: npm ci
+
+      # Create a cache for node_modules to be used in subsequent jobs
+      - name: Cache node_modules
+        if: ${{ inputs.install-dependencies }}
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ inputs.node-version }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ inputs.node-version }}-

@@ -1,98 +1,65 @@
 {
   "categories": [
     {
-      "title": "## 🏗️ Build",
-      "labels": ["type: build 🏗️"]
+      "title": "## 🌟 Features & Enhancements",
+      "labels": ["feature", "enhancement", "feat"]
     },
     {
-      "title": "## 🧺 Chore",
-      "labels": ["type: chore 🧺"]
+      "title": "## 🐛 Bug Fixes",
+      "labels": ["fix", "bug"]
     },
     {
-      "title": "## 🔄 CI",
-      "labels": ["type: ci 🔄"]
+      "title": "## 📚 Documentation",
+      "labels": ["documentation", "docs"]
     },
     {
-      "title": "## ✏️ Docs",
-      "labels": ["type: docs ✏️"]
+      "title": "## 🧪 Testing",
+      "labels": ["test"]
     },
     {
-      "title": "## 🔨 Feat",
-      "labels": ["type: feat 🔨"]
+      "title": "## 🚀 Performance Improvements",
+      "labels": ["performance", "perf"]
     },
     {
-      "title": "## 🐛 Fixes",
-      "labels": ["type: fix 🐛"]
+      "title": "## 🏗️ Build System",
+      "labels": ["build", "ci", "cd"]
     },
     {
-      "title": "## 🚀 Perf",
-      "labels": ["type: perf 🚀"]
+      "title": "## ♻️ Refactoring",
+      "labels": ["refactor"]
     },
     {
-      "title": "## 🧹 Refactor",
-      "labels": ["type: refactor 🧹"]
+      "title": "## 🧰 Maintenance",
+      "labels": ["chore", "dependencies"]
     },
     {
-      "title": "## ↩️ Revert",
-      "labels": ["type: revert ↩️"]
-    },
-    {
-      "title": "## 🎨 Style",
-      "labels": ["type: style 🎨"]
-    },
-    {
-      "title": "## 🧪 Test",
-      "labels": ["type: test 🧪"]
+      "title": "## 🌐 Translations",
+      "labels": ["i18n", "translation"]
     }
   ],
-  "ignore_labels": ["ignore"],
+  "ignore_labels": [
+    "duplicate",
+    "question",
+    "invalid",
+    "wontfix",
+    "skip-changelog"
+  ],
   "sort": {
     "order": "ASC",
     "on_property": "mergedAt"
   },
-  "template": "#{{CHANGELOG}}\n\n<details>\n<summary>Uncategorized</summary>\n\n#{{UNCATEGORIZED}}\n</details>",
-  "pr_template": "- #{{TITLE}}\n   - PR: ##{{NUMBER}}",
-  "empty_template": "- no changes",
-  "label_extractor": [
-    {
-      "pattern": "(.) (.+)",
-      "target": "$1",
-      "flags": "gu"
-    },
-    {
-      "pattern": "\\[Issue\\]",
-      "on_property": "title",
-      "method": "match"
-    }
-  ],
-  "duplicate_filter": {
-    "pattern": "\\[ABC-....\\]",
-    "on_property": "title",
-    "method": "match"
-  },
-  "reference": {
-    "pattern": ".*\\ \\#(.).*",
-    "on_property": "body",
-    "method": "replace",
-    "target": "$1"
-  },
+  "template": "${{CHANGELOG}}",
+  "pr_template": "- ${{TITLE}} (#${{NUMBER}})",
+  "empty_template": "- No changes in this category",
+  "max_tags_to_fetch": 200,
+  "max_pull_requests": 200,
+  "max_back_track_time_days": 365,
   "transformers": [
     {
       "pattern": "[\\-\\*] (\\[(...|TEST|CI|SKIP)\\])( )?(.+?)\n(.+?[\\-\\*] )(.+)",
       "target": "- $4\n  - $6"
     }
   ],
-  "trim_values": false,
-  "max_tags_to_fetch": 200,
-  "max_pull_requests": 200,
-  "max_back_track_time_days": 365,
-  "exclude_merge_branches": ["Owner/qa"],
-  "tag_resolver": {
-    "method": "semver",
-    "filter": {
-      "pattern": "api-(.+)",
-      "flags": "gu"
-    }
-  },
-  "base_branches": ["dev"]
+  "trim_values": true,
+  "exclude_merge_branches": ["Owner/qa"]
 }

@@ -1,0 +1,74 @@
+# Example workflow file to be placed in client project repositories
+# Path: .github/workflows/ci-cd.yml
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [develop, main, "feature/**", "hotfix/**", "release/**"]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Trigger a release"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  # Update release drafts when PRs are merged to main branch
+  update-release-draft:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: navigaite/workflow-test/.github/workflows/release-drafter.yml@main
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  security-scan:
+    if: github.event_name != 'workflow_dispatch' || !github.event.inputs.release
+    uses: navigaite/workflow-test/.github/workflows/security-scan.yml@main
+    with:
+      # Use default branch for push events, PR base for pull_request events
+      base-branch: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || '' }}
+      only-verified: true
+      fail-on-detect: false
+
+  lint:
+    if: github.event_name != 'workflow_dispatch' || !github.event.inputs.release
+    uses: navigaite/workflow-test/.github/workflows/lint.yml@main
+    with:
+      node-version: "18"
+      lint-command: "npm run lint"
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  nextjs-pipeline:
+    if: github.event_name != 'workflow_dispatch' || !github.event.inputs.release
+    uses: navigaite/workflow-test/.github/workflows/nextjs-pipeline.yml@main
+    with:
+      node-version: "18"
+    secrets:
+      vercel-token: ${{ secrets.VERCEL_TOKEN }}
+      vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+      vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # This job is triggered when the workflow is manually dispatched with the release input set to true
+  release:
+    if: ${{ github.event.inputs.release && (startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/')) }}
+    uses: navigaite/workflow-test/.github/workflows/release.yml@main
+    with:
+      node-version: "18"
+      production-branch: "main"
+      develop-branch: "develop"
+      release-prefix: "release/"
+      hotfix-prefix: "hotfix/"
+      # Optional: Define a tag to use for changelog generation if no previous tag exists
+      default-last-release-tag: "" # e.g. 'v1.0.0'
+      # Path to custom changelog configuration
+      changelog-config-path: ".github/changelog-config.json"
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+      # Optional: Use GitHub App for better permissions
+      app-id: ${{ secrets.WORKFLOW_APP_ID }}
+      app-private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}

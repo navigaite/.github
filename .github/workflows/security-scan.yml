@@ -1,0 +1,101 @@
+name: Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      base-branch:
+        description: "Base branch to diff against for secret scanning"
+        required: false
+        type: string
+        default: ""
+      only-verified:
+        description: "Only report verified secrets"
+        required: false
+        type: boolean
+        default: true
+      fail-on-detect:
+        description: "Fail workflow if secrets are detected"
+        required: false
+        type: boolean
+        default: false
+      node-version:
+        description: "Node.js version to use"
+        required: false
+        type: string
+        default: "18"
+    secrets:
+      snyk-token:
+        description: "Snyk API token for vulnerability scanning"
+        required: true
+
+jobs:
+  trufflehog:
+    name: TruffleHog Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine base branch
+        id: determine-base
+        run: |
+          if [[ -n "${{ inputs.base-branch }}" ]]; then
+            echo "branch=${{ inputs.base-branch }}" >> $GITHUB_OUTPUT
+          else
+            echo "branch=${{ github.event.repository.default_branch || 'main' }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@v3.63.7
+        with:
+          path: ./
+          base: ${{ steps.determine-base.outputs.branch }}
+          head: HEAD
+          extra_args: >-
+            --debug
+            ${{ inputs.only-verified && '--only-verified' || '' }}
+            ${{ inputs.fail-on-detect && '' || '--no-fail' }}
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "npm"
+
+      - name: Cache node_modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.snyk-token }}
+        with:
+          args: --severity-threshold=high
+
+      - name: Upload security scan results
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports
+          path: snyk-report.json
+          if-no-files-found: ignore

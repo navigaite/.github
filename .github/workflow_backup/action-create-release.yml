@@ -1,6 +1,7 @@
 ---
 # This workflow creates a release on merges of PRs to the main branch.
-# It deploys the main branch to PROD, creates a github release and a back-merge PR.
+# It deploys the main branch to PROD, creates a github release and a back-merge
+# PR.
 # The trigger should be:
 # pull_request:
 #   branches:

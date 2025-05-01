@@ -1,0 +1,79 @@
+name: NextJS CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint Code
+    uses: ./.github/workflows/lint.yml
+    with:
+      node-version: "18"
+      trunk-auto-fix: false
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  security-scan:
+    name: Security Scan
+    uses: ./.github/workflows/security-scan.yml
+    with:
+      node-version: "18"
+    secrets:
+      snyk-token: ${{ secrets.SNYK_TOKEN }}
+
+  test:
+    name: Run Tests
+    needs: [lint, security-scan]
+    uses: ./.github/workflows/test.yml
+    with:
+      node-version: "18"
+      test-command: "npm test"
+
+  build:
+    name: Build Application
+    needs: test
+    uses: ./.github/workflows/build.yml
+    with:
+      node-version: "18"
+      build-command: "npm run build"
+
+  preview-deploy:
+    name: Deploy Preview
+    if: github.event_name == 'pull_request'
+    needs: build
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
+      vercel-project-id: ${{ vars.VERCEL_PROJECT_ID }}
+      environment: "preview"
+      comment-on-pr: true
+    secrets:
+      vercel-token: ${{ secrets.VERCEL_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  staging-deploy:
+    name: Deploy to Staging
+    if: github.ref == 'refs/heads/develop'
+    needs: build
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
+      vercel-project-id: ${{ vars.VERCEL_PROJECT_ID }}
+      environment: "preview"
+    secrets:
+      vercel-token: ${{ secrets.VERCEL_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  production-deploy:
+    name: Deploy to Production
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    uses: ./.github/workflows/vercel-deploy.yml
+    with:
+      vercel-project-id: ${{ vars.VERCEL_PROJECT_ID }}
+      environment: "production"
+    secrets:
+      vercel-token: ${{ secrets.VERCEL_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}

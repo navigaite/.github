@@ -1,0 +1,59 @@
+name: Build Application
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version to use"
+        required: false
+        type: string
+        default: "18"
+      build-command:
+        description: "Command to build the application"
+        required: false
+        type: string
+        default: "npm run build"
+      artifact-name:
+        description: "Name of the artifact to store build results"
+        required: false
+        type: string
+        default: "build"
+      artifact-path:
+        description: "Path to the build output"
+        required: false
+        type: string
+        default: ".next/"
+
+jobs:
+  setup:
+    uses: ./.github/workflows/setup.yml
+    with:
+      node-version: ${{ inputs.node-version }}
+
+  build:
+    name: Build application
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        if: ${{ needs.setup.outputs.cache-hit != 'true' }}
+        run: npm ci
+
+      - name: Build
+        run: ${{ inputs.build-command }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.artifact-path }}
+          if-no-files-found: error
