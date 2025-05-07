@@ -1,0 +1,76 @@
+---
+mode: auto
+silent: false
+gitSafeReplacementChar: '-'
+autoLinkIssue: true
+autoCloseIssue: true
+defaultBranch: dev
+
+openDraftPR: true
+prSkipCI: true
+conventionalPrTitles: true
+conventionalStyle: semver-no-gitmoji
+copyIssueDescriptionToPR: true
+copyIssueLabelsToPR: true
+copyIssueAssigneeToPR: true
+copyIssueProjectsToPR: true
+copyIssueMilestoneToPR: true
+
+branchName: issue-${issue.number}/${%BRANCH_TITLE}
+
+branches:
+  - label: 'type: build 🏗️'
+    prefix: build/
+  - label: 'type: chore 🧺'
+    prefix: chore/
+  - label: 'type: ci 🔄'
+    prefix: ci/
+  - label: 'type: docs ✏️'
+    prefix: docs/
+  - label: 'type: feat 🔨'
+    prefix: feat/
+  - label: 'type: fix 🐛'
+    prefix: fix/
+  - label: 'type: perf 🚀'
+    prefix: perf/
+  - label: 'type: refactor 🧹'
+    prefix: refactor/
+  - label: 'type: revert ↩️'
+    prefix: revert/
+  - label: 'type: style 🎨'
+    prefix: style/
+  - label: 'type: test 🧪'
+    prefix: test/
+  - label: '*'
+    skip: true
+
+commentMessage: >-
+  "✅ Branch created!\n**${branchName}** for #${issue.number}\n```
+    bash\ngit fetch origin\ngit checkout ${branchName}\n````"
+
+conventionalLabels:
+  fix:
+    bug: 🐛
+    dependencies: ⬆️
+    security: 🔒
+  feat:
+    enhancement: ✨
+  build:
+    build: 🔧
+  chore:
+    chore: ♻️
+  ci:
+    ci: 👷
+  docs:
+    documentation: 📝
+  style:
+    style: 💎
+  refactor:
+    refactor: ♻️
+  perf:
+    performance: ⚡️
+  test:
+    test: ✅
+  breaking:
+    breaking-change: 💥
+    breaking change: 💥

@@ -1,0 +1,109 @@
+---
+# This workflow is triggered when a PR is opened, reopened, or synchronized.
+# It runs the following jobs:
+# - pr-validation: Validates the PR and adds a label if it is valid
+# - code-validation: Validates the code in the PR and adds a label if it is valid
+# - deploy-pre: Deploys the PR to a pre-production environment
+#
+# The trigger should be:
+# on:
+#   pull_request:
+#     types:
+#       - opened
+#       - synchronize
+#       - reopened
+#       - ready_for_review
+#     branches-ignore: [main, 'release/**']
+name: 🔄 PR Changed
+
+run-name: '${{ github.workflow }} by ${{ github.actor }}: ${{ github.event.pull_request.number }}'
+
+on:
+  # trunk-ignore(yamllint/empty-values)
+  workflow_call:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  pr-title-validation:
+    uses: ./.github/workflows/sub-pr-title-validation.yaml
+    secrets: inherit
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup
+        uses: ./.github/workflows/sub-setup.yaml
+
+      - name: Build
+        run: npm run build
+
+  code-review:
+    uses: ./.github/workflows/sub-code-review.yaml
+    secrets: inherit
+
+  trufflehog:
+    uses: ./.github/workflows/sub-trufflehog.yaml
+
+  cypress:
+    uses: ./.github/workflows/sub-cypress.yaml
+    secrets: inherit
+
+  lint:
+    uses: ./.github/workflows/sub-linting.yaml
+
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup
+        uses: ./.github/workflows/sub-setup.yaml
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+
+  deploy-pr:
+    if: github.event.pull_request.draft == false
+    needs: [pr-title-validation, code-review, trufflehog, cypress, lint, dependency-review]
+    name: Vercel Deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a github token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+
+      - name: Repository Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel Action
+        id: vercel
+        uses: iFixit/deploy-to-vercel-action@master
+        env:
+          BRANCH: ${{ github.head_ref }}
+        with:
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_SCOPE: maimaldrei-navigaite
+          GITHUB_DEPLOYMENT: true
+          GITHUB_DEPLOYMENT_ENV: Preview
+          PR_LABELS: deployed  🚀
+          PRODUCTION: false
+          ALIAS_DOMAINS: |
+            ${{ github.event.repository.name }}-PR-{PR}.vercel.app
+          PR_PREVIEW_DOMAIN: '${{ github.event.repository.name }}-PR-{PR}.vercel.app'
+          FORCE: true

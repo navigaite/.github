@@ -8,14 +8,12 @@ assignees: ''
 
 ## Description
 
-Please provide a detailed description of the performance issue or the proposed performance
-improvement. What part of the application is affected? What is the expected performance and what is
-the current performance?
+Please provide a detailed description of the performance issue or the proposed performance improvement. What part of the application is
+affected? What is the expected performance and what is the current performance?
 
 ## Proposed Changes
 
-Describe the changes that you propose to improve performance. If possible, include code snippets or
-pseudocode.
+Describe the changes that you propose to improve performance. If possible, include code snippets or pseudocode.
 
 ## Tasks
 

@@ -1,8 +1,14 @@
+# This is a reusable workflow for PR title validation.
+# Used by action-* workflows to enforce semantic PR titles.
+
 ---
-name: "[SUB] PR Title Validation"
+name: '[SUB] PR Title Validation'
 
 on:
+  # trunk-ignore(yamllint/empty-values)
   workflow_call:
+
+permissions: read-all
 
 jobs:
   main:

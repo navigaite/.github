@@ -8,8 +8,8 @@ assignees: ''
 
 ## Description
 
-Please provide a detailed description of the proposed refactoring. What part of the codebase does
-this pertain to? What needs to be refactored and why?
+Please provide a detailed description of the proposed refactoring. What part of the codebase does this pertain to? What needs to be
+refactored and why?
 
 ## Proposed Changes
 

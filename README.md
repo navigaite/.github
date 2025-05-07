@@ -1,79 +1,124 @@
-# Navigaite CI/CD Workflows
+# Navigaite GitHub Actions Workflows
 
-This repository contains reusable GitHub Actions workflows for Navigaite's CI/CD pipeline. These workflows provide standardized processes for linting, testing, building, and deploying NextJS applications to Vercel.
+Modern, reusable GitHub Actions workflows for Next.js projects deployed on Vercel.
 
-## Features
+## Overview
 
-- Automated CI/CD pipeline for NextJS projects
-- Integration with Vercel for seamless deployments
-- Security scanning for secrets with TruffleHog
-- AI-powered code quality checks with Trunk
-- Automated draft releases with Release Drafter
-- Standardized commit messages with Open Commits and Commitlint
-- Automated changelog generation and release management
-- Full GitFlow support for branch management
+This repository contains a collection of GitHub Actions workflows designed for continuous integration and deployment of Next.js projects.
+Our workflows follow a modular architecture pattern that promotes maintainability, consistency, and flexibility.
 
-## How to Use These Workflows
+## Key Features
 
-### 1. Create a workflow file in your project
+- **Modular workflow architecture**: Compose workflows from reusable components (action-_ entrypoints, sub-_ reusable jobs)
+- **Next.js optimized**: Built specifically for Next.js projects
+- **Vercel deployment**: Seamless integration with Vercel deployments
+- **Security scanning**: Integrated CodeQL and vulnerability scanning
+- **Matrix testing**: Test across multiple Node.js versions
+- **Release management**: Automated changelog and release notes
 
-In your project repository, create a file at `.github/workflows/ci-cd.yml` with the following content:
+## Workflow Types
+
+Our workflows follow a naming convention that indicates their purpose:
+
+- **action-\***: Entry point workflows triggered by specific GitHub events (PR opened, issue assigned, etc.)
+- **sub-\***: Reusable workflow components called by action workflows
+- **cron-\***: Scheduled maintenance tasks that run periodically
+
+## Workflows
+
+### Action Workflows (Entry Points)
+
+| Workflow                                                                         | Description                                                   |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [action-pr-opened.yaml](.github/workflows/action-pr-opened.yaml)                 | Triggered when a PR is opened, reopened, or synchronized      |
+| [action-issue-opened.yaml](.github/workflows/action-issue-opened.yaml)           | Creates a new branch when an issue is assigned                |
+| [action-man-draft-release.yaml](.github/workflows/action-man-draft-release.yaml) | Prepares a new release branch and PR                          |
+| [action-pr-merged-dev.yaml](.github/workflows/action-pr-merged-dev.yaml)         | Deploys to DEV environment when PR is merged                  |
+| [action-pr-merged-release.yaml](.github/workflows/action-pr-merged-release.yaml) | Deploys release branch to preview environment                 |
+| [action-pr-merged-prod.yaml](.github/workflows/action-pr-merged-prod.yaml)       | Deploys to production and creates release when merged to main |
+
+### Reusable Components
+
+| Workflow                                                                       | Description                                           |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| [sub-setup.yaml](.github/workflows/sub-setup.yaml)                             | Sets up Node.js environment and installs dependencies |
+| [sub-linting.yaml](.github/workflows/sub-linting.yaml)                         | Performs code quality checks using Trunk              |
+| [sub-cypress.yaml](.github/workflows/sub-cypress.yaml)                         | Runs Cypress E2E and component tests                  |
+| [sub-code-review.yaml](.github/workflows/sub-code-review.yaml)                 | AI-powered code review for pull requests              |
+| [sub-pr-title-validation.yaml](.github/workflows/sub-pr-title-validation.yaml) | Validates PR titles follow conventional commit format |
+| [sub-trufflehog.yaml](.github/workflows/sub-trufflehog.yaml)                   | Security scanning for leaked credentials              |
+
+### Maintenance Workflows
+
+| Workflow                                                                 | Description                               |
+| ------------------------------------------------------------------------ | ----------------------------------------- |
+| [cron-cleanup-actions.yaml](.github/workflows/cron-cleanup-actions.yaml) | Cleans up old workflow runs and artifacts |
+| [cron-trunk-upgrade.yaml](.github/workflows/cron-trunk-upgrade.yaml)     | Automatically updates Trunk linting tools |
+
+## Getting Started
+
+To use these workflows in your Next.js project:
+
+1. **Quick Start**: Reference the action workflows in your repo:
 
 ```yaml
+# .github/workflows/ci.yaml
+---
 name: CI/CD Pipeline
 
 on:
   push:
-    branches: [develop, main, "feature/**", "hotfix/**", "release/**"]
+    branches: [main, develop]
   pull_request:
-    branches: [develop, main]
-  workflow_dispatch:
+    branches: [main, develop]
+  issues:
+    types: [assigned]
 
 jobs:
-  call-navigaite-workflow:
-    uses: navigaite/workflow-test/.github/workflows/nextjs-pipeline.yml@main
-    with:
-      # Configure your project specifics here
-      node-version: "18" # or your desired Node.js version
-      vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-    secrets:
-      vercel-token: ${{ secrets.VERCEL_TOKEN }}
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+  # PR validation and deployment
+  pr-workflow:
+    if: github.event_name == 'pull_request'
+    uses: navigaite/github-organization/.github/workflows/action-pr-opened.yaml@main
+    secrets: inherit
+
+  # Issue branch creation
+  issue-workflow:
+    if: github.event_name == 'issues' && github.event.action == 'assigned'
+    uses: navigaite/github-organization/.github/workflows/action-issue-opened.yaml@main
+    secrets: inherit
 ```
 
-### 2. Set up required secrets in your repository
+2. **Set up required secrets in your repository**:
+   - `VERCEL_TOKEN`
+   - `VERCEL_PROJECT_ID` (or as a variable)
+   - `VERCEL_ORG_ID` (or as a variable)
+   - `WORKFLOW_APP_ID` and `WORKFLOW_APP_PRIVATE_KEY` (for GitHub App authentication)
+   - `OPENAI_API_KEY` (optional, for AI code review)
 
-- `VERCEL_TOKEN`: Your Vercel deployment token
-- `VERCEL_PROJECT_ID`: Your Vercel project ID
+See the [Pipeline Architecture](./docs/PIPELINE_ARCHITECTURE.md) for an overview of the modular structure and
+[CodeQL Guide](./docs/CODEQL_GUIDE.md) for security scanning details.
 
-### 3. Install recommended dev dependencies
+## Documentation
+
+- [Pipeline Architecture](./docs/PIPELINE_ARCHITECTURE.md) - Overview of workflow architecture
+- [CodeQL Guide](./docs/CODEQL_GUIDE.md) - Details about CodeQL security scanning
+- [Release Please Guide](./docs/RELEASE_PLEASE_GUIDE.md) - Guide for automated release management
+
+## Testing Workflows
+
+We provide scripts to test workflows locally:
 
 ```bash
-npm install --save-dev @commitlint/cli @commitlint/config-conventional
+# Test a specific workflow
+./scripts/test-workflows.sh --workflow action-pr-opened.yaml --event pull_request
+
+# Simulate the entire pipeline
+./scripts/simulate-pipeline.sh --workflow pipeline
 ```
 
-### 4. Add configuration files to your project (optional)
+## Compatibility
 
-Copy the configuration files from the `config/` directory of this repository to your project root.
-
-## Workflows Available
-
-- `nextjs-pipeline.yml` - Complete CI/CD pipeline for NextJS projects
-- `lint.yml` - Standalone linting workflow using Trunk Check
-- `release.yml` - Automated release workflow for GitFlow
-- `security-scan.yml` - Secret detection using TruffleHog
-- `release-drafter.yml` - Automatically drafts new releases based on merged PRs
-
-## Branch Model
-
-This pipeline supports the GitFlow branching model:
-
-- `feature/*` branches for new features
-- `develop` branch for integration
-- `release/*` branches for release preparation
-- `main` branch for production code
-- `hotfix/*` branches for urgent fixes
-
-## License
-
-[MIT](LICENSE)
+- **Node.js**: 18.x, 20.x, and 22.x (default: 20.x)
+- **Next.js**: 12.x and later
+- **GitHub Actions**: Latest runners
+- **Vercel**: Latest API

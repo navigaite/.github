@@ -1,0 +1,33 @@
+---
+# This is a reusable workflow for Node.js environment setup.
+# Used by other sub-* and action-* workflows.
+
+# Main node setup workflow
+name: Setup
+
+on:
+  # trunk-ignore(yamllint/empty-values)
+  workflow_call:
+
+permissions: read-all
+
+jobs:
+  setup:
+    name: Setup Environment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: jongwooo/next-cache@v1
+
+      - name: Install dependencies
+        run: npm ci

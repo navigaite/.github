@@ -1,0 +1,39 @@
+# This is a reusable workflow for Cypress E2E and component tests.
+# Used by action-* workflows for automated testing.
+
+---
+name: '[SUB] Cypress Tests'
+
+on:
+  # trunk-ignore(yamllint/empty-values)
+  workflow_call:
+
+permissions: read-all
+
+jobs:
+  cypress:
+    name: Cypress Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup
+        uses: ./.github/workflows/sub-setup.yaml
+
+      - name: Cypress E2E tests
+        uses: cypress-io/github-action@v6
+        env:
+          DOTENV_KEY: ${{ secrets.DOTENV_KEY }}
+        with:
+          install-command: npm install --force
+          build: npm run build
+          start: npm run start-local
+          wait-on: http://127.0.0.1:3000
+          browser: chrome
+
+      - name: Cypress Component tests
+        uses: cypress-io/github-action@v6
+        env:
+          DOTENV_KEY: ${{ secrets.DOTENV_KEY }}
+        with:
+          # we have already installed everything
+          install: false
+          component: true

@@ -1,0 +1,29 @@
+---
+# This workflow updates te cards on the github project board.
+name: '🔧 Maintenance: Upgrade Trunk'
+
+# on:
+#   schedule:
+#     - cron: 0 8 * * 1-5
+#   workflow_dispatch: {}
+
+on:
+  # trunk-ignore(yamllint/empty-values)
+  workflow_call:
+
+permissions:
+  contents: write # For trunk to create PRs
+  pull-requests: write # For trunk to create PRs
+
+jobs:
+  trunk_upgrade:
+    name: Upgrade Trunk
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Trunk Upgrade
+        uses: trunk-io/trunk-action/upgrade@v1

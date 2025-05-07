@@ -20,29 +20,29 @@ NC='\033[0m' # No Color
 
 # Helper functions for consistent logging
 log_header() {
-  echo -e "\n${BOLD}${BLUE}=======================================================${NC}"
-  echo -e "${BOLD}${BLUE}  $1${NC}"
-  echo -e "${BOLD}${BLUE}=======================================================${NC}\n"
+	echo -e "\n${BOLD}${BLUE}=======================================================${NC}"
+	echo -e "${BOLD}${BLUE}  $1${NC}"
+	echo -e "${BOLD}${BLUE}=======================================================${NC}\n"
 }
 
 log_success() {
-  echo -e "${GREEN}✅ $1${NC}"
+	echo -e "${GREEN}✅ $1${NC}"
 }
 
 log_info() {
-  echo -e "${CYAN}ℹ️  $1${NC}"
+	echo -e "${CYAN}ℹ️  $1${NC}"
 }
 
 log_warning() {
-  echo -e "${YELLOW}⚠️  $1${NC}"
+	echo -e "${YELLOW}⚠️  $1${NC}"
 }
 
 log_error() {
-  echo -e "${RED}❌ $1${NC}"
+	echo -e "${RED}❌ $1${NC}"
 }
 
 log_step() {
-  echo -e "${PURPLE}🔷 $1${NC}"
+	echo -e "${PURPLE}🔷 $1${NC}"
 }
 
 # Script start
@@ -56,7 +56,7 @@ log_success "Directory structure created"
 
 # Create workflow file
 log_step "Creating CI/CD workflow file..."
-cat > .github/workflows/ci-cd.yml << 'EOL'
+cat >.github/workflows/ci-cd.yml <<'EOL'
 name: CI/CD Pipeline
 
 on:
@@ -101,7 +101,7 @@ log_success "CI/CD workflow file created: .github/workflows/ci-cd.yml"
 # Setup Trunk
 log_step "Setting up Trunk for code quality checks..."
 mkdir -p .trunk
-cat > .trunk/trunk.yaml << 'EOL'
+cat >.trunk/trunk.yaml <<'EOL'
 version: 0.1
 cli:
   version: 1.16.0
@@ -136,7 +136,7 @@ log_success "Trunk configuration created: .trunk/trunk.yaml"
 
 # Setup commitlint configuration
 log_step "Setting up commitlint configuration..."
-cat > commitlint.config.js << 'EOL'
+cat >commitlint.config.js <<'EOL'
 module.exports = {
   extends: ['@commitlint/config-conventional'],
   rules: {
@@ -179,7 +179,7 @@ log_success "Commitlint configuration created: commitlint.config.js"
 
 # Setup Open Commits configuration
 log_step "Setting up Open Commits configuration..."
-cat > oc.config.js << 'EOL'
+cat >oc.config.js <<'EOL'
 module.exports = {
   commit: {
     conventional: true,

@@ -37,13 +37,7 @@
       "labels": ["i18n", "translation"]
     }
   ],
-  "ignore_labels": [
-    "duplicate",
-    "question",
-    "invalid",
-    "wontfix",
-    "skip-changelog"
-  ],
+  "ignore_labels": ["duplicate", "question", "invalid", "wontfix", "skip-changelog"],
   "sort": {
     "order": "ASC",
     "on_property": "mergedAt"

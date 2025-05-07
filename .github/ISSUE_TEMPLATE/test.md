@@ -8,8 +8,8 @@ assignees: ''
 
 ## Description
 
-Please provide a detailed description of the test that needs to be written. Include the
-functionality that needs to be tested and any specific scenarios.
+Please provide a detailed description of the test that needs to be written. Include the functionality that needs to be tested and any
+specific scenarios.
 
 ## Tasks
 

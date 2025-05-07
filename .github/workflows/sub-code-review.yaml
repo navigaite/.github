@@ -1,23 +1,20 @@
-name: Code Review
+# This is a reusable workflow for ChatGPT-based code review.
+# Used by action-* workflows for AI-powered code review comments.
+
+---
+name: 🧠 Code Review
 
 on:
-  pull_request:
-    types: [opened, synchronize]
-    paths:
-      - "**.js"
-      - "**.jsx"
-      - "**.ts"
-      - "**.tsx"
-      - "**.py"
-      - "**.go"
-      - "**.java"
+  # trunk-ignore(yamllint/empty-values)
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   code-review:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,8 +27,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           # Optional configurations
-          MODEL: "gpt-4" # OpenAI model, defaults to gpt-3.5-turbo
-          LANGUAGE: "en" # Review language, defaults to en (English)
-          PROMPT: "" # Custom prompt for the AI reviewer
+          MODEL: gpt-4 # OpenAI model, defaults to gpt-3.5-turbo
+          LANGUAGE: en # Review language, defaults to en (English)
+          PROMPT: '' # Custom prompt for the AI reviewer
           MAX_TOKENS: 2000 # Maximum tokens, defaults to 2000
           REVIEW_COMMENT_LGTM: false # Whether to comment on good code, defaults to false
