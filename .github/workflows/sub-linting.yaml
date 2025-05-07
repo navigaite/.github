@@ -1,0 +1,26 @@
+# This is a reusable workflow for linting, called by action-* workflows.
+# It runs Trunk for code quality checks.
+
+---
+name: '[SUB] Linting'
+
+on:
+  # trunk-ignore(yamllint/empty-values)
+  workflow_call:
+
+permissions: read-all
+
+jobs:
+  trunk_check:
+    name: Trunk Check Runner
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup
+        uses: ./.github/workflows/sub-setup.yaml
+
+      - name: Trunk Check
+        uses: trunk-io/trunk-action@main
+        with:
+          post-annotations: true
+          cache: false

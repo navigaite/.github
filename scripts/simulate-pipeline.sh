@@ -21,73 +21,73 @@ VERSION=""
 
 # Helper functions
 print_section() {
-  echo -e "${BLUE}========================================${NC}"
-  echo -e "${BLUE}==== $1${NC}"
-  echo -e "${BLUE}========================================${NC}"
+	echo -e "${BLUE}========================================${NC}"
+	echo -e "${BLUE}==== $1${NC}"
+	echo -e "${BLUE}========================================${NC}"
 }
 
 run_cmd() {
-  echo -e "${YELLOW}\$ $1${NC}"
-  eval "$1"
-  local EXIT_CODE=$?
-  if [ $EXIT_CODE -ne 0 ]; then
-    echo -e "${RED}Command failed with exit code $EXIT_CODE${NC}"
-    exit $EXIT_CODE
-  fi
+	echo -e "${YELLOW}\$ $1${NC}"
+	eval "$1"
+	local EXIT_CODE=$?
+	if [[ ${EXIT_CODE} -ne 0 ]]; then
+		echo -e "${RED}Command failed with exit code ${EXIT_CODE}${NC}"
+		exit "${EXIT_CODE}"
+	fi
 }
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
-  case $1 in
-    --workflow)
-      WORKFLOW_TYPE="$2"
-      shift 2
-      ;;
-    --release)
-      RELEASE_BRANCH="$2"
-      shift 2
-      ;;
-    --version)
-      VERSION="$2"
-      shift 2
-      ;;
-    --trunk-auto-fix)
-      TRUNK_AUTO_FIX=true
-      shift
-      ;;
-    *)
-      echo -e "${RED}Unknown argument: $1${NC}"
-      exit 1
-      ;;
-  esac
+	case $1 in
+	--workflow)
+		WORKFLOW_TYPE="$2"
+		shift 2
+		;;
+	--release)
+		RELEASE_BRANCH="$2"
+		shift 2
+		;;
+	--version)
+		VERSION="$2"
+		shift 2
+		;;
+	--trunk-auto-fix)
+		TRUNK_AUTO_FIX=true
+		shift
+		;;
+	*)
+		echo -e "${RED}Unknown argument: $1${NC}"
+		exit 1
+		;;
+	esac
 done
 
 # Display simulation info
 print_section "Pipeline Simulation Info"
-echo -e "Workflow Type: ${CYAN}$WORKFLOW_TYPE${NC}"
-echo -e "Node Version: ${CYAN}$NODE_VERSION${NC}"
-echo -e "Trunk Auto Fix: ${CYAN}$TRUNK_AUTO_FIX${NC}"
+echo -e "Workflow Type: ${CYAN}${WORKFLOW_TYPE}${NC}"
+echo -e "Node Version: ${CYAN}${NODE_VERSION}${NC}"
+echo -e "Trunk Auto Fix: ${CYAN}${TRUNK_AUTO_FIX}${NC}"
 
-if [ "$WORKFLOW_TYPE" = "release" ]; then
-  if [ -z "$RELEASE_BRANCH" ]; then
-    echo -e "${RED}Error: Release workflow requires --release parameter with branch name${NC}"
-    exit 1
-  fi
-  if [ -z "$VERSION" ]; then
-    # Extract version from release branch
-    if [[ $RELEASE_BRANCH == release/* ]]; then
-      VERSION=${RELEASE_BRANCH#release/}
-      echo -e "Extracted version from branch name: ${CYAN}$VERSION${NC}"
-    elif [[ $RELEASE_BRANCH == hotfix/* ]]; then
-      VERSION=${RELEASE_BRANCH#hotfix/}
-      echo -e "Extracted version from branch name: ${CYAN}$VERSION${NC}"
-    else
-      echo -e "${RED}Error: Release branch must start with 'release/' or 'hotfix/'${NC}"
-      exit 1
-    fi
-  fi
-  echo -e "Release Branch: ${CYAN}$RELEASE_BRANCH${NC}"
-  echo -e "Version: ${CYAN}$VERSION${NC}"
+if [[ ${WORKFLOW_TYPE} == "release" ]]; then
+	if [[ -z ${RELEASE_BRANCH} ]]; then
+		echo -e "${RED}Error: Release workflow requires --release parameter with branch name${NC}"
+		exit 1
+	fi
+	if [[ -z ${VERSION} ]]; then
+		# Extract version from release branch
+		if [[ ${RELEASE_BRANCH} == release/* ]]; then
+			VERSION=${RELEASE_BRANCH#release/}
+			echo -e "Extracted version from branch name: ${CYAN}${VERSION}${NC}"
+		elif [[ ${RELEASE_BRANCH} == hotfix/* ]]; then
+			VERSION=${RELEASE_BRANCH#hotfix/}
+			echo -e "Extracted version from branch name: ${CYAN}${VERSION}${NC}"
+		else
+			echo -e "${RED}Error: Release branch must start with 'release/' or 'hotfix/'${NC}"
+			exit 1
+		fi
+	fi
+	echo -e "Release Branch: ${CYAN}${RELEASE_BRANCH}${NC}"
+	echo -e "Version: ${CYAN}${VERSION}${NC}"
 fi
 
 echo ""
@@ -96,16 +96,16 @@ echo ""
 
 # Create a temporary directory for simulation
 TEMP_DIR=$(mktemp -d)
-echo -e "Creating temporary workspace at ${CYAN}$TEMP_DIR${NC}"
+echo -e "Creating temporary workspace at ${CYAN}${TEMP_DIR}${NC}"
 
 # Copy project files to temp directory
-run_cmd "cp -R $(pwd)/* $TEMP_DIR/"
-cd $TEMP_DIR
+run_cmd "cp -R $(pwd)/* ${TEMP_DIR}/"
+cd "${TEMP_DIR}" || exit
 
 # Create a minimal package.json if it doesn't exist
-if [ ! -f "package.json" ]; then
-  print_section "Creating minimal package.json"
-  cat > package.json << EOL
+if [[ ! -f "package.json" ]]; then
+	print_section "Creating minimal package.json"
+	cat >package.json <<EOL
 {
   "name": "workflow-test",
   "version": "0.1.0",
@@ -122,120 +122,120 @@ EOL
 fi
 
 # Initialize Git repository if not already
-if [ ! -d ".git" ]; then
-  print_section "Initializing Git repository"
-  run_cmd "git init"
-  run_cmd "git config user.name \"Simulation User\""
-  run_cmd "git config user.email \"simulation@example.com\""
-  run_cmd "git add ."
-  run_cmd "git commit -m \"chore: initial commit\""
+if [[ ! -d ".git" ]]; then
+	print_section "Initializing Git repository"
+	run_cmd "git init"
+	run_cmd 'git config user.name "Simulation User"'
+	run_cmd 'git config user.email "simulation@example.com"'
+	run_cmd "git add ."
+	run_cmd 'git commit -m "chore: initial commit"'
 
-  # Create branches
-  run_cmd "git branch develop"
-  run_cmd "git branch main"
+	# Create branches
+	run_cmd "git branch develop"
+	run_cmd "git branch main"
 fi
 
-if [ "$WORKFLOW_TYPE" = "lint" ]; then
-  # Simulate lint workflow
-  print_section "Simulating Lint Workflow"
+if [[ ${WORKFLOW_TYPE} == "lint" ]]; then
+	# Simulate lint workflow
+	print_section "Simulating Lint Workflow"
 
-  # Install dependencies
-  print_section "Installing dependencies"
-  if command -v npm &> /dev/null; then
-    run_cmd "npm install"
-  else
-    echo -e "${YELLOW}npm not found, skipping dependency installation${NC}"
-  fi
+	# Install dependencies
+	print_section "Installing dependencies"
+	if command -v npm &>/dev/null; then
+		run_cmd "npm install"
+	else
+		echo -e "${YELLOW}npm not found, skipping dependency installation${NC}"
+	fi
 
-  # Check if trunk is installed
-  if command -v trunk &> /dev/null; then
-    print_section "Running Trunk Check"
-    if [ "$TRUNK_AUTO_FIX" = true ]; then
-      run_cmd "trunk check --all --fix || true"
-    else
-      run_cmd "trunk check --all || true"
-    fi
-  else
-    echo -e "${YELLOW}Trunk not found, skipping trunk checks${NC}"
-    echo -e "${YELLOW}To install trunk: curl -fsSL https://get.trunk.io -o get-trunk.sh && bash get-trunk.sh${NC}"
-  fi
+	# Check if trunk is installed
+	if command -v trunk &>/dev/null; then
+		print_section "Running Trunk Check"
+		if [[ ${TRUNK_AUTO_FIX} == true ]]; then
+			run_cmd "trunk check --all --fix || true"
+		else
+			run_cmd "trunk check --all || true"
+		fi
+	else
+		echo -e "${YELLOW}Trunk not found, skipping trunk checks${NC}"
+		echo -e "${YELLOW}To install trunk: curl -fsSL https://get.trunk.io -o get-trunk.sh && bash get-trunk.sh${NC}"
+	fi
 
-  # Simulate commitlint
-  print_section "Checking commit messages with commitlint"
-  if command -v npx &> /dev/null; then
-    run_cmd "npx commitlint --from HEAD~10 --to HEAD || true"
-  else
-    echo -e "${YELLOW}npx not found, skipping commitlint${NC}"
-  fi
+	# Simulate commitlint
+	print_section "Checking commit messages with commitlint"
+	if command -v npx &>/dev/null; then
+		run_cmd "npx commitlint --from HEAD~10 --to HEAD || true"
+	else
+		echo -e "${YELLOW}npx not found, skipping commitlint${NC}"
+	fi
 
-elif [ "$WORKFLOW_TYPE" = "pipeline" ]; then
-  # Simulate nextjs-pipeline workflow
-  print_section "Simulating NextJS Pipeline Workflow"
+elif [[ ${WORKFLOW_TYPE} == "pipeline" ]]; then
+	# Simulate nextjs-pipeline workflow
+	print_section "Simulating NextJS Pipeline Workflow"
 
-  # Install dependencies
-  print_section "Installing dependencies"
-  if command -v npm &> /dev/null; then
-    run_cmd "npm install"
-  else
-    echo -e "${YELLOW}npm not found, skipping dependency installation${NC}"
-  fi
+	# Install dependencies
+	print_section "Installing dependencies"
+	if command -v npm &>/dev/null; then
+		run_cmd "npm install"
+	else
+		echo -e "${YELLOW}npm not found, skipping dependency installation${NC}"
+	fi
 
-  # Lint check
-  print_section "Running lint checks"
-  if command -v trunk &> /dev/null; then
-    run_cmd "trunk check --all || true"
-  else
-    echo -e "${YELLOW}Trunk not found, skipping trunk checks${NC}"
-  fi
+	# Lint check
+	print_section "Running lint checks"
+	if command -v trunk &>/dev/null; then
+		run_cmd "trunk check --all || true"
+	else
+		echo -e "${YELLOW}Trunk not found, skipping trunk checks${NC}"
+	fi
 
-  # Run tests if package.json has a test script
-  if grep -q "\"test\":" "package.json"; then
-    print_section "Running tests"
-    run_cmd "npm test || true"
-  else
-    echo -e "${YELLOW}No test script found in package.json, skipping tests${NC}"
-  fi
+	# Run tests if package.json has a test script
+	if grep -q '"test":' "package.json"; then
+		print_section "Running tests"
+		run_cmd "npm test || true"
+	else
+		echo -e "${YELLOW}No test script found in package.json, skipping tests${NC}"
+	fi
 
-  # Build
-  print_section "Building project"
-  if grep -q "\"build\":" "package.json"; then
-    run_cmd "npm run build || true"
-  else
-    echo -e "${YELLOW}No build script found in package.json, skipping build${NC}"
-  fi
+	# Build
+	print_section "Building project"
+	if grep -q '"build":' "package.json"; then
+		run_cmd "npm run build || true"
+	else
+		echo -e "${YELLOW}No build script found in package.json, skipping build${NC}"
+	fi
 
-  print_section "Pipeline simulation completed"
-  echo -e "${GREEN}In a real workflow, deployment preview would occur here${NC}"
+	print_section "Pipeline simulation completed"
+	echo -e "${GREEN}In a real workflow, deployment preview would occur here${NC}"
 
-elif [ "$WORKFLOW_TYPE" = "release" ]; then
-  # Simulate release workflow
-  print_section "Simulating Release Workflow"
+elif [[ ${WORKFLOW_TYPE} == "release" ]]; then
+	# Simulate release workflow
+	print_section "Simulating Release Workflow"
 
-  # Checkout or create the release branch
-  run_cmd "git checkout -b $RELEASE_BRANCH 2>/dev/null || git checkout $RELEASE_BRANCH"
+	# Checkout or create the release branch
+	run_cmd "git checkout -b ${RELEASE_BRANCH} 2>/dev/null || git checkout ${RELEASE_BRANCH}"
 
-  # Update version in package.json
-  print_section "Updating version in package.json"
-  run_cmd "npm version $VERSION --no-git-tag-version"
-  run_cmd "git add package.json package-lock.json 2>/dev/null || git add package.json"
-  run_cmd "git commit -m \"chore: bump version to $VERSION\""
+	# Update version in package.json
+	print_section "Updating version in package.json"
+	run_cmd "npm version ${VERSION} --no-git-tag-version"
+	run_cmd "git add package.json package-lock.json 2>/dev/null || git add package.json"
+	run_cmd "git commit -m \"chore: bump version to ${VERSION}\""
 
-  # Find previous tag or use default
-  PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-  if [ -z "$PREV_TAG" ]; then
-    echo -e "${YELLOW}No previous tag found, using all history for changelog${NC}"
-  else
-    echo -e "Previous tag: ${CYAN}$PREV_TAG${NC}"
-  fi
+	# Find previous tag or use default
+	PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+	if [[ -z ${PREV_TAG} ]]; then
+		echo -e "${YELLOW}No previous tag found, using all history for changelog${NC}"
+	else
+		echo -e "Previous tag: ${CYAN}${PREV_TAG}${NC}"
+	fi
 
-  # Generate changelog
-  print_section "Generating changelog"
+	# Generate changelog
+	print_section "Generating changelog"
 
-  # Install required packages for changelog generation
-  run_cmd "npm install --no-save axios @octokit/rest conventional-changelog-parser"
+	# Install required packages for changelog generation
+	run_cmd "npm install --no-save axios @octokit/rest conventional-changelog-parser"
 
-  # Create a simple changelog generator script
-  cat > generate-simple-changelog.js << 'EOL'
+	# Create a simple changelog generator script
+	cat >generate-simple-changelog.js <<'EOL'
 const fs = require('fs');
 const { execSync } = require('child_process');
 
@@ -339,36 +339,36 @@ fs.writeFileSync('CHANGELOG.md', changelog);
 console.log('Changelog written to CHANGELOG.md');
 EOL
 
-  run_cmd "node generate-simple-changelog.js $VERSION \"$PREV_TAG\""
+	run_cmd "node generate-simple-changelog.js ${VERSION} \"${PREV_TAG}\""
 
-  # Display the generated changelog
-  print_section "Generated Changelog"
-  cat CHANGELOG.md
+	# Display the generated changelog
+	print_section "Generated Changelog"
+	cat CHANGELOG.md
 
-  # Create git tag
-  print_section "Creating git tag"
-  run_cmd "git tag -a v$VERSION -m \"Release v$VERSION\""
+	# Create git tag
+	print_section "Creating git tag"
+	run_cmd "git tag -a v${VERSION} -m \"Release v${VERSION}\""
 
-  # Simulate merging to main
-  print_section "Simulating merge to main"
-  run_cmd "git checkout main"
-  run_cmd "git merge --no-ff $RELEASE_BRANCH -m \"chore(release): merge $RELEASE_BRANCH into main\""
+	# Simulate merging to main
+	print_section "Simulating merge to main"
+	run_cmd "git checkout main"
+	run_cmd "git merge --no-ff ${RELEASE_BRANCH} -m \"chore(release): merge ${RELEASE_BRANCH} into main\""
 
-  # Simulate merging to develop
-  print_section "Simulating back-merge to develop"
-  run_cmd "git checkout develop"
-  run_cmd "git merge --no-ff main -m \"chore(back-merge): sync main into develop after v$VERSION\""
+	# Simulate merging to develop
+	print_section "Simulating back-merge to develop"
+	run_cmd "git checkout develop"
+	run_cmd "git merge --no-ff main -m \"chore(back-merge): sync main into develop after v${VERSION}\""
 
-  print_section "Release simulation completed"
-  echo -e "${GREEN}In a real workflow, a GitHub Release would be created here${NC}"
+	print_section "Release simulation completed"
+	echo -e "${GREEN}In a real workflow, a GitHub Release would be created here${NC}"
 
 else
-  echo -e "${RED}Unsupported workflow type: $WORKFLOW_TYPE${NC}"
-  exit 1
+	echo -e "${RED}Unsupported workflow type: ${WORKFLOW_TYPE}${NC}"
+	exit 1
 fi
 
 print_section "Simulation completed successfully"
-echo -e "${GREEN}Temporary workspace is at: $TEMP_DIR${NC}"
+echo -e "${GREEN}Temporary workspace is at: ${TEMP_DIR}${NC}"
 echo -e "${GREEN}You can navigate there to inspect the results${NC}"
 echo -e "${YELLOW}Don't forget to delete the temporary directory when done:${NC}"
-echo -e "${YELLOW}rm -rf $TEMP_DIR${NC}"
+echo -e "${YELLOW}rm -rf ${TEMP_DIR}${NC}"

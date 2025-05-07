@@ -8,8 +8,7 @@ assignees: ''
 
 ## Description
 
-Please provide a detailed description of the styling issue. Include the page or component where the
-issue occurs and any specific elements.
+Please provide a detailed description of the styling issue. Include the page or component where the issue occurs and any specific elements.
 
 ## Expected Appearance
 

@@ -1,9 +1,27 @@
 ---
-name: "[SUB] Release Deployment"
+# This workflow deploys the release branch.
+# The trigger should be:
+# on:
+#   pull_request:
+#    types:
+#      - ready_for_review
+#     branches:
+#       - main
+name: 🚀 Deploy Release
+
+run-name: '${{ github.workflow }} by ${{ github.actor }}'
 
 on:
+  # trunk-ignore(yamllint/empty-values)
   workflow_call:
+  # trunk-ignore(yamllint/empty-values)
   workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -16,32 +34,20 @@ jobs:
     steps:
       - name: Generate a github token
         id: generate-token
-        uses: actions/create-github-app-token@2986852ad836768dfea7781f31828eb3e17990fa
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      - name: Install Dependencies
-        run: npm install --force
+      - name: Setup
+        uses: ./.github/workflows/sub-setup.yaml
 
       - name: Get Current Version
         id: version
-        run:
-          echo "current_version=$(node -p "require('./package.json').version.replace(/\./g, '-')")"
-          >> $GITHUB_OUTPUT
+        run: echo "current_version=$(node -p "require('./package.json').version.replace(/\./g, '-')")" >> $GITHUB_OUTPUT
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@37.8.0
+        run: npm install -g vercel@latest
 
       - name: Deploy to Vercel Action
         uses: iFixit/deploy-to-vercel-action@master
@@ -55,9 +61,10 @@ jobs:
           VERCEL_SCOPE: maimaldrei-navigaite
           GITHUB_DEPLOYMENT: true
           GITHUB_DEPLOYMENT_ENV: Preview
-          PR_LABELS: "deployed  🚀"
+          PR_LABELS: deployed  🚀
           PRODUCTION: false
           ALIAS_DOMAINS: |
             ${{ github.event.repository.name }}-release-${{ steps.version.outputs.current_version }}.vercel.app
-          PR_PREVIEW_DOMAIN: "${{ github.event.repository.name }}-release-${{ steps.version.outputs.current_version }}.vercel.app"
+          PR_PREVIEW_DOMAIN: |
+            "${{ github.event.repository.name }}-release-${{ steps.version.outputs.current_version }}.vercel.app"
           FORCE: true

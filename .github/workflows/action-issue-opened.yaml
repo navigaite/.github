@@ -11,12 +11,19 @@
 #   pull_request:
 #     types: [opened, closed]
 #     branches-ignore: [main, release/**]
-name: "🔄 Issue Assigned"
+name: 🔄 Issue Assigned
 
-run-name: "${{ github.workflow }} by ${{ github.actor }}"
+run-name: '${{ github.workflow }} by ${{ github.actor }}'
 
 on:
+  # trunk-ignore(yamllint/empty-values)
   workflow_call:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   create_issue_branch:
@@ -27,14 +34,16 @@ jobs:
     steps:
       - name: Generate a github token
         id: generate-token
-        uses: actions/create-github-app-token@2986852ad836768dfea7781f31828eb3e17990fa
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
       - name: Modify branch name
         run: |
-          BRANCH_TITLE=$(echo "${{ env.ISSUE_TITLE }}" | sed -r 's/(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test): //' | tr '[:upper:]' '[:lower:]')
+          BRANCH_TITLE=$(echo "${{ env.ISSUE_TITLE }}" | \
+            sed -r 's/(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test): //' | \
+            tr '[:upper:]' '[:lower:]')
           echo "BRANCH_TITLE=${BRANCH_TITLE}" >> $GITHUB_ENV
 
       - name: Create Issue Branch

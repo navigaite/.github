@@ -1,8 +1,14 @@
+# This is a reusable workflow for TruffleHog secret scanning.
+# Used by action-* workflows for security checks.
+
 ---
-name: "[SUB] Trufflehog"
+name: '[SUB] Trufflehog'
 
 on:
+  # trunk-ignore(yamllint/empty-values)
   workflow_call:
+
+permissions: read-all
 
 jobs:
   trufflehog:
@@ -15,7 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: TruffleHog OSS
-        uses: trufflesecurity/trufflehog@c9e60866440d9bd0925a31ce6edbc7ceed9a4000
+        uses: trufflesecurity/trufflehog@main
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}

@@ -1,64 +1,62 @@
 ---
 # This workflow updates te cards on the github project board.
+name: '🔧 Maintenance: Cleanup Action Logs and Cache'
 
-# The trigger should be:
 # on:
 #   schedule:
-#     - cron: '0 2 * * 1-5'
-#   workflow_dispatch:
-#   workflow_call:
-name: "🔧 Nightly Maintenance"
+#     - cron: 0 8 * * 1-5
+#   workflow_dispatch: {}
 
 on:
+  # trunk-ignore(yamllint/empty-values)
   workflow_call:
 
+permissions: read-all
+
 jobs:
-  maintenance:
-    name: "Maintenance"
+  cleanup:
+    name: Cleanup
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Generate a github token
         id: generate-token
-        uses: actions/create-github-app-token@2986852ad836768dfea7781f31828eb3e17990fa
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: "Remove old artifacts"
-        uses: c-hive/gha-remove-artifacts@abbb1f6264cd712663bcb880716d3ccd251095ca
+      - name: Remove old artifacts
+        uses: c-hive/gha-remove-artifacts@v1
         with:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
-          age: "14 days"
+          age: 14 days
           skip-recent: 5
           skip-tags: false
 
       - name: Clear Cache
-        uses: MyAlbum/purge-cache@6bd5afa0f99fd6096c4e08ed0eb1730da34d78dc
+        uses: MyAlbum/purge-cache@v2
         with:
           debug: true
 
-      - name: Clean workflow runs
-        uses: Mattraks/delete-workflow-runs@9835e4abbefe04992885a989df6e3f61ddd60117
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ steps.generate-token.outputs.token }}
           repository: ${{ github.repository }}
-          retain_days: 7
-          keep_minimum_runs: 10
+          retain_days: 30
+          keep_minimum_runs: 15
 
       - name: Delete all failed workflow runs
-        uses: Mattraks/delete-workflow-runs@9835e4abbefe04992885a989df6e3f61ddd60117
+        uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ steps.generate-token.outputs.token }}
           repository: ${{ github.repository }}
-          retain_days: 0
+          retain_days: 2
           keep_minimum_runs: 0
           delete_run_by_conclusion_pattern: failure
-
-  linting-check:
-    name: "Linting"
-    uses: ./.github/workflows/sub-linting.yml
-    secrets: inherit

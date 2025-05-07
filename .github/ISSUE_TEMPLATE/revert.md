@@ -8,8 +8,8 @@ assignees: ''
 
 ## Description
 
-Please provide a detailed description of the commit that needs to be reverted. Include the commit
-hash, the reason for the revert, and any potential impacts of the revert.
+Please provide a detailed description of the commit that needs to be reverted. Include the commit hash, the reason for the revert, and any
+potential impacts of the revert.
 
 ## Commit Information
 
