@@ -26,9 +26,6 @@ env:
 
 jobs:
   create-release:
-    if:
-      github.event.pull_request.merged == true && (startsWith(github.event.pull_request.head.ref, 'release/') ||
-      startsWith(github.event.pull_request.head.ref, 'hotfix/'))
     name: Create Release
     runs-on: ubuntu-latest
     outputs:
@@ -41,8 +38,10 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Node Setup
-        uses: ./.github/workflows/sub-setup.yaml
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get Current Version
         id: version
