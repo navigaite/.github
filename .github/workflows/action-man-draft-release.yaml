@@ -26,7 +26,9 @@ on:
         required: true
         type: string
 
-permissions: read-all
+permissions:
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -37,10 +39,7 @@ jobs:
     name: Prepare new Release
     runs-on: ubuntu-latest
     permissions:
-      # write permission is required to create a github release
       contents: write
-      # write permission is required for autolabeler
-      # otherwise, read permission is required at least
       pull-requests: write
     steps:
       - name: Generate a github token
