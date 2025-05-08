@@ -1,1 +1,10 @@
-{}
+{
+  "categories": [
+    {
+      "title": "## 🤖 CI",
+      "labels": ["ci"]
+    }
+  ],
+  "commit_template": "- #{{TITLE}} - by @#{{AUTHOR}} in (#{{MERGE_SHA}})",
+  "exclude_merge_branches": ["Merge "]
+}

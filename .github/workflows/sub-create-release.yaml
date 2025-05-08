@@ -85,7 +85,7 @@ jobs:
           ref: main
 
       - name: Create PR for back-merge
-        uses: devops-infra/action-pull-request@v0.5.5
+        uses: devops-infra/action-pull-request@v0.6.0
         with:
           github_token: ${{ steps.generate-token.outputs.token }}
           source_branch: main
