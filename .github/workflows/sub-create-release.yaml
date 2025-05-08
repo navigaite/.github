@@ -7,7 +7,7 @@
 #       - main
 name: 🚀 Create new Release
 
-run-name: '${{ github.workflow }} by ${{ github.actor }}'
+run-name: '${{ github.workflow }} | ${{ github.actor }}'
 
 on:
   # trunk-ignore(yamllint/empty-values)
