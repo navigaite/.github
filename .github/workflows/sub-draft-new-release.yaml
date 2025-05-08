@@ -34,9 +34,6 @@ jobs:
   release:
     name: Prepare new Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
       - name: Generate a github token
         id: generate-token
