@@ -54,16 +54,16 @@ jobs:
             {
               "categories": [
                 {
-                  title: '## 🚀 Features',
-                  labels: ['feature', 'feat']
+                  "title": "## 🚀 Features",
+                  "labels": ["feature", "feat"]
                 },
                 {
-                  title: '## 🐛 Fixes',
-                  labels: ['fix', 'bug']
+                  "title": "## 🐛 Fixes",
+                  "labels": ["fix", "bug"]
                 },
                 {
-                  title: '## 🧪 Tests',
-                  labels: ['test']
+                  "title": "## 🧪 Tests",
+                  "labels": ["test"]
                 },
                 {
                   "title": "## 📚 Documentation",
@@ -110,9 +110,9 @@ jobs:
                   "labels": ["chore"]
                 },
                 {
-                  title: '## 📦 Other',
-                  labels: []
-                },
+                  "title": "## 📦 Other",
+                  "labels": []
+                }
               ],
               "commit_template": "- #{{TITLE}} - by @#{{AUTHOR}} in (#{{MERGE_SHA}})",
               "exclude_merge_branches": ["Merge "]
