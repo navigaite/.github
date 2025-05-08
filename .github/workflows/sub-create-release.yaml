@@ -34,8 +34,6 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Get Current Version
         id: version
@@ -52,7 +50,21 @@ jobs:
         id: github_release
         uses: mikepenz/release-changelog-builder-action@v5
         with:
-          configuration: ./.github/action-gh-release-config.json
+          configurationJson: |
+            {
+              "categories": [
+                {
+                  "title": "## 🤖 CI",
+                  "labels": ["ci"]
+                },
+                {
+                  "title": "## 🧹 Chore",
+                  "labels": ["chore"]
+                }
+              ],
+              "commit_template": "- #{{TITLE}} - by @#{{AUTHOR}} in (#{{MERGE_SHA}})",
+              "exclude_merge_branches": ["Merge "]
+            }
           mode: COMMIT
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
