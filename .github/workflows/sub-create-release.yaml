@@ -5,15 +5,9 @@
 #   push:
 #     branches:
 #       - main
-name: 🚀 Create new Release
-
-run-name: '${{ github.workflow }} | ${{ github.actor }}'
-
 on:
-  # trunk-ignore(yamllint/empty-values)
-  workflow_call:
-  # trunk-ignore(yamllint/empty-values)
-  workflow_dispatch:
+  workflow_call: {}
+  workflow_dispatch: {}
 
 permissions:
   contents: write

@@ -1,12 +1,6 @@
-# This is a reusable workflow for ChatGPT-based code review.
-# Used by action-* workflows for AI-powered code review comments.
-
 ---
-name: 🧠 Code Review
-
 on:
-  # trunk-ignore(yamllint/empty-values)
-  workflow_call:
+  workflow_call: {}
 
 permissions:
   contents: read

@@ -1,12 +1,6 @@
-# This is a reusable workflow for TruffleHog secret scanning.
-# Used by action-* workflows for security checks.
-
 ---
-name: '[SUB] Trufflehog'
-
 on:
-  # trunk-ignore(yamllint/empty-values)
-  workflow_call:
+  workflow_call: {}
 
 permissions: read-all
 
