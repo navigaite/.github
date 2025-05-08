@@ -15,9 +15,9 @@
 #           - major
 #           - minor
 #           - patch
-name: 📦 Release drafted
+name: 📦 Draft new Release
 
-run-name: '${{ github.workflow }} by ${{ github.actor }}: Increment ${{ github.event.inputs.semver_increment }}'
+run-name: '${{ github.workflow }} | ${{ github.actor }}: Increment ${{ github.event.inputs.semver_increment }}'
 
 on:
   workflow_call:
@@ -29,10 +29,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
 
 jobs:
   release:

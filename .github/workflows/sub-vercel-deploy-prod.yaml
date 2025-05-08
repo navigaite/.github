@@ -1,0 +1,59 @@
+---
+# This workflow deploys to PROD.
+# The trigger should be:
+# on:
+#   push:
+#     branches:
+#       - main
+name: 🚀 Deploy Vercel PROD
+
+run-name: '${{ github.workflow }} | ${{ github.actor }}'
+
+on:
+  workflow_call:
+    inputs:
+      vercel_scope:
+        description: The scope of the Vercel project. e.g. maimaldrei-navigaite
+        required: true
+        type: string
+
+permissions: read-all
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  vercel-deploy-preview:
+    name: Vercel Deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a github token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+
+      - name: Repository Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel Action
+        uses: iFixit/deploy-to-vercel-action@master
+        with:
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_SCOPE: ${{ github.event.inputs.vercel_scope }}
+          GITHUB_DEPLOYMENT: true
+          GITHUB_DEPLOYMENT_ENV: Production
+          PR_LABELS: deployed  🚀
+          PRODUCTION: true
+          ALIAS_DOMAINS: |
+            ${{ github.event.repository.name }}-main.vercel.app
+          PR_PREVIEW_DOMAIN: '${{ github.event.repository.name }}-main.vercel.app'
+          FORCE: true
