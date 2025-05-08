@@ -1,14 +1,4 @@
 ---
-# This workflow deploys to PROD.
-# The trigger should be:
-# on:
-#   push:
-#     branches:
-#       - main
-name: 🚀 Deploy Vercel PROD
-
-run-name: '${{ github.workflow }} | ${{ github.actor }}'
-
 on:
   workflow_call:
     inputs:
