@@ -26,8 +26,8 @@ env:
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
 jobs:
-  vercel-deploy-preview:
-    name: Vercel Deployment
+  vercel-deploy:
+    name: 🚀 Vercel Deployment
     runs-on: ubuntu-latest
     steps:
       - name: Generate a github token
@@ -58,7 +58,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_SCOPE: ${{ github.event.inputs.vercel_scope }}
+          VERCEL_SCOPE: ${{ inputs.vercel_scope }}
           GITHUB_DEPLOYMENT: true
           GITHUB_DEPLOYMENT_ENV: Preview
           PR_LABELS: deployed  🚀
