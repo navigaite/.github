@@ -11,19 +11,15 @@
 #   pull_request:
 #     types: [opened, closed]
 #     branches-ignore: [main, release/**]
-name: 🔄 Issue Assigned
+name: 🔄 Create Issue Branch
 
-run-name: '${{ github.workflow }} by ${{ github.actor }}'
+run-name: '${{ github.workflow }} | ${{ github.actor }}'
 
 on:
   # trunk-ignore(yamllint/empty-values)
   workflow_call:
 
 permissions: read-all
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
 
 jobs:
   create_issue_branch:

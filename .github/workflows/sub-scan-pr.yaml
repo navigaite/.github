@@ -1,0 +1,65 @@
+---
+# This workflow is triggered when a PR is opened, reopened, or synchronized.
+# It runs the following jobs:
+# - pr-validation: Validates the PR and adds a label if it is valid
+# - code-validation: Validates the code in the PR and adds a label if it is valid
+# - deploy-pre: Deploys the PR to a pre-production environment
+#
+# The trigger should be:
+# on:
+#   pull_request:
+#     types:
+#       - opened
+#       - synchronize
+#       - reopened
+#       - ready_for_review
+#     branches-ignore: [main, 'release/**']
+name: 🔄 Scan PR
+
+run-name: '${{ github.workflow }} | ${{ github.actor }}: ${{ github.event.pull_request.number }}'
+
+on:
+  workflow_call: {}
+
+permissions: read-all
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  pr-title-validation:
+    uses: ./.github/workflows/sub-pr-title-validation.yaml
+    secrets: inherit
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup
+        uses: ./.github/workflows/sub-setup.yaml
+
+      - name: Build
+        run: npm run build
+
+  code-review:
+    uses: ./.github/workflows/sub-code-review.yaml
+    secrets: inherit
+
+  trufflehog:
+    uses: ./.github/workflows/sub-trufflehog.yaml
+
+  cypress:
+    uses: ./.github/workflows/sub-cypress.yaml
+    secrets: inherit
+
+  lint:
+    uses: ./.github/workflows/sub-linting.yaml
+
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup
+        uses: ./.github/workflows/sub-setup.yaml
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4

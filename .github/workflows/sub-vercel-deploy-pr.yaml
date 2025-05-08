@@ -5,21 +5,19 @@
 #   push:
 #     branches:
 #       - dev
-name: 🚀 Deploy DEV
+name: 🚀 Deploy Vercel PR
 
-run-name: '${{ github.workflow }} by ${{ github.actor }}'
+run-name: '${{ github.workflow }} | ${{ github.actor }}'
 
 on:
-  # trunk-ignore(yamllint/empty-values)
   workflow_call:
-  # trunk-ignore(yamllint/empty-values)
-  workflow_dispatch:
+    inputs:
+      vercel_scope:
+        description: The scope of the Vercel project. e.g. maimaldrei-navigaite
+        required: true
+        type: string
 
 permissions: read-all
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -44,18 +42,21 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Deploy to Vercel Action
+        id: vercel
         uses: iFixit/deploy-to-vercel-action@master
+        env:
+          BRANCH: ${{ github.head_ref }}
         with:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_SCOPE: maimaldrei-navigaite
+          VERCEL_SCOPE: ${{ github.event.inputs.vercel_scope }}
           GITHUB_DEPLOYMENT: true
-          GITHUB_DEPLOYMENT_ENV: Development
+          GITHUB_DEPLOYMENT_ENV: Preview
           PR_LABELS: deployed  🚀
           PRODUCTION: false
           ALIAS_DOMAINS: |
-            ${{ github.event.repository.name }}-dev.vercel.app
-          PR_PREVIEW_DOMAIN: '${{ github.event.repository.name }}-dev.vercel.app'
+            ${{ github.event.repository.name }}-PR-{PR}.vercel.app
+          PR_PREVIEW_DOMAIN: '${{ github.event.repository.name }}-PR-{PR}.vercel.app'
           FORCE: true

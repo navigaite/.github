@@ -7,21 +7,19 @@
 #      - ready_for_review
 #     branches:
 #       - main
-name: 🚀 Deploy Release
+name: 🚀 Deploy Vercel Release
 
-run-name: '${{ github.workflow }} by ${{ github.actor }}'
+run-name: '${{ github.workflow }} | ${{ github.actor }}'
 
 on:
-  # trunk-ignore(yamllint/empty-values)
   workflow_call:
-  # trunk-ignore(yamllint/empty-values)
-  workflow_dispatch:
+    inputs:
+      vercel_scope:
+        description: The scope of the Vercel project. e.g. maimaldrei-navigaite
+        required: true
+        type: string
 
 permissions: read-all
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -39,8 +37,8 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Setup
-        uses: ./.github/workflows/sub-setup.yaml
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Get Current Version
         id: version
@@ -58,7 +56,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_SCOPE: maimaldrei-navigaite
+          VERCEL_SCOPE: ${{ github.event.inputs.vercel_scope }}
           GITHUB_DEPLOYMENT: true
           GITHUB_DEPLOYMENT_ENV: Preview
           PR_LABELS: deployed  🚀
