@@ -15,7 +15,10 @@ on:
   # trunk-ignore(yamllint/empty-values)
   workflow_dispatch:
 
-permissions: read-all
+permissions:
+  contents: write
+  discussions: write
+  pull-requests: read
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -27,10 +30,6 @@ jobs:
       github.event.pull_request.merged == true && (startsWith(github.event.pull_request.head.ref, 'release/') ||
       startsWith(github.event.pull_request.head.ref, 'hotfix/'))
     name: Create Release
-    permissions:
-      contents: write
-      discussions: write
-      pull-requests: read
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.current_version }}
