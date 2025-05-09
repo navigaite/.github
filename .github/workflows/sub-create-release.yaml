@@ -20,7 +20,7 @@ env:
 
 jobs:
   create-release:
-    name: Create Release
+    name: 📥 Create Release
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.current_version }}
@@ -130,7 +130,7 @@ jobs:
           make_latest: true
 
   back-merge:
-    name: Back-Merge to Develop
+    name: 🔄 Back-Merge to Develop
     needs: [create-release]
     runs-on: ubuntu-latest
     steps:

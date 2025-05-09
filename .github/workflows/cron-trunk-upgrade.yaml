@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   trunk_upgrade:
-    name: Upgrade Trunk
+    name: 🚀 Upgrade Trunk
     runs-on: ubuntu-latest
     permissions:
       contents: write # For trunk to create PRs

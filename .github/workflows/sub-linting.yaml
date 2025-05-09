@@ -6,7 +6,7 @@ permissions: read-all
 
 jobs:
   trunk_check:
-    name: Trunk Check Runner
+    name: 🛠️ Trunk Check Runner
     runs-on: ubuntu-latest
 
     steps:

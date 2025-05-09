@@ -6,7 +6,7 @@ permissions: read-all
 
 jobs:
   cleanup:
-    name: Cleanup
+    name: 🧹 Cleanup
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

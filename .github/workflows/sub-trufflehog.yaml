@@ -6,7 +6,7 @@ permissions: read-all
 
 jobs:
   trufflehog:
-    name: TruffleHog OSS
+    name: 🕵️ TruffleHog OSS
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Repository Checkout

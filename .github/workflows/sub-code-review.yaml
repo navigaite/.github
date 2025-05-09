@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   code-review:
+    name: 🤖 Code Review
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout code

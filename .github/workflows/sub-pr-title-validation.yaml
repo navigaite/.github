@@ -6,7 +6,7 @@ permissions: read-all
 
 jobs:
   main:
-    name: Validate PR title
+    name: 📝 Validate PR title
     runs-on: ubuntu-latest
     steps:
       - name: 🔑 Generate a github token

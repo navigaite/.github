@@ -1,24 +1,4 @@
 ---
-# This workflow prepares a new release. It creates a release branch from dev, opens a PR to main
-# and labels it correctly. The package.json version is incremented automatically regarding the increment input.
-#
-# The trigger should be:
-# on:
-#   workflow_dispatch:
-#     inputs:
-#       semver_increment:
-#         description: 'The version you want to release.'
-#         required: true
-#         default: 'patch'
-#         type: choice
-#         options:
-#           - major
-#           - minor
-#           - patch
-name: 📦 Draft new Release
-
-run-name: '${{ github.workflow }} | ${{ github.actor }}: Increment ${{ github.event.inputs.semver_increment }}'
-
 on:
   workflow_call:
     inputs:
@@ -32,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    name: Prepare new Release
+    name: 🔢 Draft new Release
     runs-on: ubuntu-latest
     steps:
       - name: 🔑 Generate a github token
