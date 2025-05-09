@@ -35,10 +35,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup
+      - name: 🛠️ Setup
         uses: ./.github/workflows/sub-setup.yaml
 
-      - name: Build
+      - name: 🏗️ Build
         run: npm run build
 
   code-review:
@@ -58,7 +58,7 @@ jobs:
   dependency-review:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup
+      - name: 🛠️ Setup
         uses: ./.github/workflows/sub-setup.yaml
 
       - name: Dependency Review

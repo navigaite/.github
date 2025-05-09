@@ -9,10 +9,10 @@ jobs:
     name: Cypress Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Setup
+      - name: 🛠️ Setup
         uses: ./.github/workflows/sub-setup.yaml
 
-      - name: Cypress E2E tests
+      - name: 🧪 Cypress E2E tests
         uses: cypress-io/github-action@v6
         env:
           DOTENV_KEY: ${{ secrets.DOTENV_KEY }}
@@ -23,7 +23,7 @@ jobs:
           wait-on: http://127.0.0.1:3000
           browser: chrome
 
-      - name: Cypress Component tests
+      - name: 🧩 Cypress Component tests
         uses: cypress-io/github-action@v6
         env:
           DOTENV_KEY: ${{ secrets.DOTENV_KEY }}

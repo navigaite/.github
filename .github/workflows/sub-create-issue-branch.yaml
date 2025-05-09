@@ -23,21 +23,21 @@ jobs:
     env:
       ISSUE_TITLE: ${{ github.event.issue.title }}
     steps:
-      - name: Generate a github token
+      - name: 🔑 Generate a github token
         id: generate-token
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Modify branch name
+      - name: 📝 Modify branch name
         run: |
           BRANCH_TITLE=$(echo "${{ env.ISSUE_TITLE }}" | \
             sed -r 's/(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test): //' | \
             tr '[:upper:]' '[:lower:]')
           echo "BRANCH_TITLE=${BRANCH_TITLE}" >> $GITHUB_ENV
 
-      - name: Create Issue Branch
+      - name: 🌱 Create Issue Branch
         uses: robvanderleek/create-issue-branch@main
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}

@@ -25,28 +25,28 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.current_version }}
     steps:
-      - name: Generate a github token
+      - name: 🔑 Generate a github token
         id: generate-token
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Get Current Version
+      - name: 🔖 Get Current Version
         id: version
         run: echo "current_version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-      - name: Tag version
+      - name: 🏷️ Tag version
         id: tag_version
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ steps.generate-token.outputs.token }}
           custom_tag: ${{ steps.version.outputs.current_version }}
 
-      - name: Build Changelog
+      - name: 📝 Build Changelog
         id: github_release
         uses: mikepenz/release-changelog-builder-action@v5
         with:
@@ -121,7 +121,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
 
-      - name: Release
+      - name: 🚀 Release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ steps.generate-token.outputs.token }}
@@ -134,21 +134,21 @@ jobs:
     needs: [create-release]
     runs-on: ubuntu-latest
     steps:
-      - name: Generate a github token
+      - name: 🔑 Generate a github token
         id: generate-token
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ steps.generate-token.outputs.token }}
           ref: main
 
-      - name: Create PR for back-merge
+      - name: 🔄 Create PR for back-merge
         uses: devops-infra/action-pull-request@v0.6.0
         with:
           github_token: ${{ steps.generate-token.outputs.token }}

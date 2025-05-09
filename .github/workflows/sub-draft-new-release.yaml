@@ -35,19 +35,19 @@ jobs:
     name: Prepare new Release
     runs-on: ubuntu-latest
     steps:
-      - name: Generate a github token
+      - name: 🔑 Generate a github token
         id: generate-token
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Update version
+      - name: 🔢 Update version
         id: update-version
         env:
           VERSION_INCREMENT: ${{ github.event.inputs.semver_increment }}
@@ -56,25 +56,25 @@ jobs:
           echo "New version: $version"
           echo "NEW_VERSION=${version}" >> $GITHUB_OUTPUT
 
-      - name: Set user
+      - name: 👤 Set user
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           git config --global user.name "navigaite-workflow-app[bot]"
           git config --global user.email "133966083+navigaite-workflow-app[bot]@users.noreply.github.com"
 
-      - name: Create Release Branch
+      - name: 🌿 Create Release Branch
         run: |
           git checkout dev
           git checkout -b release/${{ steps.update-version.outputs.NEW_VERSION }}
 
-      - name: Commit Version Update and push changes
+      - name: 💾 Commit Version Update and push changes
         run: |
           git add package.json package-lock.json
           git commit -m "chore(release): Bump version to ${{ steps.update-version.outputs.NEW_VERSION }}"
           git push origin release/${{ steps.update-version.outputs.NEW_VERSION }}
 
-      - name: Run the Action
+      - name: 🚀 Run the Action
         uses: devops-infra/action-pull-request@v0.6.0
         with:
           github_token: ${{ steps.generate-token.outputs.token }}

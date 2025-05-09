@@ -1,9 +1,4 @@
 ---
-# on:
-#   schedule:
-#     - cron: 0 8 * * 1-5
-#   workflow_dispatch: {}
-
 on:
   workflow_call: {}
 
@@ -15,19 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Generate a github token
+      - name: 🔑 Generate a github token
         id: generate-token
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Remove old artifacts
+      - name: 🧹 Remove old artifacts
         uses: c-hive/gha-remove-artifacts@v1
         with:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -35,12 +30,12 @@ jobs:
           skip-recent: 5
           skip-tags: false
 
-      - name: Clear Cache
+      - name: 🗑️ Clear Cache
         uses: MyAlbum/purge-cache@v2
         with:
           debug: true
 
-      - name: Delete old workflow runs
+      - name: 🧽 Delete old workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ steps.generate-token.outputs.token }}
@@ -48,7 +43,7 @@ jobs:
           retain_days: 30
           keep_minimum_runs: 15
 
-      - name: Delete all failed workflow runs
+      - name: ❌ Delete all failed workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ steps.generate-token.outputs.token }}

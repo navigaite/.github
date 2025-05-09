@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Setup
+      - name: 🛠️ Setup
         uses: ./.github/workflows/sub-setup.yaml
 
-      - name: Trunk Check
+      - name: 🧹 Trunk Check
         uses: trunk-io/trunk-action@main
         with:
           post-annotations: true

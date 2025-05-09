@@ -9,12 +9,12 @@ jobs:
     name: TruffleHog OSS
     runs-on: ubuntu-latest
     steps:
-      - name: Repository Checkout
+      - name: 📥 Repository Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: TruffleHog OSS
+      - name: 🕵️ TruffleHog OSS
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./

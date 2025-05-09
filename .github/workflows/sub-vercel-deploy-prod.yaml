@@ -18,22 +18,22 @@ jobs:
     name: 🚀 Vercel Deployment
     runs-on: ubuntu-latest
     steps:
-      - name: Generate a github token
+      - name: 🔑 Generate a github token
         id: generate-token
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install Vercel CLI
+      - name: 📦 Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Deploy to Vercel Action
+      - name: 🚀 Deploy to Vercel Action
         uses: iFixit/deploy-to-vercel-action@master
         with:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
