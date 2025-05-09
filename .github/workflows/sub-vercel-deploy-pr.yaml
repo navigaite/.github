@@ -35,7 +35,7 @@ jobs:
 
       - name: 🚀 Deploy to Vercel Action
         id: vercel
-        uses: iFixit/deploy-to-vercel-action@master
+        uses: BetaHuhn/deploy-to-vercel-action@latest
         env:
           BRANCH: ${{ github.head_ref }}
         with:

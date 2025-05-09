@@ -11,12 +11,12 @@ jobs:
     steps:
       - name: 🔑 Generate a github token
         id: generate-token
-        uses: actions/create-github-app-token@2986852ad836768dfea7781f31828eb3e17990fa
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
       - name: 📝 Validate PR title
-        uses: amannn/action-semantic-pull-request@c3cd5d1ea3580753008872425915e343e351ab54
+        uses: amannn/action-semantic-pull-request@v5
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
