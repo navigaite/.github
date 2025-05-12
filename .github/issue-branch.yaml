@@ -44,8 +44,7 @@ branches:
   - label: '*'
     skip: true
 
-commentMessage: >-
-  "✅ Branch created!\n**${branchName}** for #${issue.number}\n```bash\ngit fetch origin\ngit checkout ${branchName}\n````"
+commentMessage: "✅ Branch created!\n**${branchName}** for #${issue.number}\n```bash\ngit fetch origin\ngit checkout ${branchName}\n````"
 
 conventionalLabels:
   fix:
