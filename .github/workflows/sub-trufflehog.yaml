@@ -2,7 +2,7 @@
 on:
   workflow_call: {}
 
-permissions: read-all
+permissions: {}
 
 jobs:
   trufflehog:
