@@ -28,8 +28,9 @@ jobs:
         uses: cypress-io/github-action@v6
         env:
           DOTENV_KEY: ${{ secrets.DOTENV_KEY }}
+          DOTENV_PRIVATE_KEY_CI: ${{ secrets.DOTENV_PRIVATE_KEY_CI }}
         with:
-          install-command: npm install --force
+          install-command: npm ci
           build: npm run build
           start: npm run start-local
           wait-on: http://127.0.0.1:3000
@@ -39,6 +40,7 @@ jobs:
         uses: cypress-io/github-action@v6
         env:
           DOTENV_KEY: ${{ secrets.DOTENV_KEY }}
+          DOTENV_PRIVATE_KEY_CI: ${{ secrets.DOTENV_PRIVATE_KEY_CI }}
         with:
           # we have already installed everything
           install: false
