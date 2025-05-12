@@ -2,7 +2,7 @@
 on:
   workflow_call: {}
 
-permissions: {}
+permissions: read-all
 
 jobs:
   cypress:

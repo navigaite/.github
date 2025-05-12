@@ -1,16 +1,4 @@
 ---
-# This workflow deploys the release branch.
-# The trigger should be:
-# on:
-#   pull_request:
-#    types:
-#      - ready_for_review
-#     branches:
-#       - main
-name: 🚀 Deploy Vercel Release
-
-run-name: '${{ github.workflow }} | ${{ github.actor }}'
-
 on:
   workflow_call:
     inputs:
