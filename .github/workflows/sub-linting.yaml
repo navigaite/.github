@@ -15,6 +15,3 @@ jobs:
 
       - name: 🧹 Trunk Check
         uses: trunk-io/trunk-action@main
-        with:
-          post-annotations: true
-          cache: false
