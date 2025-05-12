@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: 🛠️ Setup
-        uses: ./.github/workflows/sub-setup.yaml
+        uses: ./.github/actions/setup
 
       - name: 🧹 Trunk Check
         uses: trunk-io/trunk-action@main

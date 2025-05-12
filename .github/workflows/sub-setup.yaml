@@ -1,3 +1,8 @@
+# ⚠️ DEPRECATED: This workflow is deprecated and will be removed in a future version.
+# Please use the .github/actions/setup action instead in your workflows.
+#
+# For same repo: uses: ./.github/actions/setup
+# For cross-repo: uses: navigaite/github-organization/.github/actions/setup@main
 ---
 on:
   workflow_call: {}

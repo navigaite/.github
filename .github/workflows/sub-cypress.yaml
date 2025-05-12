@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 🛠️ Setup
-        uses: ./.github/workflows/sub-setup.yaml
+        uses: ./.github/actions/setup
 
       - name: 🧪 Cypress E2E tests
         uses: cypress-io/github-action@v6

@@ -41,7 +41,8 @@ Our workflows follow a naming convention that indicates their purpose:
 
 | Workflow                                                                       | Description                                           |
 | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| [sub-setup.yaml](.github/workflows/sub-setup.yaml)                             | Sets up Node.js environment and installs dependencies |
+| [sub-setup.yaml](.github/workflows/sub-setup.yaml)                             | **DEPRECATED** - Use setup action instead             |
+| [actions/setup](.github/actions/setup/action.yaml)                             | Sets up Node.js environment and installs dependencies |
 | [sub-linting.yaml](.github/workflows/sub-linting.yaml)                         | Performs code quality checks using Trunk              |
 | [sub-cypress.yaml](.github/workflows/sub-cypress.yaml)                         | Runs Cypress E2E and component tests                  |
 | [sub-code-review.yaml](.github/workflows/sub-code-review.yaml)                 | AI-powered code review for pull requests              |
@@ -88,7 +89,21 @@ jobs:
     secrets: inherit
 ```
 
-2. **Set up required secrets in your repository**:
+2. **Using the Setup Action in your workflows**:
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Environment
+        uses: navigaite/github-organization/.github/actions/setup@main
+
+      - name: Build
+        run: npm run build
+```
+
+3. **Set up required secrets in your repository**:
    - `VERCEL_TOKEN`
    - `VERCEL_PROJECT_ID` (or as a variable)
    - `VERCEL_ORG_ID` (or as a variable)
@@ -103,6 +118,8 @@ See the [Pipeline Architecture](./docs/PIPELINE_ARCHITECTURE.md) for an overview
 - [Pipeline Architecture](./docs/PIPELINE_ARCHITECTURE.md) - Overview of workflow architecture
 - [CodeQL Guide](./docs/CODEQL_GUIDE.md) - Details about CodeQL security scanning
 - [Release Please Guide](./docs/RELEASE_PLEASE_GUIDE.md) - Guide for automated release management
+- [Migration Guide](./docs/MIGRATION_GUIDE.md) - Guide for migrating from sub-setup workflow to setup action
+- [Cross-Repository Usage](./docs/CROSS_REPO_USAGE.md) - Guide for using workflows and actions from other repositories
 
 ## Testing Workflows
 

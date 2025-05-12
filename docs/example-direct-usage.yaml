@@ -1,0 +1,51 @@
+# Example workflow for using the setup action directly in your repository
+# Path: .github/workflows/build.yaml
+
+name: Build and Test
+
+on:
+  push:
+    branches: [develop, main, feature/**, hotfix/**]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Use the setup action directly from Navigaite's repository
+      - name: 🛠️ Setup Environment
+        uses: navigaite/github-organization/.github/actions/setup@main
+
+      - name: 🧪 Run Tests
+        run: npm test
+
+      - name: 🏗️ Build Project
+        run: npm run build
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Use the setup action directly from Navigaite's repository
+      - name: 🛠️ Setup Environment
+        uses: navigaite/github-organization/.github/actions/setup@main
+
+      # Use Trunk Check directly rather than through sub-linting workflow
+      - name: 🧹 Trunk Check
+        uses: trunk-io/trunk-action@main
+        with:
+          post-annotations: true
+
+  # An example of using a reusable workflow
+  security:
+    name: Security Scan
+    # Use the TruffleHog workflow directly
+    uses: navigaite/github-organization/.github/workflows/sub-trufflehog.yaml@main

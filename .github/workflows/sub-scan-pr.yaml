@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 🛠️ Setup
-        uses: ./.github/workflows/sub-setup.yaml
+        uses: ./.github/actions/setup
 
       - name: 🏗️ Build
         run: npm run build
@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 🛠️ Setup
-        uses: ./.github/workflows/sub-setup.yaml
+        uses: ./.github/actions/setup
 
-      - name: Dependency Review
+      - name: 📊 Dependency Review
         uses: actions/dependency-review-action@v4
