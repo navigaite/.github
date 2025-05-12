@@ -9,8 +9,20 @@ jobs:
     name: 🧪 Cypress Tests
     runs-on: ubuntu-latest
     steps:
-      - name: 🛠️ Setup
-        uses: ./.github/actions/setup
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: 🗂️ Next.js Cache
+        uses: jongwooo/next-cache@v1
+
+      - name: 📦 Install dependencies
+        run: npm ci
 
       - name: 🧪 Cypress E2E tests
         uses: cypress-io/github-action@v6

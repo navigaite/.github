@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🛠️ Setup
-        uses: ./.github/actions/setup
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
 
       - name: 🧹 Trunk Check
         uses: trunk-io/trunk-action@main
