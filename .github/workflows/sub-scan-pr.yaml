@@ -16,13 +16,8 @@ jobs:
     secrets: inherit
 
   build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🛠️ Setup
-        uses: ./.github/actions/setup
-
-      - name: 🏗️ Build
-        run: npm run build
+    uses: ./.github/workflows/sub-build.yaml
+    secrets: inherit
 
   code-review:
     uses: ./.github/workflows/sub-code-review.yaml
@@ -44,8 +39,8 @@ jobs:
   dependency-review:
     runs-on: ubuntu-latest
     steps:
-      - name: 🛠️ Setup
-        uses: ./.github/actions/setup
+      - name: 📥 Repository Checkout
+        uses: actions/checkout@v4
 
       - name: 📊 Dependency Review
         uses: actions/dependency-review-action@v4
