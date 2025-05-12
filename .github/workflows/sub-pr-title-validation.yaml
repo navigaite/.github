@@ -2,7 +2,8 @@
 on:
   workflow_call: {}
 
-permissions: read-all
+permissions:
+  pull-requests: write
 
 jobs:
   main:
