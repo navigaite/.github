@@ -27,11 +27,32 @@ jobs:
 
       - name: 📥 Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📂 Debug Directory Contents
+        run: |
+          echo "Current directory: $(pwd)"
+          ls -la
+          echo "Does package.json exist? $(test -f ./package.json && echo 'Yes' || echo 'No')"
+          echo "Checking current branch and commit: $(git rev-parse --abbrev-ref HEAD) - $(git rev-parse HEAD)"
 
       - name: 🔖 Get Current Version
         id: version
         run: |
-          echo "current_version=$(node -p \"require('./package.json').version.replace(/\./g, '-')\")" >> $GITHUB_OUTPUT
+          if [ -f "./package.json" ]; then
+            VERSION=$(node -p "try { \
+              require('./package.json').version.replace(/\\./g, '-') \
+            } catch(e) { \
+              console.error('Error parsing package.json:', e); \
+              process.exit(1) \
+            }")
+            echo "Extracted version: $VERSION"
+            echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "package.json not found. Using 'dev' as fallback version"
+            echo "current_version=dev" >> $GITHUB_OUTPUT
+          fi
 
       - name: 📦 Install Vercel CLI
         run: npm install -g vercel@latest
