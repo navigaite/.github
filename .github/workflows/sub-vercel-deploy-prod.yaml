@@ -27,8 +27,6 @@ jobs:
 
       - name: 📥 Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: 📦 Install Vercel CLI
         run: npm install -g vercel@latest

@@ -13,13 +13,18 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
+
+      - name: 🔑 Generate a github token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
         with:
-          fetch-depth: 0
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
       - name: 🤖 ChatGPT Code Review
         uses: anc95/ChatGPT-CodeReview@main
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           # Optional configurations
           MODEL: gpt-4 # OpenAI model, defaults to gpt-3.5-turbo

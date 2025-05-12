@@ -144,8 +144,6 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          token: ${{ steps.generate-token.outputs.token }}
           ref: main
 
       - name: 🔄 Create PR for back-merge
