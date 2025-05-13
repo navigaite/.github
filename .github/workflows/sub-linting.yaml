@@ -2,7 +2,9 @@
 on:
   workflow_call: {}
 
-permissions: read-all
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   trunk_check:
