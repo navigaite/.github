@@ -6,7 +6,13 @@
 #     branches:
 #       - main
 on:
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      with_backmerge:
+        description: Whether to create a back-merge PR to dev after the release.
+        required: false
+        default: true
+        type: boolean
   workflow_dispatch: {}
 
 permissions:
@@ -133,6 +139,7 @@ jobs:
     name: 🔄 Back-Merge to Develop
     needs: [create-release]
     runs-on: ubuntu-latest
+    if: ${{ inputs.with_backmerge == true }}
     steps:
       - name: 🔑 Generate a github token
         id: generate-token
