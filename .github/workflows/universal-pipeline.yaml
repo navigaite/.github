@@ -303,7 +303,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      checks: write
     needs: setup
     if: needs.setup.outputs.enable-lint == 'true'
     steps:
