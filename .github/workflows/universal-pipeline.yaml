@@ -134,7 +134,7 @@ jobs:
 
       - name: 🔍 Setup Environment
         id: setup-env
-        uses: ./.github/actions/setup-environment
+        uses: navigaite/.github/.github/actions/setup-environment@main
         with:
           stack: ${{ inputs.stack }}
 
@@ -282,7 +282,7 @@ jobs:
           fetch-depth: 0 # Required for TruffleHog
 
       - name: 🔍 Security Scanning
-        uses: ./.github/actions/security-scan
+        uses: navigaite/.github/.github/actions/security-scan@main
 
   # =============================================================================
   # LINT
@@ -300,18 +300,18 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: 🔧 Setup Environment
-        uses: ./.github/actions/setup-environment
+        uses: navigaite/.github/.github/actions/setup-environment@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
 
       - name: 📦 Install Dependencies
-        uses: ./.github/actions/install-dependencies
+        uses: navigaite/.github/.github/actions/install-dependencies@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
 
       - name: 🧹 Run Lint
-        uses: ./.github/actions/run-lint
+        uses: navigaite/.github/.github/actions/run-lint@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
 
@@ -331,18 +331,18 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: 🔧 Setup Environment
-        uses: ./.github/actions/setup-environment
+        uses: navigaite/.github/.github/actions/setup-environment@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
 
       - name: 📦 Install Dependencies
-        uses: ./.github/actions/install-dependencies
+        uses: navigaite/.github/.github/actions/install-dependencies@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
 
       - name: 🧪 Run Tests
-        uses: ./.github/actions/run-tests
+        uses: navigaite/.github/.github/actions/run-tests@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
           coverage: true
@@ -372,18 +372,18 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: 🔧 Setup Environment
-        uses: ./.github/actions/setup-environment
+        uses: navigaite/.github/.github/actions/setup-environment@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
 
       - name: 📦 Install Dependencies
-        uses: ./.github/actions/install-dependencies
+        uses: navigaite/.github/.github/actions/install-dependencies@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
 
       - name: 🏗️ Run Build
-        uses: ./.github/actions/run-build
+        uses: navigaite/.github/.github/actions/run-build@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
           upload-artifacts: ${{ needs.setup.outputs.enable-deploy == 'true' }}
@@ -419,7 +419,7 @@ jobs:
 
       - name: 🚀 Deploy to Vercel
         if: needs.setup.outputs.deploy-provider == 'vercel'
-        uses: ./.github/actions/deploy-vercel
+        uses: navigaite/.github/.github/actions/deploy-vercel@main
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
@@ -429,7 +429,7 @@ jobs:
 
       - name: 🚀 Deploy to DigitalOcean
         if: needs.setup.outputs.deploy-provider == 'digitalocean'
-        uses: ./.github/actions/deploy-digitalocean
+        uses: navigaite/.github/.github/actions/deploy-digitalocean@main
         with:
           digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
           app-name: ${{ github.event.repository.name }}
@@ -438,7 +438,7 @@ jobs:
 
       - name: 🚀 Deploy Docker Image
         if: needs.setup.outputs.deploy-provider == 'docker'
-        uses: ./.github/actions/deploy-docker
+        uses: navigaite/.github/.github/actions/deploy-docker@main
         with:
           image-name: ${{ github.event.repository.name }}
           image-tag: ${{ github.sha }}
@@ -467,7 +467,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: 📦 Release Please
-        uses: ./.github/actions/release-management
+        uses: navigaite/.github/.github/actions/release-management@main
         with:
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           release-type:
@@ -499,7 +499,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: 🔄 Sync Branches
-        uses: ./.github/actions/sync-branches
+        uses: navigaite/.github/.github/actions/sync-branches@main
         with:
           source-branch: main
           target-branch: ${{ needs.setup.outputs.sync-target-branch }}
