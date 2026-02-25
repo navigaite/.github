@@ -136,7 +136,7 @@ jobs:
         id: setup-env
         uses: navigaite/.github/.github/actions/setup-environment@main
         with:
-          stack: ${{ inputs.stack }}
+          stack: ${{ inputs.stack || 'auto' }}
 
       - name: 📋 Parse Configuration
         id: parse-config
@@ -188,7 +188,7 @@ jobs:
             # Filter environments by trigger event + branch (uses .trigger.event / .trigger.branch)
             # Environments without a trigger field are always included
             CURRENT_BRANCH="${GITHUB_REF#refs/heads/}"
-            DEPLOY_ENVS=$(echo "$DEPLOY_ENVS" | jq \
+            DEPLOY_ENVS=$(echo "$DEPLOY_ENVS" | jq -c \
               --arg event "$GITHUB_EVENT_NAME" \
               --arg branch "$CURRENT_BRANCH" \
               '[.[] | select(
