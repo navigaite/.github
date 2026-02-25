@@ -49,6 +49,17 @@ runs:
                 HAS_LINT=$(jq -r '.scripts.lint // empty' package.json)
                 HAS_ESLINT=$(jq -r '.scripts.eslint // empty' package.json)
 
+                # Some projects use "trunk check" via npm scripts. Ensure trunk exists on runner.
+                if [[ "$HAS_LINT" == *"trunk"* ]] && ! command -v trunk &> /dev/null; then
+                  echo "Installing Trunk CLI..."
+                  curl -fsSL https://get.trunk.io | bash -s -- -y
+                  export PATH="$HOME/.trunk/bin:$PATH"
+                  if ! command -v trunk &> /dev/null; then
+                    echo "::error::Failed to install Trunk CLI"
+                    exit 1
+                  fi
+                fi
+
                 if [[ -n "$HAS_LINT" ]]; then
                   echo "Running npm run lint..."
                   npm run lint
