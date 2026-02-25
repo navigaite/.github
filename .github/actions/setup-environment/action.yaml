@@ -239,7 +239,6 @@ runs:
         cache:
           ${{ inputs.enable-caching == 'true' && steps.detect.outputs.dependency-file != '' && steps.detect.outputs.package-manager || '' }}
         cache-dependency-path: ${{ steps.detect.outputs.dependency-file }}
-        package-manager-cache: false
 
     - name: Setup Python
       if: steps.detect.outputs.stack == 'python'
