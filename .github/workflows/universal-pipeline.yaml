@@ -303,6 +303,7 @@ jobs:
         uses: navigaite/.github/.github/actions/setup-environment@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
+          node-version: ${{ needs.setup.outputs.runtime-version }}
 
       - name: 📦 Install Dependencies
         uses: navigaite/.github/.github/actions/install-dependencies@main
@@ -334,6 +335,7 @@ jobs:
         uses: navigaite/.github/.github/actions/setup-environment@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
+          node-version: ${{ needs.setup.outputs.runtime-version }}
 
       - name: 📦 Install Dependencies
         uses: navigaite/.github/.github/actions/install-dependencies@main
@@ -375,6 +377,7 @@ jobs:
         uses: navigaite/.github/.github/actions/setup-environment@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
+          node-version: ${{ needs.setup.outputs.runtime-version }}
 
       - name: 📦 Install Dependencies
         uses: navigaite/.github/.github/actions/install-dependencies@main

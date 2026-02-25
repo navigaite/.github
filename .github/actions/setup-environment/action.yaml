@@ -165,7 +165,20 @@ runs:
           case "$STACK" in
             nodejs)
               VERSION="$INPUT_NODE_VERSION"
-              [[ -z "$VERSION" ]] && VERSION="20"
+              if [[ -z "$VERSION" ]]; then
+                if [[ -f ".nvmrc" ]]; then
+                  VERSION=$(cat .nvmrc | tr -d '[:space:]')
+                  echo "✓ Read Node version from .nvmrc: $VERSION"
+                elif [[ -f ".node-version" ]]; then
+                  VERSION=$(cat .node-version | tr -d '[:space:]')
+                  echo "✓ Read Node version from .node-version: $VERSION"
+                elif [[ -f "package.json" ]] && command -v jq &> /dev/null; then
+                  VERSION=$(jq -r '.engines.node // "20"' package.json | sed 's/[^0-9.]//g')
+                  echo "✓ Read Node version from package.json engines: $VERSION"
+                else
+                  VERSION="20"
+                fi
+              fi
               # Detect package manager for explicit nodejs
               if [[ -f "pnpm-lock.yaml" ]]; then
                 PKG_MANAGER="pnpm"
