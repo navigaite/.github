@@ -42,6 +42,10 @@ outputs:
     description: The detected package manager (npm, pnpm, yarn, pip, poetry, flutter)
     value: ${{ steps.detect.outputs.package-manager }}
 
+  dependency-file:
+    description: Dependency lockfile used for deterministic cache keys
+    value: ${{ steps.detect.outputs.dependency-file }}
+
 runs:
   using: composite
   steps:
@@ -59,6 +63,7 @@ runs:
         STACK="$INPUT_STACK"
         VERSION=""
         PKG_MANAGER=""
+        DEP_FILE=""
 
         # Auto-detect if not specified
         if [[ "$STACK" == "auto" ]]; then
@@ -70,10 +75,13 @@ runs:
             # Detect package manager
             if [[ -f "pnpm-lock.yaml" ]]; then
               PKG_MANAGER="pnpm"
+              DEP_FILE="pnpm-lock.yaml"
             elif [[ -f "yarn.lock" ]]; then
               PKG_MANAGER="yarn"
+              DEP_FILE="yarn.lock"
             elif [[ -f "package-lock.json" ]]; then
               PKG_MANAGER="npm"
+              DEP_FILE="package-lock.json"
             else
               PKG_MANAGER="npm"
             fi
@@ -182,10 +190,13 @@ runs:
               # Detect package manager for explicit nodejs
               if [[ -f "pnpm-lock.yaml" ]]; then
                 PKG_MANAGER="pnpm"
+                DEP_FILE="pnpm-lock.yaml"
               elif [[ -f "yarn.lock" ]]; then
                 PKG_MANAGER="yarn"
+                DEP_FILE="yarn.lock"
               else
                 PKG_MANAGER="npm"
+                [[ -f "package-lock.json" ]] && DEP_FILE="package-lock.json"
               fi
               ;;
             python)
@@ -211,19 +222,24 @@ runs:
         echo "stack=$STACK" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "package-manager=$PKG_MANAGER" >> $GITHUB_OUTPUT
+        echo "dependency-file=$DEP_FILE" >> $GITHUB_OUTPUT
 
         echo ""
         echo "📦 Tech Stack: $STACK"
         echo "🔢 Version: $VERSION"
         echo "📥 Package Manager: $PKG_MANAGER"
+        echo "🧷 Dependency File: ${DEP_FILE:-none}"
         echo "::endgroup::"
 
-    - name: Setup Node.js
+    - name: Setup Node.js (Strict Cache)
       if: steps.detect.outputs.stack == 'nodejs'
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       with:
         node-version: ${{ steps.detect.outputs.version }}
-        cache: ${{ inputs.enable-caching == 'true' && steps.detect.outputs.package-manager || '' }}
+        cache:
+          ${{ inputs.enable-caching == 'true' && steps.detect.outputs.dependency-file != '' && steps.detect.outputs.package-manager || '' }}
+        cache-dependency-path: ${{ steps.detect.outputs.dependency-file }}
+        package-manager-cache: false
 
     - name: Setup Python
       if: steps.detect.outputs.stack == 'python'
