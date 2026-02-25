@@ -48,7 +48,28 @@ runs:
             case "$PKG_MANAGER" in
               npm)
                 echo "Installing with npm ci..."
-                npm ci
+                ATTEMPT=1
+                MAX_ATTEMPTS=3
+                until [[ $ATTEMPT -gt $MAX_ATTEMPTS ]]; do
+                  echo "npm ci attempt $ATTEMPT/$MAX_ATTEMPTS"
+                  if npm ci \
+                    --fetch-retries=5 \
+                    --fetch-retry-factor=2 \
+                    --fetch-retry-mintimeout=10000 \
+                    --fetch-retry-maxtimeout=120000; then
+                    break
+                  fi
+
+                  if [[ $ATTEMPT -eq $MAX_ATTEMPTS ]]; then
+                    echo "::error::npm ci failed after $MAX_ATTEMPTS attempts"
+                    exit 1
+                  fi
+
+                  echo "npm ci failed, cleaning npm cache before retry..."
+                  npm cache clean --force
+                  sleep $((ATTEMPT * 10))
+                  ATTEMPT=$((ATTEMPT + 1))
+                done
                 ;;
               pnpm)
                 echo "Installing pnpm globally..."
