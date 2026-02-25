@@ -78,8 +78,16 @@ on:
       GH_TOKEN:
         required: false
 
-      # Infisical token (for projects using infisical run -- in build commands)
-      INFISICAL_TOKEN:
+      # Infisical OIDC auth for loading secrets at build-time
+      INFISICAL_IDENTITY_ID:
+        required: false
+      INFISICAL_PROJECT_SLUG:
+        required: false
+      INFISICAL_ENV_SLUG:
+        required: false
+      INFISICAL_DOMAIN:
+        required: false
+      INFISICAL_SECRET_PATH:
         required: false
 
 # NOTE: Calling workflows must grant the permissions each job actually uses:
@@ -366,9 +374,6 @@ jobs:
       needs.setup.outputs.enable-build == 'true' &&
       (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
       (needs.test.result == 'success' || needs.test.result == 'skipped')
-    env:
-      # Passed through for projects that use "infisical run --" in their build command
-      INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -384,6 +389,20 @@ jobs:
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
+
+      - name: 🔐 Load Infisical Secrets (OIDC)
+        if: |
+          secrets.INFISICAL_IDENTITY_ID != '' &&
+          secrets.INFISICAL_PROJECT_SLUG != '' &&
+          secrets.INFISICAL_ENV_SLUG != ''
+        uses: Infisical/secrets-action@8802effbe453d0576cd923567dcc2c97a1f54058 # v1.0.15
+        with:
+          method: oidc
+          identity-id: ${{ secrets.INFISICAL_IDENTITY_ID }}
+          project-slug: ${{ secrets.INFISICAL_PROJECT_SLUG }}
+          env-slug: ${{ secrets.INFISICAL_ENV_SLUG }}
+          domain: ${{ secrets.INFISICAL_DOMAIN || 'https://app.infisical.com' }}
+          secret-path: ${{ secrets.INFISICAL_SECRET_PATH || '/' }}
 
       - name: 🏗️ Run Build
         uses: navigaite/.github/.github/actions/run-build@main
