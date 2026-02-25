@@ -473,6 +473,33 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: 🔍 Check Infisical Configuration
+        id: infisical-config
+        shell: bash
+        env:
+          INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
+          INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          INFISICAL_PROJECT_SLUG: ${{ secrets.INFISICAL_PROJECT_SLUG }}
+          INFISICAL_ENV_SLUG: ${{ secrets.INFISICAL_ENV_SLUG }}
+        run: |
+          if [[ -n "$INFISICAL_CLIENT_ID" && -n "$INFISICAL_CLIENT_SECRET" && -n "$INFISICAL_PROJECT_SLUG" && -n "$INFISICAL_ENV_SLUG" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🔐 Load Infisical Secrets (Universal Auth)
+        if: steps.infisical-config.outputs.enabled == 'true'
+        uses: Infisical/secrets-action@8802effbe453d0576cd923567dcc2c97a1f54058 # v1.0.15
+        with:
+          method: universal
+          client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
+          client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          project-slug: ${{ secrets.INFISICAL_PROJECT_SLUG }}
+          env-slug: ${{ secrets.INFISICAL_ENV_SLUG }}
+          domain: ${{ secrets.INFISICAL_DOMAIN || 'https://app.infisical.com' }}
+          secret-path: ${{ secrets.INFISICAL_SECRET_PATH || '/' }}
+
       - name: 🚀 Deploy to Vercel
         if: needs.setup.outputs.deploy-provider == 'vercel'
         uses: navigaite/.github/.github/actions/deploy-vercel@main
