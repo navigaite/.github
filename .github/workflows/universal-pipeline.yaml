@@ -392,12 +392,24 @@ jobs:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
 
+      - name: 🔍 Check Infisical Configuration
+        id: infisical-config
+        shell: bash
+        env:
+          INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
+          INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+          INFISICAL_PROJECT_SLUG: ${{ secrets.INFISICAL_PROJECT_SLUG }}
+          INFISICAL_ENV_SLUG: ${{ secrets.INFISICAL_ENV_SLUG }}
+        run: |
+          if [[ -n "$INFISICAL_CLIENT_ID" && -n "$INFISICAL_CLIENT_SECRET" && -n "$INFISICAL_PROJECT_SLUG" && -n "$INFISICAL_ENV_SLUG" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Infisical configuration incomplete, skipping secrets injection step"
+          fi
+
       - name: 🔐 Load Infisical Secrets (Universal Auth)
-        if: |
-          secrets.INFISICAL_CLIENT_ID != '' &&
-          secrets.INFISICAL_CLIENT_SECRET != '' &&
-          secrets.INFISICAL_PROJECT_SLUG != '' &&
-          secrets.INFISICAL_ENV_SLUG != ''
+        if: steps.infisical-config.outputs.enabled == 'true'
         uses: Infisical/secrets-action@8802effbe453d0576cd923567dcc2c97a1f54058 # v1.0.15
         with:
           method: universal
