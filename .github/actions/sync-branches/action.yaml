@@ -1,0 +1,232 @@
+---
+name: Sync Branches
+description: Sync changes from main back to dev branch after release (prevents version drift)
+
+inputs:
+  source-branch:
+    description: Source branch to sync from (usually main)
+    required: false
+    default: main
+
+  target-branch:
+    description: Target branch to sync to (usually dev)
+    required: false
+    default: dev
+
+  github-token:
+    description: GitHub token with contents write and pull-requests write permissions
+    required: true
+
+  create-pr:
+    description: Create a PR instead of direct push
+    required: false
+    default: 'false'
+
+  auto-merge-pr:
+    description: Auto-merge the sync PR (requires create-pr to be true)
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Fetch All Branches
+      shell: bash
+      env:
+        SOURCE_BRANCH: ${{ inputs.source-branch }}
+        TARGET_BRANCH: ${{ inputs.target-branch }}
+      run: |
+        git fetch origin
+        git fetch origin $SOURCE_BRANCH:$SOURCE_BRANCH
+        git fetch origin $TARGET_BRANCH:$TARGET_BRANCH
+
+    - name: Check if Sync is Needed
+      id: check
+      shell: bash
+      env:
+        SOURCE_BRANCH: ${{ inputs.source-branch }}
+        TARGET_BRANCH: ${{ inputs.target-branch }}
+      run: |
+        echo "::group::🔍 Checking if sync is needed"
+
+        # Check if target branch is behind source
+        git checkout $TARGET_BRANCH
+
+        # Get the merge-base (common ancestor)
+        MERGE_BASE=$(git merge-base $SOURCE_BRANCH $TARGET_BRANCH)
+
+        # Get the latest commit on source branch
+        SOURCE_COMMIT=$(git rev-parse origin/$SOURCE_BRANCH)
+
+        # Check if target is already up to date
+        if [[ "$MERGE_BASE" == "$SOURCE_COMMIT" ]]; then
+          echo "✅ $TARGET_BRANCH is already up to date with $SOURCE_BRANCH"
+          echo "needs-sync=false" >> $GITHUB_OUTPUT
+        else
+          echo "📥 $TARGET_BRANCH needs to be synced from $SOURCE_BRANCH"
+          echo "needs-sync=true" >> $GITHUB_OUTPUT
+        fi
+
+        echo "::endgroup::"
+
+    - name: Sync via Direct Push
+      if: steps.check.outputs.needs-sync == 'true' && inputs.create-pr == 'false'
+      shell: bash
+      env:
+        SOURCE_BRANCH: ${{ inputs.source-branch }}
+        TARGET_BRANCH: ${{ inputs.target-branch }}
+      run: |
+        echo "::group::🔄 Syncing $SOURCE_BRANCH → $TARGET_BRANCH"
+
+        # Checkout target branch
+        git checkout $TARGET_BRANCH
+
+        # Merge source branch
+        # Use --no-ff to create a merge commit (important for release-please to skip it)
+        # Use special commit message format that release-please ignores
+        git merge origin/$SOURCE_BRANCH \
+          --no-ff \
+          --no-edit \
+          -m "chore: sync $SOURCE_BRANCH to $TARGET_BRANCH [skip ci]" \
+          -m "Auto-sync from $SOURCE_BRANCH after release" \
+          -m "This commit contains version updates and should not trigger a new release."
+
+        # Push to target branch
+        git push origin $TARGET_BRANCH
+
+        echo "✅ Successfully synced $SOURCE_BRANCH to $TARGET_BRANCH"
+        echo "::endgroup::"
+
+    - name: Create Sync Pull Request
+      if: steps.check.outputs.needs-sync == 'true' && inputs.create-pr == 'true'
+      id: create-pr
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const { data: existingPRs } = await github.rest.pulls.list({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            head: `${context.repo.owner}:${{ inputs.source-branch }}`,
+            base: '${{ inputs.target-branch }}',
+            state: 'open'
+          });
+
+          if (existingPRs.length > 0) {
+            core.info(`✅ Sync PR already exists: #${existingPRs[0].number}`);
+            core.setOutput('pr-number', existingPRs[0].number);
+            core.setOutput('pr-url', existingPRs[0].html_url);
+            return;
+          }
+
+          const { data: pr } = await github.rest.pulls.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `chore: sync ${{ inputs.source-branch }} to ${{ inputs.target-branch }}`,
+            head: '${{ inputs.source-branch }}',
+            base: '${{ inputs.target-branch }}',
+            body: `## 🔄 Automated Branch Sync
+
+          This PR syncs changes from \`${{ inputs.source-branch }}\` back to
+          \`${{ inputs.target-branch }}\` after a release.
+
+          ### What's included:
+          - Version updates (package.json, pyproject.toml, etc.)
+          - CHANGELOG updates
+          - Other release-related changes
+
+          ### Why this is needed:
+          After a release is created on \`${{ inputs.source-branch }}\`, the version numbers
+          are bumped. Without this sync, \`${{ inputs.target-branch }}\` would remain on the
+          old version, causing confusion and potential conflicts.
+
+          ### Note:
+          This sync commit will be ignored by release-please and won't appear
+          in future release notes.
+
+          ---
+          🤖 *This PR was created automatically by the Universal Pipeline v2*`
+          });
+
+          core.info(`✅ Created sync PR: #${pr.number}`);
+          core.setOutput('pr-number', pr.number);
+          core.setOutput('pr-url', pr.html_url);
+
+    - name: Auto-Merge Pull Request
+      if: |
+        steps.check.outputs.needs-sync == 'true' &&
+        inputs.create-pr == 'true' &&
+        inputs.auto-merge-pr == 'true' &&
+        steps.create-pr.outputs.pr-number != ''
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const prNumber = ${{ steps.create-pr.outputs.pr-number }};
+
+          // Enable auto-merge
+          try {
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              merge_method: 'merge', // Use merge commit (not squash)
+              commit_title: `chore: sync ${{ inputs.source-branch }} to ${{ inputs.target-branch }} [skip ci]`,
+              commit_message: 'Auto-sync from ${{ inputs.source-branch }} after release'
+            });
+
+            core.info(`✅ Auto-merged PR #${prNumber}`);
+          } catch (error) {
+            core.warning(`Could not auto-merge PR #${prNumber}: ${error.message}`);
+            core.warning('You may need to merge this PR manually or check branch protection rules.');
+          }
+
+    - name: Sync Summary
+      if: always()
+      shell: bash
+      env:
+        NEEDS_SYNC: ${{ steps.check.outputs.needs-sync }}
+        CREATE_PR: ${{ inputs.create-pr }}
+        SOURCE_BRANCH: ${{ inputs.source-branch }}
+        TARGET_BRANCH: ${{ inputs.target-branch }}
+        PR_URL: ${{ steps.create-pr.outputs.pr-url }}
+        AUTO_MERGE: ${{ inputs.auto-merge-pr }}
+      run: |
+        echo "### 🔄 Branch Sync" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "$NEEDS_SYNC" == "false" ]]; then
+          echo "✅ **No sync needed** - \`$TARGET_BRANCH\` is already up to date" >> $GITHUB_STEP_SUMMARY
+        elif [[ "$CREATE_PR" == "true" ]]; then
+          echo "📝 **Sync PR Created**" >> $GITHUB_STEP_SUMMARY
+          echo "- **From:** \`$SOURCE_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **To:** \`$TARGET_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          if [[ -n "$PR_URL" ]]; then
+            echo "- **PR:** $PR_URL" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- **Auto-Merge:** $AUTO_MERGE" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ **Synced Successfully**" >> $GITHUB_STEP_SUMMARY
+          echo "- **From:** \`$SOURCE_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **To:** \`$TARGET_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Method:** Direct push" >> $GITHUB_STEP_SUMMARY
+        fi
+
+outputs:
+  synced:
+    description: Whether branches were synced
+    value: ${{ steps.check.outputs.needs-sync }}
+
+  pr-number:
+    description: PR number (if created)
+    value: ${{ steps.create-pr.outputs.pr-number }}
+
+  pr-url:
+    description: PR URL (if created)
+    value: ${{ steps.create-pr.outputs.pr-url }}

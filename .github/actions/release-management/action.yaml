@@ -1,0 +1,147 @@
+---
+name: Release Management
+description: Automated versioning and changelog generation using release-please
+
+inputs:
+  github-token:
+    description: GitHub token with contents write and pull-requests write permissions
+    required: true
+
+  release-type:
+    description: Release type (node, python, simple)
+    required: false
+    default: simple
+
+  package-name:
+    description: Package name for release
+    required: false
+    default: ''
+
+  bump-minor-pre-major:
+    description: Bump minor version before major release
+    required: false
+    default: 'true'
+
+  bump-patch-for-minor-pre-major:
+    description: Bump patch version for minor pre-major
+    required: false
+    default: 'false'
+
+  changelog-types:
+    description: Custom changelog types as JSON
+    required: false
+    default: |
+      [
+        {"type":"feat","section":"Features","hidden":false},
+        {"type":"fix","section":"Bug Fixes","hidden":false},
+        {"type":"perf","section":"Performance Improvements","hidden":false},
+        {"type":"revert","section":"Reverts","hidden":false},
+        {"type":"docs","section":"Documentation","hidden":false},
+        {"type":"style","section":"Styles","hidden":true},
+        {"type":"chore","section":"Miscellaneous Chores","hidden":true},
+        {"type":"refactor","section":"Code Refactoring","hidden":false},
+        {"type":"test","section":"Tests","hidden":true},
+        {"type":"build","section":"Build System","hidden":true},
+        {"type":"ci","section":"Continuous Integration","hidden":true}
+      ]
+
+outputs:
+  release-created:
+    description: Whether a release was created
+    value: ${{ steps.release.outputs.release_created }}
+
+  release-id:
+    description: Release ID
+    value: ${{ steps.release.outputs.id }}
+
+  release-name:
+    description: Release name
+    value: ${{ steps.release.outputs.name }}
+
+  release-tag:
+    description: Release tag
+    value: ${{ steps.release.outputs.tag_name }}
+
+  release-version:
+    description: Release version (without 'v' prefix)
+    value: ${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}.${{ steps.release.outputs.patch }}
+
+  release-major:
+    description: Major version
+    value: ${{ steps.release.outputs.major }}
+
+  release-minor:
+    description: Minor version
+    value: ${{ steps.release.outputs.minor }}
+
+  release-patch:
+    description: Patch version
+    value: ${{ steps.release.outputs.patch }}
+
+  release-sha:
+    description: Release commit SHA
+    value: ${{ steps.release.outputs.sha }}
+
+  release-upload-url:
+    description: Upload URL for release assets
+    value: ${{ steps.release.outputs.upload_url }}
+
+  pr-number:
+    description: Release PR number (if PR was opened/updated)
+    value: ${{ steps.release.outputs.pr }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run Release Please
+      id: release
+      uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
+      with:
+        token: ${{ inputs.github-token }}
+        release-type: ${{ inputs.release-type }}
+        package-name: ${{ inputs.package-name }}
+        bump-minor-pre-major: ${{ inputs.bump-minor-pre-major }}
+        bump-patch-for-minor-pre-major: ${{ inputs.bump-patch-for-minor-pre-major }}
+        changelog-types: ${{ inputs.changelog-types }}
+
+    - name: Release Summary
+      if: always()
+      shell: bash
+      env:
+        RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
+        TAG_NAME: ${{ steps.release.outputs.tag_name }}
+        RELEASE_ID: ${{ steps.release.outputs.id }}
+        RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        PR_NUMBER: ${{ steps.release.outputs.pr }}
+        REPO: ${{ github.repository }}
+        RELEASE_TYPE: ${{ inputs.release-type }}
+      run: |
+        echo "### 📦 Release Management" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "$RELEASE_CREATED" == "true" ]]; then
+          echo "✅ **Release Created**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** $TAG_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release ID:** $RELEASE_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA:** $RELEASE_SHA" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          RELEASE_URL="https://github.com/$REPO/releases/tag/$TAG_NAME"
+          echo "[View Release]($RELEASE_URL)" >> $GITHUB_STEP_SUMMARY
+        elif [[ -n "$PR_NUMBER" ]]; then
+          echo "📝 **Release PR Updated**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR Number:** #$PR_NUMBER" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          PR_URL="https://github.com/$REPO/pull/$PR_NUMBER"
+          echo "[View PR]($PR_URL)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "ℹ️ **No Release**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No release was created. This is normal if:" >> $GITHUB_STEP_SUMMARY
+          echo "- No releasable commits since last release" >> $GITHUB_STEP_SUMMARY
+          echo "- Release PR is still open and not merged" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Release Type:** $RELEASE_TYPE" >> $GITHUB_STEP_SUMMARY

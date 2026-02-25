@@ -1,0 +1,192 @@
+---
+name: Run Build
+description: Build project for any tech stack
+
+inputs:
+  stack:
+    description: Tech stack (nodejs, python, flutter)
+    required: true
+
+  build-command:
+    description: Custom build command
+    required: false
+    default: ''
+
+  working-directory:
+    description: Working directory
+    required: false
+    default: .
+
+  upload-artifacts:
+    description: Upload build artifacts
+    required: false
+    default: 'false'
+
+  artifact-name:
+    description: Name for the build artifact
+    required: false
+    default: build-output
+
+  artifact-path:
+    description: Path to build output (auto-detected if not specified)
+    required: false
+    default: ''
+
+  attest-artifacts:
+    description: Generate SLSA build provenance attestation for uploaded artifacts
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Run Build
+      id: build
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        STACK: ${{ inputs.stack }}
+        CUSTOM_CMD: ${{ inputs.build-command }}
+      run: |
+        echo "::group::🏗️ Running Build"
+
+        # Use custom command if provided
+        if [[ -n "$CUSTOM_CMD" ]]; then
+          echo "Using custom build command: $CUSTOM_CMD"
+          eval "$CUSTOM_CMD"
+        else
+          # Auto-detect and run appropriate build
+          case "$STACK" in
+            nodejs)
+              if command -v jq &> /dev/null && [[ -f "package.json" ]]; then
+                HAS_BUILD=$(jq -r '.scripts.build // empty' package.json)
+
+                if [[ -n "$HAS_BUILD" ]]; then
+                  echo "Running npm run build..."
+                  npm run build
+                else
+                  echo "::warning::No build script found in package.json, skipping build"
+                fi
+              fi
+              ;;
+
+            python)
+              # Python typically doesn't have a build step, but check for setup.py or pyproject.toml
+              if [[ -f "setup.py" ]]; then
+                echo "Building Python package..."
+                python setup.py build
+              elif [[ -f "pyproject.toml" ]] && command -v poetry &> /dev/null; then
+                echo "Building with poetry..."
+                poetry build
+              else
+                echo "::notice::No build configuration found, Python projects typically don't require a build step"
+              fi
+              ;;
+
+            flutter)
+              echo "Building Flutter app..."
+              # Build for all platforms (can be customized in build-command)
+              if [[ -f "pubspec.yaml" ]]; then
+                echo "Building Flutter web..."
+                flutter build web
+              fi
+              ;;
+
+            *)
+              echo "::error::Unknown tech stack: $STACK"
+              exit 1
+              ;;
+          esac
+        fi
+
+        echo "✅ Build completed successfully"
+        echo "::endgroup::"
+
+    - name: Detect Build Output
+      if: inputs.upload-artifacts == 'true' && inputs.artifact-path == ''
+      id: detect-output
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        STACK: ${{ inputs.stack }}
+      run: |
+        OUTPUT_PATH=""
+
+        case "$STACK" in
+          nodejs)
+            # Common Next.js, Vite, or React build outputs
+            if [[ -d ".next" ]]; then
+              OUTPUT_PATH=".next"
+            elif [[ -d "dist" ]]; then
+              OUTPUT_PATH="dist"
+            elif [[ -d "build" ]]; then
+              OUTPUT_PATH="build"
+            elif [[ -d "out" ]]; then
+              OUTPUT_PATH="out"
+            fi
+            ;;
+          python)
+            if [[ -d "dist" ]]; then
+              OUTPUT_PATH="dist"
+            elif [[ -d "build" ]]; then
+              OUTPUT_PATH="build"
+            fi
+            ;;
+          flutter)
+            if [[ -d "build/web" ]]; then
+              OUTPUT_PATH="build/web"
+            elif [[ -d "build" ]]; then
+              OUTPUT_PATH="build"
+            fi
+            ;;
+        esac
+
+        echo "output-path=$OUTPUT_PATH" >> $GITHUB_OUTPUT
+        echo "Detected build output: $OUTPUT_PATH"
+
+    - name: Upload Build Artifacts
+      if: inputs.upload-artifacts == 'true'
+      id: upload
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: >-
+          ${{ inputs.working-directory }}/${{
+            inputs.artifact-path != ''
+            && inputs.artifact-path
+            || steps.detect-output.outputs.output-path
+          }}
+        retention-days: 7
+        if-no-files-found: warn
+
+    - name: Attest Build Provenance
+      if: inputs.upload-artifacts == 'true' && inputs.attest-artifacts == 'true'
+      uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+      continue-on-error: true # Don't break pipelines without OIDC token
+      with:
+        subject-name: ${{ inputs.artifact-name }}
+        subject-digest: ${{ steps.upload.outputs.artifact-digest }}
+
+    - name: Build Summary
+      if: always()
+      shell: bash
+      env:
+        BUILD_OUTCOME: ${{ steps.build.outcome }}
+        STACK: ${{ inputs.stack }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+        UPLOAD_ARTIFACTS: ${{ inputs.upload-artifacts }}
+      run: |
+        echo "### 🏗️ Build Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "$BUILD_OUTCOME" == "success" ]]; then
+          echo "✅ **Status:** Success" >> $GITHUB_STEP_SUMMARY
+        elif [[ "$BUILD_OUTCOME" == "failure" ]]; then
+          echo "❌ **Status:** Failed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⏭️ **Status:** Skipped" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "- **Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
+        echo "- **Working Directory:** $WORKING_DIR" >> $GITHUB_STEP_SUMMARY
+        echo "- **Artifacts Uploaded:** $UPLOAD_ARTIFACTS" >> $GITHUB_STEP_SUMMARY

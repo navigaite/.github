@@ -1,0 +1,45 @@
+---
+# Navigaite Universal CI/CD Pipeline
+# This template wires your repo into the shared pipeline defined in
+# navigaite/github-organization.  Copy it to .github/workflows/ci.yaml
+# and add a .github/pipeline.yaml config file to your repo.
+#
+# Docs: https://github.com/navigaite/github-organization/blob/main/docs/GETTING_STARTED.md
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  merge_group: {} # Validate merge queue entries
+
+# Grant the minimum permissions needed by the pipeline stages you enable.
+# Remove any permissions for stages you disable in .github/pipeline.yaml.
+permissions:
+  contents: write # release + sync jobs
+  pull-requests: write # security, deploy, release, sync jobs
+  deployments: write # deploy job
+  packages: write # deploy job (GHCR)
+  id-token: write # build (SLSA attestation) + deploy/release (OIDC)
+  attestations: write # build job (SLSA build provenance)
+  security-events: write # security scan SARIF upload
+
+jobs:
+  pipeline:
+    uses: navigaite/github-organization/.github/workflows/universal-pipeline.yaml@v2
+    with:
+      config-file: .github/pipeline.yaml
+    secrets:
+      # Vercel deployment (remove if not using Vercel)
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # DigitalOcean deployment (remove if not using DigitalOcean)
+      DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      # Docker registry (remove if not using Docker)
+      DOCKER_REGISTRY_USERNAME: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+      DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+      # GitHub token for releases and PR comments
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}

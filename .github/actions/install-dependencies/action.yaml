@@ -1,0 +1,160 @@
+---
+name: Install Dependencies
+description: Install dependencies for any tech stack using the appropriate package manager
+
+inputs:
+  stack:
+    description: Tech stack (nodejs, python, flutter)
+    required: true
+
+  package-manager:
+    description: Package manager to use
+    required: true
+
+  working-directory:
+    description: Working directory for installation
+    required: false
+    default: .
+
+  install-command:
+    description: Custom install command (overrides default)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install Dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        STACK: ${{ inputs.stack }}
+        PKG_MANAGER: ${{ inputs.package-manager }}
+        CUSTOM_CMD: ${{ inputs.install-command }}
+      run: |
+        echo "::group::📥 Installing Dependencies"
+
+        # Use custom command if provided
+        if [[ -n "$CUSTOM_CMD" ]]; then
+          echo "Using custom install command: $CUSTOM_CMD"
+          eval "$CUSTOM_CMD"
+          echo "::endgroup::"
+          exit 0
+        fi
+
+        # Execute appropriate install command based on stack and package manager
+        case "$STACK" in
+          nodejs)
+            case "$PKG_MANAGER" in
+              npm)
+                echo "Installing with npm ci..."
+                npm ci
+                ;;
+              pnpm)
+                echo "Installing pnpm globally..."
+                npm install -g pnpm
+                echo "Installing with pnpm install --frozen-lockfile..."
+                pnpm install --frozen-lockfile
+                ;;
+              yarn)
+                echo "Installing with yarn install --frozen-lockfile..."
+                yarn install --frozen-lockfile
+                ;;
+              *)
+                echo "::error::Unknown Node.js package manager: $PKG_MANAGER"
+                exit 1
+                ;;
+            esac
+            ;;
+
+          python)
+            case "$PKG_MANAGER" in
+              pip)
+                echo "Upgrading pip..."
+                python -m pip install --upgrade pip
+
+                if [[ -f "requirements.txt" ]]; then
+                  echo "Installing with pip install -r requirements.txt..."
+                  pip install -r requirements.txt
+                fi
+
+                if [[ -f "requirements-dev.txt" ]]; then
+                  echo "Installing dev dependencies from requirements-dev.txt..."
+                  pip install -r requirements-dev.txt
+                fi
+                ;;
+              poetry)
+                echo "Installing poetry..."
+                python -m pip install --upgrade pip
+                pip install poetry
+
+                echo "Installing with poetry install..."
+                poetry install --no-interaction
+                ;;
+              pipenv)
+                echo "Installing pipenv..."
+                python -m pip install --upgrade pip
+                pip install pipenv
+
+                echo "Installing with pipenv install --dev..."
+                pipenv install --dev
+                ;;
+              *)
+                echo "::error::Unknown Python package manager: $PKG_MANAGER"
+                exit 1
+                ;;
+            esac
+            ;;
+
+          flutter)
+            echo "Installing Flutter dependencies..."
+            flutter pub get
+
+            # Also install FVM if .fvm directory exists
+            if [[ -d ".fvm" ]]; then
+              echo "FVM configuration detected, using FVM Flutter..."
+              dart pub global activate fvm
+              fvm install
+              fvm flutter pub get
+            fi
+            ;;
+
+          *)
+            echo "::error::Unknown tech stack: $STACK"
+            exit 1
+            ;;
+        esac
+
+        echo "✅ Dependencies installed successfully"
+        echo "::endgroup::"
+
+    - name: Dependency Summary
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        STACK: ${{ inputs.stack }}
+        PKG_MANAGER: ${{ inputs.package-manager }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        echo "### 📦 Dependencies Installed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
+        echo "- **Package Manager:** $PKG_MANAGER" >> $GITHUB_STEP_SUMMARY
+        echo "- **Working Directory:** $WORKING_DIR" >> $GITHUB_STEP_SUMMARY
+
+        # Show dependency counts for Node.js
+        if [[ "$STACK" == "nodejs" ]] && command -v jq &> /dev/null; then
+          if [[ -f "package.json" ]]; then
+            DEPS=$(jq '.dependencies // {} | length' package.json)
+            DEV_DEPS=$(jq '.devDependencies // {} | length' package.json)
+            echo "- **Dependencies:** $DEPS production, $DEV_DEPS development" >> $GITHUB_STEP_SUMMARY
+          fi
+        fi
+
+        # Show dependency counts for Python
+        if [[ "$STACK" == "python" ]]; then
+          if [[ -f "requirements.txt" ]]; then
+            DEPS=$(grep -v "^#" requirements.txt | grep -v "^$" | wc -l | tr -d ' ')
+            echo "- **Dependencies:** $DEPS packages" >> $GITHUB_STEP_SUMMARY
+          fi
+        fi

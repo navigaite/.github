@@ -1,0 +1,6 @@
+{
+  "name": "Navigaite CI/CD Pipeline",
+  "description": "Universal CI/CD pipeline for Navigaite projects. Supports Node.js, Python, and Flutter with automatic stack detection, security scanning, testing, building, and deployment to Vercel, DigitalOcean, or Docker.",
+  "iconName": "octicon workflow",
+  "categories": ["Continuous integration", "Deployment"]
+}

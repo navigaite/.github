@@ -1,0 +1,508 @@
+---
+name: Universal CI/CD Pipeline v2
+# This is a reusable workflow that provides a complete CI/CD pipeline for any tech stack
+# Call this workflow from your project's workflow file
+
+on:
+  workflow_call:
+    inputs:
+      config-file:
+        description: Path to pipeline configuration file
+        required: false
+        type: string
+        default: .github/pipeline.yaml
+
+      working-directory:
+        description: Working directory for all operations
+        required: false
+        type: string
+        default: .
+
+      # Override options (bypass config file)
+      stack:
+        description: Force specific tech stack (overrides config and auto-detection)
+        required: false
+        type: string
+        default: ''
+
+      skip-security:
+        description: Skip security scanning
+        required: false
+        type: boolean
+        default: false
+
+      skip-lint:
+        description: Skip linting
+        required: false
+        type: boolean
+        default: false
+
+      skip-test:
+        description: Skip tests
+        required: false
+        type: boolean
+        default: false
+
+      skip-build:
+        description: Skip build
+        required: false
+        type: boolean
+        default: false
+
+      skip-deploy:
+        description: Skip deployment
+        required: false
+        type: boolean
+        default: false
+
+    secrets:
+      # Vercel secrets
+      VERCEL_TOKEN:
+        required: false
+      VERCEL_ORG_ID:
+        required: false
+      VERCEL_PROJECT_ID:
+        required: false
+
+      # DigitalOcean secrets
+      DIGITALOCEAN_TOKEN:
+        required: false
+
+      # Docker registry secrets
+      DOCKER_REGISTRY_USERNAME:
+        required: false
+      DOCKER_REGISTRY_PASSWORD:
+        required: false
+
+      # GitHub token (for deployments and release-please)
+      GH_TOKEN:
+        required: false
+
+      # Infisical token (for projects using infisical run -- in build commands)
+      INFISICAL_TOKEN:
+        required: false
+
+# NOTE: Calling workflows must grant the permissions each job actually uses:
+#   setup:     contents: read
+#   security:  contents: read, pull-requests: write
+#   lint/test: contents: read
+#   build:     contents: read, id-token: write, attestations: write
+#   deploy:    contents: read, deployments: write, pull-requests: write, packages: write, id-token: write
+#   release:   contents: write, pull-requests: write, id-token: write
+#   sync:      contents: write, pull-requests: write
+permissions: {}
+
+concurrency:
+  group: ${{ github.repository }}-pipeline-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  # =============================================================================
+  # CONFIGURATION & SETUP
+  # =============================================================================
+  setup:
+    name: 🔧 Setup & Configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      # Tech stack detection
+      stack: ${{ steps.setup-env.outputs.detected-stack }}
+      runtime-version: ${{ steps.setup-env.outputs.runtime-version }}
+      package-manager: ${{ steps.setup-env.outputs.package-manager }}
+
+      # Pipeline configuration
+      enable-security: ${{ steps.parse-config.outputs.enable-security }}
+      enable-lint: ${{ steps.parse-config.outputs.enable-lint }}
+      enable-test: ${{ steps.parse-config.outputs.enable-test }}
+      enable-build: ${{ steps.parse-config.outputs.enable-build }}
+      enable-deploy: ${{ steps.parse-config.outputs.enable-deploy }}
+      enable-release: ${{ steps.parse-config.outputs.enable-release }}
+
+      # Deployment configuration
+      deploy-provider: ${{ steps.parse-config.outputs.deploy-provider }}
+      deploy-environments: ${{ steps.parse-config.outputs.deploy-environments }}
+
+      # Release configuration
+      enable-sync: ${{ steps.parse-config.outputs.enable-sync }}
+      sync-target-branch: ${{ steps.parse-config.outputs.sync-target-branch }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: 🔍 Setup Environment
+        id: setup-env
+        uses: ./.github/actions/setup-environment
+        with:
+          stack: ${{ inputs.stack }}
+
+      - name: 📋 Parse Configuration
+        id: parse-config
+        shell: bash
+        env:
+          CONFIG_FILE: ${{ inputs.config-file }}
+          SKIP_SECURITY: ${{ inputs.skip-security }}
+          SKIP_LINT: ${{ inputs.skip-lint }}
+          SKIP_TEST: ${{ inputs.skip-test }}
+          SKIP_BUILD: ${{ inputs.skip-build }}
+          SKIP_DEPLOY: ${{ inputs.skip-deploy }}
+        run: |
+          echo "::group::📋 Parsing Pipeline Configuration"
+
+          # Check if config file exists
+          if [[ ! -f "$CONFIG_FILE" ]]; then
+            echo "::warning::Configuration file not found at $CONFIG_FILE, using defaults"
+
+            # Set sensible defaults
+            echo "enable-security=true" >> $GITHUB_OUTPUT
+            echo "enable-lint=true" >> $GITHUB_OUTPUT
+            echo "enable-test=true" >> $GITHUB_OUTPUT
+            echo "enable-build=true" >> $GITHUB_OUTPUT
+            echo "enable-deploy=false" >> $GITHUB_OUTPUT
+            echo "enable-release=false" >> $GITHUB_OUTPUT
+            echo "deploy-provider=none" >> $GITHUB_OUTPUT
+            echo "deploy-environments=[]" >> $GITHUB_OUTPUT
+            echo "enable-sync=true" >> $GITHUB_OUTPUT
+            echo "sync-target-branch=dev" >> $GITHUB_OUTPUT
+          else
+            echo "✓ Found configuration file: $CONFIG_FILE"
+
+            # Parse configuration using yq
+            ENABLE_SECURITY=$(yq '.security.enable // true' "$CONFIG_FILE")
+            ENABLE_LINT=$(yq '.lint.enable // true' "$CONFIG_FILE")
+            ENABLE_TEST=$(yq '.test.enable // true' "$CONFIG_FILE")
+            ENABLE_BUILD=$(yq '.build.enable // true' "$CONFIG_FILE")
+            DEPLOY_PROVIDER=$(yq '.deployment.provider // "none"' "$CONFIG_FILE")
+            ENABLE_DEPLOY=$([ "$DEPLOY_PROVIDER" != "none" ] && echo "true" || echo "false")
+            ENABLE_RELEASE=$(yq '.release.enable // false' "$CONFIG_FILE")
+
+            # Extract release sync configuration
+            ENABLE_SYNC=$(yq '.release.sync_to_dev // true' "$CONFIG_FILE")
+            SYNC_TARGET=$(yq '.release.sync_target_branch // "dev"' "$CONFIG_FILE")
+
+            # Extract deployment environments
+            DEPLOY_ENVS=$(yq -o=json '.deployment.environments // []' "$CONFIG_FILE")
+
+            # Filter environments by trigger event + branch (uses .trigger.event / .trigger.branch)
+            # Environments without a trigger field are always included
+            CURRENT_BRANCH="${GITHUB_REF#refs/heads/}"
+            DEPLOY_ENVS=$(echo "$DEPLOY_ENVS" | jq \
+              --arg event "$GITHUB_EVENT_NAME" \
+              --arg branch "$CURRENT_BRANCH" \
+              '[.[] | select(
+                .trigger == null or (
+                  .trigger.event == $event and
+                  (if .trigger.branch then .trigger.branch == $branch else true end)
+                )
+              )]')
+
+            # Apply input overrides
+            [[ "$SKIP_SECURITY" == "true" ]] && ENABLE_SECURITY="false"
+            [[ "$SKIP_LINT" == "true" ]] && ENABLE_LINT="false"
+            [[ "$SKIP_TEST" == "true" ]] && ENABLE_TEST="false"
+            [[ "$SKIP_BUILD" == "true" ]] && ENABLE_BUILD="false"
+            [[ "$SKIP_DEPLOY" == "true" ]] && ENABLE_DEPLOY="false"
+
+            # Output configuration
+            echo "enable-security=$ENABLE_SECURITY" >> $GITHUB_OUTPUT
+            echo "enable-lint=$ENABLE_LINT" >> $GITHUB_OUTPUT
+            echo "enable-test=$ENABLE_TEST" >> $GITHUB_OUTPUT
+            echo "enable-build=$ENABLE_BUILD" >> $GITHUB_OUTPUT
+            echo "enable-deploy=$ENABLE_DEPLOY" >> $GITHUB_OUTPUT
+            echo "enable-release=$ENABLE_RELEASE" >> $GITHUB_OUTPUT
+            echo "deploy-provider=$DEPLOY_PROVIDER" >> $GITHUB_OUTPUT
+            echo "deploy-environments=$DEPLOY_ENVS" >> $GITHUB_OUTPUT
+            echo "enable-sync=$ENABLE_SYNC" >> $GITHUB_OUTPUT
+            echo "sync-target-branch=$SYNC_TARGET" >> $GITHUB_OUTPUT
+
+            echo ""
+            echo "📦 Configuration Summary:"
+            echo "  Security: $ENABLE_SECURITY"
+            echo "  Lint: $ENABLE_LINT"
+            echo "  Test: $ENABLE_TEST"
+            echo "  Build: $ENABLE_BUILD"
+            echo "  Deploy: $ENABLE_DEPLOY (Provider: $DEPLOY_PROVIDER)"
+            echo "  Release: $ENABLE_RELEASE"
+          fi
+
+          echo "::endgroup::"
+
+      - name: 📊 Pipeline Summary
+        shell: bash
+        env:
+          STACK: ${{ steps.setup-env.outputs.detected-stack }}
+          RUNTIME_VERSION: ${{ steps.setup-env.outputs.runtime-version }}
+          PKG_MANAGER: ${{ steps.setup-env.outputs.package-manager }}
+          ENABLE_SECURITY: ${{ steps.parse-config.outputs.enable-security }}
+          ENABLE_LINT: ${{ steps.parse-config.outputs.enable-lint }}
+          ENABLE_TEST: ${{ steps.parse-config.outputs.enable-test }}
+          ENABLE_BUILD: ${{ steps.parse-config.outputs.enable-build }}
+          ENABLE_DEPLOY: ${{ steps.parse-config.outputs.enable-deploy }}
+          ENABLE_RELEASE: ${{ steps.parse-config.outputs.enable-release }}
+        run: |
+          echo "## 🚀 Pipeline Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Environment" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tech Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
+          echo "- **Runtime Version:** $RUNTIME_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package Manager:** $PKG_MANAGER" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pipeline Stages" >> $GITHUB_STEP_SUMMARY
+          SECURITY=$([[ "$ENABLE_SECURITY" == "true" ]] && echo "✅" || echo "⏭️")
+          LINT=$([[ "$ENABLE_LINT" == "true" ]] && echo "✅" || echo "⏭️")
+          TEST=$([[ "$ENABLE_TEST" == "true" ]] && echo "✅" || echo "⏭️")
+          BUILD=$([[ "$ENABLE_BUILD" == "true" ]] && echo "✅" || echo "⏭️")
+          DEPLOY=$([[ "$ENABLE_DEPLOY" == "true" ]] && echo "✅" || echo "⏭️")
+          RELEASE=$([[ "$ENABLE_RELEASE" == "true" ]] && echo "✅" || echo "⏭️")
+          echo "- **Security Scan:** $SECURITY" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lint:** $LINT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test:** $TEST" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build:** $BUILD" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy:** $DEPLOY" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release:** $RELEASE" >> $GITHUB_STEP_SUMMARY
+
+  # =============================================================================
+  # SECURITY SCANNING
+  # =============================================================================
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    needs: setup
+    if: needs.setup.outputs.enable-security == 'true'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0 # Required for TruffleHog
+
+      - name: 🔍 Security Scanning
+        uses: ./.github/actions/security-scan
+
+  # =============================================================================
+  # LINT
+  # =============================================================================
+  lint:
+    name: 🧹 Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    needs: setup
+    if: needs.setup.outputs.enable-lint == 'true'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: 🔧 Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+
+      - name: 📦 Install Dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+          package-manager: ${{ needs.setup.outputs.package-manager }}
+
+      - name: 🧹 Run Lint
+        uses: ./.github/actions/run-lint
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+
+  # =============================================================================
+  # TEST
+  # =============================================================================
+  test:
+    name: 🧪 Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    needs: setup
+    if: needs.setup.outputs.enable-test == 'true'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: 🔧 Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+
+      - name: 📦 Install Dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+          package-manager: ${{ needs.setup.outputs.package-manager }}
+
+      - name: 🧪 Run Tests
+        uses: ./.github/actions/run-tests
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+          coverage: true
+
+  # =============================================================================
+  # BUILD
+  # =============================================================================
+  build:
+    name: 🏗️ Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # SLSA attestation + OIDC
+      attestations: write # SLSA build provenance
+    needs: [setup, lint, test]
+    if: |
+      always() &&
+      needs.setup.outputs.enable-build == 'true' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped')
+    env:
+      # Passed through for projects that use "infisical run --" in their build command
+      INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: 🔧 Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+
+      - name: 📦 Install Dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+          package-manager: ${{ needs.setup.outputs.package-manager }}
+
+      - name: 🏗️ Run Build
+        uses: ./.github/actions/run-build
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+          upload-artifacts: ${{ needs.setup.outputs.enable-deploy == 'true' }}
+          attest-artifacts: true
+
+  # =============================================================================
+  # DEPLOYMENT
+  # =============================================================================
+  deploy:
+    name: 🚀 Deploy to ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+      packages: write
+      id-token: write # OIDC for cloud providers
+    needs: [setup, build]
+    if: |
+      always() &&
+      needs.setup.outputs.enable-deploy == 'true' &&
+      needs.build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJSON(needs.setup.outputs.deploy-environments).*.name }}
+    environment:
+      name: ${{ matrix.environment }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: 🚀 Deploy to Vercel
+        if: needs.setup.outputs.deploy-provider == 'vercel'
+        uses: ./.github/actions/deploy-vercel
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          environment: ${{ matrix.environment }}
+          github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: 🚀 Deploy to DigitalOcean
+        if: needs.setup.outputs.deploy-provider == 'digitalocean'
+        uses: ./.github/actions/deploy-digitalocean
+        with:
+          digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          app-name: ${{ github.event.repository.name }}
+          environment: ${{ matrix.environment }}
+          is-pr-preview: ${{ matrix.environment == 'preview' && github.event_name == 'pull_request' }}
+
+      - name: 🚀 Deploy Docker Image
+        if: needs.setup.outputs.deploy-provider == 'docker'
+        uses: ./.github/actions/deploy-docker
+        with:
+          image-name: ${{ github.event.repository.name }}
+          image-tag: ${{ github.sha }}
+          registry-password: ${{ secrets.DOCKER_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+          registry-username: ${{ secrets.DOCKER_REGISTRY_USERNAME || github.actor }}
+
+  # =============================================================================
+  # RELEASE MANAGEMENT
+  # =============================================================================
+  release:
+    name: 📦 Release Management
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write # OIDC for release signing
+    needs: [setup, build]
+    if: |
+      always() &&
+      needs.setup.outputs.enable-release == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      needs.build.result == 'success'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: 📦 Release Please
+        uses: ./.github/actions/release-management
+        with:
+          github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          release-type:
+            # yamllint disable-line rule:line-length
+            ${{ needs.setup.outputs.stack == 'nodejs' && 'node' || needs.setup.outputs.stack == 'python' && 'python' || 'simple' }}
+  # =============================================================================
+  # SYNC MAIN TO DEV (After Release)
+  # =============================================================================
+  sync-to-dev:
+    name: 🔄 Sync main → ${{ needs.setup.outputs.sync-target-branch }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    needs: [setup, release]
+    if: |
+      always() &&
+      needs.setup.outputs.enable-sync == 'true' &&
+      needs.setup.outputs.enable-release == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      needs.release.result == 'success'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: 🔄 Sync Branches
+        uses: ./.github/actions/sync-branches
+        with:
+          source-branch: main
+          target-branch: ${{ needs.setup.outputs.sync-target-branch }}
+          github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          create-pr: false
+          auto-merge-pr: true

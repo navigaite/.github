@@ -1,0 +1,132 @@
+---
+name: 🌙 Nightly Maintenance
+
+on:
+  schedule:
+    # Run every night at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: {} # Allow manual triggering
+
+permissions: {}
+
+jobs:
+  cleanup-workflow-runs:
+    name: 🧹 Cleanup Old Workflow Runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+    steps:
+      - name: Delete workflow runs older than 30 days
+        uses: Mattraks/delete-workflow-runs@5bf9a1dac5c4d041c029f0a8370ddf0c5cb5aeb7 # v2.1.0
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 30
+          keep_minimum_runs: 10
+
+  cleanup-caches:
+    name: 🗑️ Cleanup Old Caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Cleanup old caches
+        run: |
+          echo "::group::🔍 Listing caches"
+          gh cache list --limit 100
+          echo "::endgroup::"
+
+          echo "::group::🗑️ Deleting caches older than 7 days"
+          gh cache list --limit 100 --json id,key,createdAt \
+            | jq -r '.[] | select(.createdAt < (now - 604800 | todate)) | .id' \
+            | xargs -I {} gh cache delete {} || true
+          echo "::endgroup::"
+
+          echo "✅ Cache cleanup completed"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  security-audit:
+    name: 🔒 Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # 0.34.1
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@45580472a5bb82c4681c4ac726cfdb60060c2ee1 # v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  dependency-check:
+    name: 📦 Dependency Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Check for outdated dependencies
+        run: |
+          echo "### 📦 Dependency Health Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check for package.json
+          if [[ -f "package.json" ]]; then
+            echo "#### Node.js Dependencies" >> $GITHUB_STEP_SUMMARY
+            npm outdated || true
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Check for requirements.txt
+          if [[ -f "requirements.txt" ]]; then
+            echo "#### Python Dependencies" >> $GITHUB_STEP_SUMMARY
+            echo "Run \`pip list --outdated\` to check for updates" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "✅ Dependency check completed"
+
+  maintenance-summary:
+    name: 📊 Maintenance Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    needs: [cleanup-workflow-runs, cleanup-caches, security-audit, dependency-check]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "### 🌙 Nightly Maintenance Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "| Task | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Workflow Cleanup | ${{ needs.cleanup-workflow-runs.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cache Cleanup | ${{ needs.cleanup-caches.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Check | ${{ needs.dependency-check.result }} |" >> $GITHUB_STEP_SUMMARY

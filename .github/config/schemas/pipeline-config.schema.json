@@ -1,0 +1,314 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/navigaite/github-organization/main/.github/config/v2/schemas/pipeline-config.schema.json",
+  "title": "Pipeline Configuration",
+  "description": "Configuration schema for the universal CI/CD pipeline",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version",
+      "pattern": "^2\\.\\d+$",
+      "default": "2.0"
+    },
+    "stack": {
+      "type": "string",
+      "description": "Technology stack (auto-detected if not specified)",
+      "enum": ["auto", "nodejs", "python", "flutter"],
+      "default": "auto"
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Runtime configuration",
+      "properties": {
+        "node_version": {
+          "type": "string",
+          "description": "Node.js version (for nodejs stack)"
+        },
+        "python_version": {
+          "type": "string",
+          "description": "Python version (for python stack)"
+        },
+        "flutter_version": {
+          "type": "string",
+          "description": "Flutter version (for flutter stack)"
+        }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "description": "Pipeline behavior configuration",
+      "properties": {
+        "fail_fast": {
+          "type": "boolean",
+          "description": "Stop all jobs on first failure",
+          "default": false
+        },
+        "enable_caching": {
+          "type": "boolean",
+          "description": "Enable dependency and build caching",
+          "default": true
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "description": "Security scanning configuration",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable security scanning",
+          "default": true
+        },
+        "trufflehog": {
+          "type": "boolean",
+          "description": "Enable TruffleHog secret scanning",
+          "default": true
+        },
+        "dependency_review": {
+          "type": "boolean",
+          "description": "Enable dependency vulnerability scanning (PR only)",
+          "default": true
+        },
+        "fail_on_secrets": {
+          "type": "boolean",
+          "description": "Fail pipeline if secrets are found",
+          "default": true
+        },
+        "fail_on_vulnerabilities": {
+          "type": "boolean",
+          "description": "Fail pipeline if vulnerabilities are found",
+          "default": false
+        }
+      }
+    },
+    "lint": {
+      "type": "object",
+      "description": "Linting configuration",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable linting",
+          "default": true
+        },
+        "command": {
+          "type": "string",
+          "description": "Custom lint command (overrides auto-detection)"
+        },
+        "fail_on_error": {
+          "type": "boolean",
+          "description": "Fail pipeline if linting errors are found",
+          "default": true
+        }
+      }
+    },
+    "test": {
+      "type": "object",
+      "description": "Testing configuration",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable testing",
+          "default": true
+        },
+        "command": {
+          "type": "string",
+          "description": "Custom test command (overrides auto-detection)"
+        },
+        "coverage": {
+          "type": "boolean",
+          "description": "Enable code coverage reporting",
+          "default": false
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "description": "Build configuration",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable build step",
+          "default": true
+        },
+        "command": {
+          "type": "string",
+          "description": "Custom build command (overrides auto-detection)"
+        },
+        "upload_artifacts": {
+          "type": "boolean",
+          "description": "Upload build artifacts",
+          "default": false
+        },
+        "artifact_name": {
+          "type": "string",
+          "description": "Name for build artifacts"
+        },
+        "artifact_path": {
+          "type": "string",
+          "description": "Path to build output (auto-detected if not specified)"
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "description": "Deployment configuration",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Deployment provider",
+          "enum": ["vercel", "digitalocean", "docker", "none"],
+          "default": "none"
+        },
+        "vercel": {
+          "type": "object",
+          "description": "Vercel deployment configuration",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "description": "Vercel team scope/slug"
+            },
+            "build_command": {
+              "type": "string",
+              "description": "Custom build command for Vercel"
+            }
+          }
+        },
+        "digitalocean": {
+          "type": "object",
+          "description": "DigitalOcean App Platform configuration",
+          "properties": {
+            "app_name": {
+              "type": "string",
+              "description": "DigitalOcean app name"
+            },
+            "app_spec": {
+              "type": "string",
+              "description": "Path to app spec file",
+              "default": ".do/app.yaml"
+            },
+            "print_logs": {
+              "type": "boolean",
+              "description": "Print build and deploy logs",
+              "default": true
+            }
+          }
+        },
+        "docker": {
+          "type": "object",
+          "description": "Docker deployment configuration",
+          "properties": {
+            "dockerfile": {
+              "type": "string",
+              "description": "Path to Dockerfile",
+              "default": "Dockerfile"
+            },
+            "image_name": {
+              "type": "string",
+              "description": "Docker image name"
+            },
+            "registry": {
+              "type": "string",
+              "description": "Container registry",
+              "enum": ["dockerhub", "ghcr", "gcr", "ecr", "custom"],
+              "default": "ghcr"
+            },
+            "registry_url": {
+              "type": "string",
+              "description": "Custom registry URL (for custom registry)"
+            },
+            "platforms": {
+              "type": "string",
+              "description": "Target platforms",
+              "default": "linux/amd64"
+            },
+            "push": {
+              "type": "boolean",
+              "description": "Push image to registry",
+              "default": true
+            }
+          }
+        },
+        "environments": {
+          "type": "array",
+          "description": "Deployment environments",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Environment name",
+                "enum": ["preview", "staging", "production"]
+              },
+              "trigger": {
+                "type": "object",
+                "description": "Deployment trigger conditions",
+                "properties": {
+                  "event": {
+                    "type": "string",
+                    "description": "GitHub event type",
+                    "enum": ["pull_request", "push", "workflow_dispatch"]
+                  },
+                  "branch": {
+                    "type": "string",
+                    "description": "Branch name to trigger deployment"
+                  },
+                  "branches": {
+                    "type": "array",
+                    "description": "List of branch names to trigger deployment",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "auto_deploy": {
+                "type": "boolean",
+                "description": "Automatically deploy when trigger conditions are met",
+                "default": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "description": "Release management configuration",
+      "properties": {
+        "enable": {
+          "type": "boolean",
+          "description": "Enable automated release management",
+          "default": false
+        },
+        "type": {
+          "type": "string",
+          "description": "Release type",
+          "enum": ["node", "python", "simple"],
+          "default": "simple"
+        },
+        "package_name": {
+          "type": "string",
+          "description": "Package name for releases"
+        },
+        "bump_minor_pre_major": {
+          "type": "boolean",
+          "description": "Bump minor version before major release",
+          "default": true
+        },
+        "sync_to_dev": {
+          "type": "boolean",
+          "description": "Automatically sync main back to dev after release (prevents version drift)",
+          "default": true
+        },
+        "sync_target_branch": {
+          "type": "string",
+          "description": "Target branch for back-merge after release",
+          "default": "dev"
+        }
+      }
+    }
+  }
+}

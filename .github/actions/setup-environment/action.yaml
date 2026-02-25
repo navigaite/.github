@@ -1,0 +1,243 @@
+---
+name: Setup Environment
+description: Auto-detect and setup development environment for any tech stack (Node.js, Python, Flutter)
+
+inputs:
+  stack:
+    description: Tech stack to setup (auto-detect if not specified). Options - nodejs, python, flutter
+    required: false
+    default: auto
+
+  node-version:
+    description: >-
+      Node.js version (for Node.js projects). Reads from .nvmrc, .node-version, or package.json if not specified
+    required: false
+    default: ''
+
+  python-version:
+    description: Python version (for Python projects). Reads from .python-version or pyproject.toml if not specified
+    required: false
+    default: ''
+
+  flutter-version:
+    description: Flutter version (for Flutter projects). Reads from .fvm/fvm_config.json if not specified
+    required: false
+    default: ''
+
+  enable-caching:
+    description: Enable dependency caching
+    required: false
+    default: 'true'
+
+outputs:
+  detected-stack:
+    description: The detected or configured tech stack
+    value: ${{ steps.detect.outputs.stack }}
+
+  runtime-version:
+    description: The version of the runtime being used
+    value: ${{ steps.detect.outputs.version }}
+
+  package-manager:
+    description: The detected package manager (npm, pnpm, yarn, pip, poetry, flutter)
+    value: ${{ steps.detect.outputs.package-manager }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect Tech Stack
+      id: detect
+      shell: bash
+      env:
+        INPUT_STACK: ${{ inputs.stack }}
+        INPUT_NODE_VERSION: ${{ inputs.node-version }}
+        INPUT_PYTHON_VERSION: ${{ inputs.python-version }}
+        INPUT_FLUTTER_VERSION: ${{ inputs.flutter-version }}
+      run: |
+        echo "::group::🔍 Detecting Tech Stack"
+
+        STACK="$INPUT_STACK"
+        VERSION=""
+        PKG_MANAGER=""
+
+        # Auto-detect if not specified
+        if [[ "$STACK" == "auto" ]]; then
+          # Detect Node.js project
+          if [[ -f "package.json" ]]; then
+            STACK="nodejs"
+            echo "✓ Detected Node.js project (package.json found)"
+
+            # Detect package manager
+            if [[ -f "pnpm-lock.yaml" ]]; then
+              PKG_MANAGER="pnpm"
+            elif [[ -f "yarn.lock" ]]; then
+              PKG_MANAGER="yarn"
+            elif [[ -f "package-lock.json" ]]; then
+              PKG_MANAGER="npm"
+            else
+              PKG_MANAGER="npm"
+            fi
+            echo "✓ Detected package manager: $PKG_MANAGER"
+
+            # Detect Node version
+            if [[ -n "$INPUT_NODE_VERSION" ]]; then
+              VERSION="$INPUT_NODE_VERSION"
+            elif [[ -f ".nvmrc" ]]; then
+              VERSION=$(cat .nvmrc | tr -d '[:space:]')
+              echo "✓ Read Node version from .nvmrc: $VERSION"
+            elif [[ -f ".node-version" ]]; then
+              VERSION=$(cat .node-version | tr -d '[:space:]')
+              echo "✓ Read Node version from .node-version: $VERSION"
+            else
+              # Try to read from package.json engines field
+              if command -v jq &> /dev/null; then
+                VERSION=$(jq -r '.engines.node // "20"' package.json | sed 's/[^0-9.]//g')
+              else
+                VERSION="20"
+              fi
+              echo "✓ Using default/extracted Node version: $VERSION"
+            fi
+
+          # Detect Python project
+          elif [[ -f "requirements.txt" ]] || [[ -f "pyproject.toml" ]] ||
+               [[ -f "setup.py" ]] || [[ -f "Pipfile" ]]; then
+            STACK="python"
+            echo "✓ Detected Python project"
+
+            # Detect package manager
+            if [[ -f "poetry.lock" ]]; then
+              PKG_MANAGER="poetry"
+            elif [[ -f "Pipfile.lock" ]]; then
+              PKG_MANAGER="pipenv"
+            else
+              PKG_MANAGER="pip"
+            fi
+            echo "✓ Detected package manager: $PKG_MANAGER"
+
+            # Detect Python version
+            if [[ -n "$INPUT_PYTHON_VERSION" ]]; then
+              VERSION="$INPUT_PYTHON_VERSION"
+            elif [[ -f ".python-version" ]]; then
+              VERSION=$(cat .python-version | tr -d '[:space:]')
+              echo "✓ Read Python version from .python-version: $VERSION"
+            elif [[ -f "pyproject.toml" ]] && command -v grep &> /dev/null; then
+              VERSION=$(grep -oP 'python = "\K[^"]+' pyproject.toml | head -1 | sed 's/[^0-9.]//g')
+              if [[ -n "$VERSION" ]]; then
+                echo "✓ Read Python version from pyproject.toml: $VERSION"
+              else
+                VERSION="3.11"
+                echo "✓ Using default Python version: $VERSION"
+              fi
+            else
+              VERSION="3.11"
+              echo "✓ Using default Python version: $VERSION"
+            fi
+
+          # Detect Flutter project
+          elif [[ -f "pubspec.yaml" ]]; then
+            STACK="flutter"
+            PKG_MANAGER="flutter"
+            echo "✓ Detected Flutter project (pubspec.yaml found)"
+
+            # Detect Flutter version
+            if [[ -n "$INPUT_FLUTTER_VERSION" ]]; then
+              VERSION="$INPUT_FLUTTER_VERSION"
+            elif [[ -f ".fvm/fvm_config.json" ]] && command -v jq &> /dev/null; then
+              VERSION=$(jq -r '.flutterSdkVersion // ""' .fvm/fvm_config.json)
+              if [[ -n "$VERSION" ]]; then
+                echo "✓ Read Flutter version from FVM config: $VERSION"
+              else
+                VERSION="stable"
+              fi
+            else
+              VERSION="stable"
+              echo "✓ Using Flutter channel: $VERSION"
+            fi
+
+          else
+            echo "::error::Could not auto-detect tech stack. Please specify the 'stack' input parameter."
+            exit 1
+          fi
+        else
+          echo "✓ Using explicitly configured stack: $STACK"
+
+          # Set version based on explicit stack
+          case "$STACK" in
+            nodejs)
+              VERSION="$INPUT_NODE_VERSION"
+              [[ -z "$VERSION" ]] && VERSION="20"
+              # Detect package manager for explicit nodejs
+              if [[ -f "pnpm-lock.yaml" ]]; then
+                PKG_MANAGER="pnpm"
+              elif [[ -f "yarn.lock" ]]; then
+                PKG_MANAGER="yarn"
+              else
+                PKG_MANAGER="npm"
+              fi
+              ;;
+            python)
+              VERSION="$INPUT_PYTHON_VERSION"
+              [[ -z "$VERSION" ]] && VERSION="3.11"
+              if [[ -f "poetry.lock" ]]; then
+                PKG_MANAGER="poetry"
+              elif [[ -f "Pipfile.lock" ]]; then
+                PKG_MANAGER="pipenv"
+              else
+                PKG_MANAGER="pip"
+              fi
+              ;;
+            flutter)
+              VERSION="$INPUT_FLUTTER_VERSION"
+              [[ -z "$VERSION" ]] && VERSION="stable"
+              PKG_MANAGER="flutter"
+              ;;
+          esac
+        fi
+
+        # Output results
+        echo "stack=$STACK" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "package-manager=$PKG_MANAGER" >> $GITHUB_OUTPUT
+
+        echo ""
+        echo "📦 Tech Stack: $STACK"
+        echo "🔢 Version: $VERSION"
+        echo "📥 Package Manager: $PKG_MANAGER"
+        echo "::endgroup::"
+
+    - name: Setup Node.js
+      if: steps.detect.outputs.stack == 'nodejs'
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: ${{ steps.detect.outputs.version }}
+        cache: ${{ inputs.enable-caching == 'true' && steps.detect.outputs.package-manager || '' }}
+
+    - name: Setup Python
+      if: steps.detect.outputs.stack == 'python'
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      with:
+        python-version: ${{ steps.detect.outputs.version }}
+        cache: ${{ inputs.enable-caching == 'true' && steps.detect.outputs.package-manager || '' }}
+
+    - name: Setup Flutter
+      if: steps.detect.outputs.stack == 'flutter'
+      uses: subosito/flutter-action@1508160852fb97248640997f7cfb38da241df0ba # v2.9.1
+      with:
+        flutter-version: ${{ steps.detect.outputs.version }}
+        channel: ${{ steps.detect.outputs.version == 'stable' && 'stable' || '' }}
+        cache: ${{ inputs.enable-caching == 'true' }}
+
+    - name: Environment Summary
+      shell: bash
+      env:
+        STACK: ${{ steps.detect.outputs.stack }}
+        VERSION: ${{ steps.detect.outputs.version }}
+        PKG_MANAGER: ${{ steps.detect.outputs.package-manager }}
+        ENABLE_CACHING: ${{ inputs.enable-caching }}
+      run: |
+        echo "### 🎯 Environment Setup Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tech Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version:** $VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "- **Package Manager:** $PKG_MANAGER" >> $GITHUB_STEP_SUMMARY
+        echo "- **Caching:** $ENABLE_CACHING" >> $GITHUB_STEP_SUMMARY

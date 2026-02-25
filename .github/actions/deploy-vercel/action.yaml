@@ -1,0 +1,236 @@
+---
+name: Deploy to Vercel
+description: Deploy application to Vercel with preview, staging, and production environments
+
+inputs:
+  vercel-token:
+    description: Vercel API token
+    required: true
+
+  vercel-org-id:
+    description: Vercel organization ID
+    required: true
+
+  vercel-project-id:
+    description: Vercel project ID
+    required: true
+
+  vercel-scope:
+    description: Vercel scope (team slug)
+    required: false
+    default: ''
+
+  environment:
+    description: Deployment environment (preview, staging, production)
+    required: true
+
+  github-token:
+    description: GitHub token for PR comments and deployments
+    required: false
+    default: ''
+
+  working-directory:
+    description: Working directory
+    required: false
+    default: .
+
+  build-command:
+    description: Custom build command (overrides Vercel project settings)
+    required: false
+    default: ''
+
+  env-vars:
+    description: Environment variables as JSON object
+    required: false
+    default: '{}'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Vercel CLI
+      shell: bash
+      run: npm install -g vercel@latest
+
+    - name: Pull Vercel Environment
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::📥 Pulling Vercel Environment"
+
+        VERCEL_ENV="${{ inputs.environment }}"
+        VERCEL_ENV_LOWER=$(echo "$VERCEL_ENV" | tr '[:upper:]' '[:lower:]')
+        PRODUCTION_FLAG=""
+
+        # Map pipeline environment names to Vercel CLI environment names.
+        # Vercel only accepts: production, preview, development.
+        # "staging" is treated as a named preview deployment.
+        if [[ "$VERCEL_ENV_LOWER" == "production" ]]; then
+          VERCEL_CLI_ENV="production"
+          PRODUCTION_FLAG="--prod"
+        else
+          VERCEL_CLI_ENV="preview"
+        fi
+
+        # Pull environment information
+        vercel pull --yes --environment=$VERCEL_CLI_ENV --token=${{ inputs.vercel-token }} \
+          --scope="${{ inputs.vercel-scope }}" \
+          $PRODUCTION_FLAG
+
+        echo "::endgroup::"
+      env:
+        VERCEL_ORG_ID: ${{ inputs.vercel-org-id }}
+        VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }}
+
+    - name: Build Project
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "::group::🏗️ Building with Vercel"
+
+        VERCEL_ENV="${{ inputs.environment }}"
+        VERCEL_ENV_LOWER=$(echo "$VERCEL_ENV" | tr '[:upper:]' '[:lower:]')
+        BUILD_CMD="${{ inputs.build-command }}"
+
+        if [[ -n "$BUILD_CMD" ]]; then
+          echo "Using custom build command: $BUILD_CMD"
+          vercel build --token=${{ inputs.vercel-token }} --yes
+          eval "$BUILD_CMD"
+        else
+          if [[ "$VERCEL_ENV_LOWER" == "production" ]]; then
+            vercel build --prod --token=${{ inputs.vercel-token }}
+          else
+            vercel build --token=${{ inputs.vercel-token }}
+          fi
+        fi
+
+        echo "::endgroup::"
+      env:
+        VERCEL_ORG_ID: ${{ inputs.vercel-org-id }}
+        VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }}
+
+    - name: Deploy to Vercel
+      id: deploy
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        VERCEL_TOKEN: ${{ inputs.vercel-token }}
+        VERCEL_SCOPE: ${{ inputs.vercel-scope }}
+        VERCEL_ORG_ID: ${{ inputs.vercel-org-id }}
+        VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        echo "::group::🚀 Deploying to Vercel ($ENVIRONMENT)"
+
+        VERCEL_ENV_LOWER=$(echo "$ENVIRONMENT" | tr '[:upper:]' '[:lower:]')
+        SCOPE_ARG=""
+        PROD_FLAG=""
+
+        if [[ -n "$VERCEL_SCOPE" ]]; then
+          SCOPE_ARG="--scope=$VERCEL_SCOPE"
+        fi
+
+        if [[ "$VERCEL_ENV_LOWER" == "production" ]]; then
+          PROD_FLAG="--prod"
+        fi
+
+        # Deploy prebuilt project
+        DEPLOY_OUTPUT=$(vercel deploy --prebuilt $PROD_FLAG --token="$VERCEL_TOKEN" $SCOPE_ARG 2>&1)
+        DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | head -1)
+
+        echo "deployment-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+        echo "✅ Deployed to: $DEPLOY_URL"
+
+        # Set deployment URL for PR preview
+        if [[ "$VERCEL_ENV_LOWER" == "preview" ]] && [[ -n "$PR_NUMBER" ]]; then
+          PREVIEW_URL="$DEPLOY_URL"
+          echo "preview-url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+        fi
+
+        echo "::endgroup::"
+
+    - name: Create GitHub Deployment
+      if: inputs.github-token != ''
+      uses: chrnorm/deployment-action@55729fcebec3d284f60f5bcabbd8376437d696b1 # v2.0.7
+      id: github-deployment
+      with:
+        token: ${{ inputs.github-token }}
+        environment: ${{ inputs.environment }}
+        environment-url: ${{ steps.deploy.outputs.deployment-url }}
+        auto-merge: false
+
+    - name: Update Deployment Status
+      if: inputs.github-token != '' && always()
+      uses: chrnorm/deployment-status@9a72af4586197112e0491ea843682b5dc280d806 # v2.0.3
+      with:
+        token: ${{ inputs.github-token }}
+        deployment-id: ${{ steps.github-deployment.outputs.deployment_id }}
+        state: ${{ job.status == 'success' && 'success' || 'failure' }}
+        environment-url: ${{ steps.deploy.outputs.deployment-url }}
+
+    - name: Comment on PR
+      if: inputs.github-token != '' && inputs.environment == 'preview' && github.event_name == 'pull_request'
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const deploymentUrl = '${{ steps.deploy.outputs.deployment-url }}';
+          const comment = `### 🚀 Vercel Preview Deployment
+
+          **Environment:** Preview
+          **URL:** ${deploymentUrl}
+          **Commit:** ${context.sha.substring(0, 7)}
+
+          ---
+          <sub>Deployed with [Vercel](https://vercel.com)</sub>`;
+
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const botComment = comments.find(comment =>
+            comment.user.type === 'Bot' && comment.body.includes('Vercel Preview Deployment')
+          );
+
+          if (botComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: comment
+            });
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+          }
+
+    - name: Deployment Summary
+      if: always()
+      shell: bash
+      run: |
+        echo "### 🚀 Vercel Deployment" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **URL:** ${{ steps.deploy.outputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
+        STATUS="${{ steps.deploy.outcome == 'success' && '✅ Success' || '❌ Failed' }}"
+        echo "- **Status:** $STATUS" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "[View Deployment](${{ steps.deploy.outputs.deployment-url }})" >> $GITHUB_STEP_SUMMARY
+
+outputs:
+  deployment-url:
+    description: The URL of the Vercel deployment
+    value: ${{ steps.deploy.outputs.deployment-url }}
+
+  preview-url:
+    description: The preview URL (for PR deployments)
+    value: ${{ steps.deploy.outputs.preview-url }}

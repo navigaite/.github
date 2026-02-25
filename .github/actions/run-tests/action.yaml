@@ -1,0 +1,128 @@
+---
+name: Run Tests
+description: Run tests for any tech stack
+
+inputs:
+  stack:
+    description: Tech stack (nodejs, python, flutter)
+    required: true
+
+  test-command:
+    description: Custom test command
+    required: false
+    default: ''
+
+  working-directory:
+    description: Working directory
+    required: false
+    default: .
+
+  coverage:
+    description: Enable code coverage reporting
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Run Tests
+      id: test
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        STACK: ${{ inputs.stack }}
+        CUSTOM_CMD: ${{ inputs.test-command }}
+        ENABLE_COVERAGE: ${{ inputs.coverage }}
+      run: |
+        echo "::group::🧪 Running Tests"
+
+        # Use custom command if provided
+        if [[ -n "$CUSTOM_CMD" ]]; then
+          echo "Using custom test command: $CUSTOM_CMD"
+          eval "$CUSTOM_CMD"
+        else
+          # Auto-detect and run appropriate tests
+          case "$STACK" in
+            nodejs)
+              if command -v jq &> /dev/null && [[ -f "package.json" ]]; then
+                HAS_TEST=$(jq -r '.scripts.test // empty' package.json)
+                HAS_TEST_CI=$(jq -r '.scripts["test:ci"] // empty' package.json)
+
+                if [[ -n "$HAS_TEST_CI" ]]; then
+                  echo "Running npm run test:ci..."
+                  npm run test:ci
+                elif [[ -n "$HAS_TEST" ]]; then
+                  echo "Running npm test..."
+                  npm test
+                else
+                  echo "::warning::No test script found in package.json, skipping tests"
+                fi
+              fi
+              ;;
+
+            python)
+              # Try pytest first, then unittest
+              if command -v pytest &> /dev/null; then
+                echo "Running pytest..."
+                if [[ "$ENABLE_COVERAGE" == "true" ]]; then
+                  pytest --cov --cov-report=xml --cov-report=term
+                else
+                  pytest
+                fi
+              elif python -m unittest discover &> /dev/null; then
+                echo "Running unittest..."
+                python -m unittest discover
+              else
+                echo "::warning::No Python test framework found, skipping tests"
+              fi
+              ;;
+
+            flutter)
+              echo "Running flutter test..."
+              if [[ "$ENABLE_COVERAGE" == "true" ]]; then
+                flutter test --coverage
+              else
+                flutter test
+              fi
+              ;;
+
+            *)
+              echo "::error::Unknown tech stack: $STACK"
+              exit 1
+              ;;
+          esac
+        fi
+
+        echo "::endgroup::"
+
+    - name: Upload Coverage
+      if: inputs.coverage == 'true' && steps.test.outcome == 'success'
+      uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+      continue-on-error: true
+      with:
+        working-directory: ${{ inputs.working-directory }}
+        fail_ci_if_error: false
+
+    - name: Test Summary
+      if: always()
+      shell: bash
+      env:
+        TEST_OUTCOME: ${{ steps.test.outcome }}
+        STACK: ${{ inputs.stack }}
+        COVERAGE: ${{ inputs.coverage }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        echo "### 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "$TEST_OUTCOME" == "success" ]]; then
+          echo "✅ **Status:** Passed" >> $GITHUB_STEP_SUMMARY
+        elif [[ "$TEST_OUTCOME" == "failure" ]]; then
+          echo "❌ **Status:** Failed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⏭️ **Status:** Skipped" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "- **Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
+        echo "- **Coverage:** $COVERAGE" >> $GITHUB_STEP_SUMMARY
+        echo "- **Working Directory:** $WORKING_DIR" >> $GITHUB_STEP_SUMMARY

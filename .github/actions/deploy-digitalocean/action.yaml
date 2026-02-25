@@ -1,0 +1,72 @@
+---
+name: Deploy to DigitalOcean App Platform
+description: Deploy application to DigitalOcean App Platform
+
+inputs:
+  digitalocean-token:
+    description: DigitalOcean API token
+    required: true
+
+  app-name:
+    description: DigitalOcean App Platform app name
+    required: true
+
+  app-spec-location:
+    description: Path to app spec file
+    required: false
+    default: .do/app.yaml
+
+  environment:
+    description: Deployment environment (preview, staging, production)
+    required: true
+
+  is-pr-preview:
+    description: Deploy as PR preview
+    required: false
+    default: 'false'
+
+  print-build-logs:
+    description: Print build logs
+    required: false
+    default: 'true'
+
+  print-deploy-logs:
+    description: Print deploy logs
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Deploy to DigitalOcean App Platform
+      id: deploy
+      uses: digitalocean/app_action@5c95e0e12f850942e75d8903dc3be30cbea30953 # v1.1.7
+      with:
+        token: ${{ inputs.digitalocean-token }}
+        app_name: ${{ inputs.app-name }}
+        app_spec_location: ${{ inputs.app-spec-location }}
+        deploy_pr_preview: ${{ inputs.is-pr-preview }}
+        print_build_logs: ${{ inputs.print-build-logs }}
+        print_deploy_logs: ${{ inputs.print-deploy-logs }}
+
+    - name: Deployment Summary
+      if: always()
+      shell: bash
+      env:
+        APP_NAME: ${{ inputs.app-name }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        IS_PR_PREVIEW: ${{ inputs.is-pr-preview }}
+        DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+      run: |
+        echo "### 🚀 DigitalOcean Deployment" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **App Name:** $APP_NAME" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment:** $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+        echo "- **PR Preview:** $IS_PR_PREVIEW" >> $GITHUB_STEP_SUMMARY
+        STATUS=$([[ "$DEPLOY_OUTCOME" == "success" ]] && echo "✅ Success" || echo "❌ Failed")
+        echo "- **Status:** $STATUS" >> $GITHUB_STEP_SUMMARY
+
+outputs:
+  deployment-url:
+    description: The URL of the deployment
+    value: ${{ steps.deploy.outputs.url }}

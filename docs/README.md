@@ -30,7 +30,7 @@ on:
 
 jobs:
   pipeline:
-    uses: navigaite/github-organization/.github/workflows/universal-pipeline.yaml@main
+    uses: navigaite/github-organization/.github/workflows/v2/universal-pipeline.yaml@main
     with:
       config-file: .github/pipeline.yaml
     secrets: inherit
@@ -93,10 +93,13 @@ That's it! The pipeline will:
 
 ## 📚 Documentation
 
-- **[Getting Started](./docs/GETTING_STARTED.md)** - Detailed setup instructions
-- **[Configuration Reference](./docs/CONFIGURATION.md)** - Complete configuration options
-- **[Branching Strategy](./docs/BRANCHING_STRATEGY.md)** - How to use main/dev branches
-- **[Build Summary](./docs/SUMMARY.md)** - Complete overview of the pipeline system
+- **[Getting Started](./GETTING_STARTED.md)** - Detailed setup instructions
+- **[Configuration Reference](./CONFIGURATION.md)** - Complete configuration options
+- **[Branching Strategy](./BRANCHING_STRATEGY.md)** - How to use main/dev branches
+- **[Deployment Guide](./DEPLOYMENT.md)** - Deployment configuration for different providers
+- **[Examples](../../.github/config/v2/examples/)** - Example configurations for different project types
+- **[Migration from V1](./MIGRATION_FROM_V1.md)** - How to migrate from the old pipeline
+- **[Troubleshooting](./TROUBLESHOOTING.md)** - Common issues and solutions
 
 ## 🎨 Features
 
@@ -165,6 +168,8 @@ release:
   type: node
 ```
 
+[Full example →](../../.github/config/v2/examples/nextjs-vercel-pipeline.yaml)
+
 ### Python + DigitalOcean
 
 ```yaml
@@ -181,6 +186,8 @@ deployment:
         branch: main
 ```
 
+[Full example →](../../.github/config/v2/examples/python-digitalocean-pipeline.yaml)
+
 ### Flutter + Docker
 
 ```yaml
@@ -194,17 +201,88 @@ deployment:
     platforms: linux/amd64,linux/arm64
 ```
 
-## 🆚 Comparison
+[Full example →](../../.github/config/v2/examples/flutter-pipeline.yaml)
 
-| Feature | Multi-Tech Stack         | Multi-Deployment      | Auto-Detection | Config-Driven  | Automated Releases |
-| ------- | ------------------------ | --------------------- | -------------- | -------------- | ------------------ |
-| **V2**  | ✅ Node, Python, Flutter | ✅ Vercel, DO, Docker | ✅ Yes         | ✅ Single YAML | ✅ release-please  |
+## 🔧 Advanced Configuration
+
+### Custom Commands
+
+Override auto-detection with custom commands:
+
+```yaml
+lint:
+  command: npm run lint:fix && npm run format
+
+test:
+  command: npm run test:ci -- --coverage
+
+build:
+  command: npm run build:prod
+```
+
+### Selective Pipeline Steps
+
+Disable steps you don't need:
+
+```yaml
+security:
+  enable: false
+
+lint:
+  enable: true
+
+test:
+  enable: true
+  coverage: false
+
+build:
+  enable: true
+```
+
+### Multiple Environments
+
+Define complex deployment strategies:
+
+```yaml
+deployment:
+  provider: vercel
+  environments:
+    - name: preview
+      trigger:
+        event: pull_request
+      auto_deploy: true
+
+    - name: staging
+      trigger:
+        event: push
+        branch: dev
+      auto_deploy: true
+
+    - name: production
+      trigger:
+        event: push
+        branch: main
+      auto_deploy: true
+```
+
+## 🆚 V1 vs V2 Comparison
+
+| Feature             | V1 (sub-workflows)      | V2 (Universal Pipeline)                |
+| ------------------- | ----------------------- | -------------------------------------- |
+| **Tech Stacks**     | Next.js only            | Node.js, Python, Flutter, Auto-detect  |
+| **Configuration**   | Hard-coded in workflows | Single YAML file                       |
+| **Deployment**      | Vercel only             | Vercel, DigitalOcean, Docker, Custom   |
+| **Auto-detection**  | No                      | Yes (stack, package manager, versions) |
+| **Security**        | TruffleHog only         | TruffleHog + Dependency Review         |
+| **Releases**        | Manual                  | Automated with release-please          |
+| **Caching**         | Manual setup            | Automatic per tech stack               |
+| **Maintainability** | Separate workflows      | Single universal workflow              |
 
 ## 🤝 Contributing
 
 Want to add support for a new tech stack or deployment provider?
 
-1. Create a new composite action in [`.github/actions/`](.github/actions/)
+1. Create a new composite action in [`.github/actions/v2/`](../../.github/actions/v2/)
 2. Add configuration schema properties
 3. Update the universal pipeline workflow
 4. Add example configuration
@@ -222,14 +300,3 @@ MIT License - see LICENSE file for details
 ---
 
 **Made with ❤️ by Navigaite**
-
-- **Modular workflow architecture**: Compose workflows from reusable components (action-_ entrypoints, sub-_ reusable jobs)
-- **Next.js optimized**: Built specifically for Next.js projects
-- **Vercel deployment**: Seamless integration with Vercel deployments
-- **Security scanning**: Integrated CodeQL and vulnerability scanning
-- **Matrix testing**: Test across multiple Node.js versions
-- **Release management**: Automated changelog and release notes
-
-## Workflow Types
-
-Our workflows follow a naming convention that indicates their purpose:

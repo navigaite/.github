@@ -1,0 +1,114 @@
+---
+name: Run Lint
+description: Run linting for any tech stack
+
+inputs:
+  stack:
+    description: Tech stack (nodejs, python, flutter)
+    required: true
+
+  lint-command:
+    description: Custom lint command
+    required: false
+    default: ''
+
+  working-directory:
+    description: Working directory
+    required: false
+    default: .
+
+  fail-on-error:
+    description: Fail workflow if linting errors are found
+    required: false
+    default: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run Linting
+      id: lint
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      continue-on-error: ${{ inputs.fail-on-error != 'true' }}
+      env:
+        STACK: ${{ inputs.stack }}
+        CUSTOM_CMD: ${{ inputs.lint-command }}
+      run: |
+        echo "::group::🧹 Running Linter"
+
+        # Use custom command if provided
+        if [[ -n "$CUSTOM_CMD" ]]; then
+          echo "Using custom lint command: $CUSTOM_CMD"
+          eval "$CUSTOM_CMD"
+        else
+          # Auto-detect and run appropriate linter
+          case "$STACK" in
+            nodejs)
+              # Check for common linting scripts in package.json
+              if command -v jq &> /dev/null && [[ -f "package.json" ]]; then
+                HAS_LINT=$(jq -r '.scripts.lint // empty' package.json)
+                HAS_ESLINT=$(jq -r '.scripts.eslint // empty' package.json)
+
+                if [[ -n "$HAS_LINT" ]]; then
+                  echo "Running npm run lint..."
+                  npm run lint
+                elif [[ -n "$HAS_ESLINT" ]]; then
+                  echo "Running npm run eslint..."
+                  npm run eslint
+                else
+                  echo "::warning::No lint script found in package.json, skipping linting"
+                fi
+              fi
+              ;;
+
+            python)
+              # Try common Python linters
+              if [[ -f "pyproject.toml" ]] && grep -q "ruff" pyproject.toml; then
+                echo "Running ruff..."
+                ruff check .
+              elif [[ -f ".flake8" ]] || command -v flake8 &> /dev/null; then
+                echo "Running flake8..."
+                flake8 .
+              elif command -v pylint &> /dev/null; then
+                echo "Running pylint..."
+                find . -name "*.py" -not -path "*/venv/*" -not -path "*/.venv/*" | xargs pylint
+              else
+                echo "::warning::No Python linter found, skipping linting"
+              fi
+              ;;
+
+            flutter)
+              echo "Running flutter analyze..."
+              flutter analyze
+              ;;
+
+            *)
+              echo "::error::Unknown tech stack: $STACK"
+              exit 1
+              ;;
+          esac
+        fi
+
+        echo "::endgroup::"
+
+    - name: Lint Summary
+      if: always()
+      shell: bash
+      env:
+        LINT_OUTCOME: ${{ steps.lint.outcome }}
+        STACK: ${{ inputs.stack }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        echo "### 🧹 Lint Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "$LINT_OUTCOME" == "success" ]]; then
+          echo "✅ **Status:** Passed" >> $GITHUB_STEP_SUMMARY
+        elif [[ "$LINT_OUTCOME" == "failure" ]]; then
+          echo "❌ **Status:** Failed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⏭️ **Status:** Skipped" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "- **Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
+        echo "- **Working Directory:** $WORKING_DIR" >> $GITHUB_STEP_SUMMARY

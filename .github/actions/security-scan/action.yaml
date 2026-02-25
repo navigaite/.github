@@ -1,0 +1,88 @@
+---
+name: Security Scan
+description: Comprehensive security scanning including secrets detection and dependency vulnerabilities
+
+inputs:
+  enable-trufflehog:
+    description: Enable TruffleHog secret scanning
+    required: false
+    default: 'true'
+
+  enable-dependency-review:
+    description: Enable dependency vulnerability scanning (PR only)
+    required: false
+    default: 'true'
+
+  trufflehog-extra-args:
+    description: Extra arguments for TruffleHog
+    required: false
+    default: --only-verified
+
+  fail-on-secrets:
+    description: Fail the workflow if secrets are found
+    required: false
+    default: 'true'
+
+  fail-on-vulnerabilities:
+    description: Fail the workflow if vulnerabilities are found
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: TruffleHog Secret Scanning
+      if: inputs.enable-trufflehog == 'true'
+      uses: trufflesecurity/trufflehog@7c0734f987ad0bb30ee8da210773b800ee2016d3 # v3.93.4
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+        extra_args: ${{ inputs.trufflehog-extra-args }}
+
+    - name: Check TruffleHog Results
+      if: inputs.enable-trufflehog == 'true' && inputs.fail-on-secrets == 'true'
+      shell: bash
+      run: |
+        echo "::group::🔍 TruffleHog Secret Scan Results"
+        if [[ $? -ne 0 ]]; then
+          echo "::error::TruffleHog detected secrets in the codebase"
+          echo "### ⚠️ Security Alert: Secrets Detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "TruffleHog has detected potential secrets in your code." >> $GITHUB_STEP_SUMMARY
+          echo "Please review the findings above and remove any sensitive data." >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "✅ No secrets detected"
+          echo "### ✅ Secret Scan: Clean" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "::endgroup::"
+
+    - name: Dependency Vulnerability Scan (PR only)
+      if: inputs.enable-dependency-review == 'true' && github.event_name == 'pull_request'
+      uses: actions/dependency-review-action@9129d7d40b8c12c1ed0f60400d00c92d437adcce # v4.1.3
+      with:
+        fail-on-severity: ${{ inputs.fail-on-vulnerabilities == 'true' && 'moderate' || 'critical' }}
+        comment-summary-in-pr: true
+
+    - name: Security Summary
+      shell: bash
+      env:
+        ENABLE_TRUFFLEHOG: ${{ inputs.enable-trufflehog }}
+        ENABLE_DEP_REVIEW: ${{ inputs.enable-dependency-review }}
+        EVENT_NAME: ${{ github.event_name }}
+      run: |
+        echo "### 🔒 Security Scan Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        TRUFFLEHOG=$([[ "$ENABLE_TRUFFLEHOG" == "true" ]] \
+          && echo "✅ Enabled" \
+          || echo "⏭️ Skipped")
+        DEP_CHECK=$([[ "$ENABLE_DEP_REVIEW" == "true" \
+          && "$EVENT_NAME" == "pull_request" ]] \
+          && echo "true" \
+          || echo "false")
+        DEP_REVIEW=$([[ "$DEP_CHECK" == "true" ]] \
+          && echo "✅ Enabled" \
+          || echo "⏭️ Skipped")
+        echo "- **TruffleHog:** $TRUFFLEHOG" >> $GITHUB_STEP_SUMMARY
+        echo "- **Dependency Review:** $DEP_REVIEW" >> $GITHUB_STEP_SUMMARY
