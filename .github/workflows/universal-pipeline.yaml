@@ -303,6 +303,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      checks: write
     needs: setup
     if: needs.setup.outputs.enable-lint == 'true'
     steps:
@@ -321,7 +322,24 @@ jobs:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
 
+      - name: 🔍 Detect Trunk Configuration
+        id: detect-trunk
+        shell: bash
+        run: |
+          if [[ -f ".trunk/trunk.yaml" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🧹 Run Trunk Lint
+        if: steps.detect-trunk.outputs.enabled == 'true'
+        uses: trunk-io/trunk-action@75699af9e26881e564e9d832ef7dc3af25ec031b # v1.2.4
+        with:
+          check-mode: all
+
       - name: 🧹 Run Lint
+        if: steps.detect-trunk.outputs.enabled != 'true'
         uses: navigaite/.github/.github/actions/run-lint@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
