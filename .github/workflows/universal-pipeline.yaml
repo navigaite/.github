@@ -352,7 +352,6 @@ jobs:
         continue-on-error: true
         with:
           diff: ${{ github.base_ref || 'main' }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           fail-on: none
           verbose: 'false'
 
