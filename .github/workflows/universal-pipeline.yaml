@@ -423,8 +423,8 @@ jobs:
         env:
           INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
           INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
-          INFISICAL_PROJECT_SLUG: ${{ secrets.INFISICAL_PROJECT_SLUG }}
-          INFISICAL_ENV_SLUG: ${{ secrets.INFISICAL_ENV_SLUG }}
+          INFISICAL_PROJECT_SLUG: ${{ vars.INFISICAL_PROJECT_SLUG || secrets.INFISICAL_PROJECT_SLUG }}
+          INFISICAL_ENV_SLUG: ${{ vars.INFISICAL_ENV_SLUG || secrets.INFISICAL_ENV_SLUG }}
         run: |
           if [[ -n "$INFISICAL_CLIENT_ID" && -n "$INFISICAL_CLIENT_SECRET" && -n "$INFISICAL_PROJECT_SLUG" && -n "$INFISICAL_ENV_SLUG" ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
@@ -440,10 +440,10 @@ jobs:
           method: universal
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
-          project-slug: ${{ secrets.INFISICAL_PROJECT_SLUG }}
-          env-slug: ${{ secrets.INFISICAL_ENV_SLUG }}
-          domain: ${{ secrets.INFISICAL_DOMAIN || 'https://app.infisical.com' }}
-          secret-path: ${{ secrets.INFISICAL_SECRET_PATH || '/' }}
+          project-slug: ${{ vars.INFISICAL_PROJECT_SLUG || secrets.INFISICAL_PROJECT_SLUG }}
+          env-slug: ${{ vars.INFISICAL_ENV_SLUG || secrets.INFISICAL_ENV_SLUG }}
+          domain: ${{ vars.INFISICAL_DOMAIN || secrets.INFISICAL_DOMAIN || 'https://app.infisical.com' }}
+          secret-path: ${{ vars.INFISICAL_SECRET_PATH || secrets.INFISICAL_SECRET_PATH || '/' }}
 
       - name: 🏗️ Run Build
         uses: navigaite/.github/.github/actions/run-build@main
@@ -486,8 +486,8 @@ jobs:
         env:
           INFISICAL_CLIENT_ID: ${{ secrets.INFISICAL_CLIENT_ID }}
           INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
-          INFISICAL_PROJECT_SLUG: ${{ secrets.INFISICAL_PROJECT_SLUG }}
-          INFISICAL_ENV_SLUG: ${{ secrets.INFISICAL_ENV_SLUG }}
+          INFISICAL_PROJECT_SLUG: ${{ vars.INFISICAL_PROJECT_SLUG || secrets.INFISICAL_PROJECT_SLUG }}
+          INFISICAL_ENV_SLUG: ${{ vars.INFISICAL_ENV_SLUG || secrets.INFISICAL_ENV_SLUG }}
         run: |
           if [[ -n "$INFISICAL_CLIENT_ID" && -n "$INFISICAL_CLIENT_SECRET" && -n "$INFISICAL_PROJECT_SLUG" && -n "$INFISICAL_ENV_SLUG" ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
@@ -502,10 +502,10 @@ jobs:
           method: universal
           client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
           client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
-          project-slug: ${{ secrets.INFISICAL_PROJECT_SLUG }}
-          env-slug: ${{ secrets.INFISICAL_ENV_SLUG }}
-          domain: ${{ secrets.INFISICAL_DOMAIN || 'https://app.infisical.com' }}
-          secret-path: ${{ secrets.INFISICAL_SECRET_PATH || '/' }}
+          project-slug: ${{ vars.INFISICAL_PROJECT_SLUG || secrets.INFISICAL_PROJECT_SLUG }}
+          env-slug: ${{ vars.INFISICAL_ENV_SLUG || secrets.INFISICAL_ENV_SLUG }}
+          domain: ${{ vars.INFISICAL_DOMAIN || secrets.INFISICAL_DOMAIN || 'https://app.infisical.com' }}
+          secret-path: ${{ vars.INFISICAL_SECRET_PATH || secrets.INFISICAL_SECRET_PATH || '/' }}
 
       - name: 🚀 Deploy to Vercel
         uses: navigaite/.github/.github/actions/deploy-vercel@main
