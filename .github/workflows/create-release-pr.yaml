@@ -73,6 +73,42 @@ jobs:
             const draft = ${{ inputs.draft }};
             const headRef = `${owner}:${source}`;
 
+            const parseSemver = (value) => {
+              if (!value || typeof value !== 'string') return null;
+              const match = value.trim().match(/^v?(\\d+)\\.(\\d+)\\.(\\d+)$/);
+              if (!match) return null;
+              return {
+                major: Number(match[1]),
+                minor: Number(match[2]),
+                patch: Number(match[3]),
+              };
+            };
+
+            const bumpSemver = (version, level) => {
+              const parsed = parseSemver(version);
+              if (!parsed) return null;
+              if (level === 'major') return `${parsed.major + 1}.0.0`;
+              if (level === 'minor') return `${parsed.major}.${parsed.minor + 1}.0`;
+              return `${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
+            };
+
+            const readPackageVersion = async (ref) => {
+              try {
+                const { data } = await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: 'package.json',
+                  ref,
+                });
+                if (!data.content) return null;
+                const decoded = Buffer.from(data.content, 'base64').toString('utf8');
+                const pkg = JSON.parse(decoded);
+                return typeof pkg.version === 'string' ? pkg.version : null;
+              } catch (_err) {
+                return null;
+              }
+            };
+
             const compare = await github.rest.repos.compareCommits({
               owner,
               repo,
@@ -94,35 +130,88 @@ jobs:
               return;
             }
 
-            const releaseTitle = `release: ${source} -> ${target}`;
-            const commitLines = compare.data.commits
-              .slice(0, 30)
-              .map((c) => {
-                const shortSha = c.sha.slice(0, 7);
-                const firstLine = c.commit.message.split('\n')[0];
-                return `- ${shortSha} ${firstLine}`;
-              })
-              .join('\n');
-            const additionalCount = Math.max(commitCount - 30, 0);
+            const currentVersion = await readPackageVersion(target);
+            const sourceVersion = await readPackageVersion(source);
+
+            let bumpLevel = 'patch';
+            const buckets = {
+              feat: [],
+              fix: [],
+              ci: [],
+              chore: [],
+              docs: [],
+              test: [],
+              other: [],
+            };
+
+            for (const commit of compare.data.commits) {
+              const firstLine = commit.commit.message.split('\n')[0];
+              if (/^Merge pull request/i.test(firstLine)) {
+                continue;
+              }
+              const line = `- ${commit.sha.slice(0, 7)} ${firstLine}`;
+
+              if (/!:|BREAKING CHANGE/i.test(firstLine)) {
+                bumpLevel = 'major';
+              } else if (/^feat(\(|:)/i.test(firstLine) && bumpLevel !== 'major') {
+                bumpLevel = 'minor';
+              }
+
+              if (/^feat(\(|:)/i.test(firstLine)) buckets.feat.push(line);
+              else if (/^fix(\(|:)/i.test(firstLine)) buckets.fix.push(line);
+              else if (/^(ci|build)(\(|:)/i.test(firstLine)) buckets.ci.push(line);
+              else if (/^chore(\(|:)/i.test(firstLine)) buckets.chore.push(line);
+              else if (/^docs(\(|:)/i.test(firstLine)) buckets.docs.push(line);
+              else if (/^test(\(|:)/i.test(firstLine)) buckets.test.push(line);
+              else buckets.other.push(line);
+            }
+
+            const projectedVersion =
+              sourceVersion && currentVersion && sourceVersion !== currentVersion
+                ? sourceVersion
+                : bumpSemver(currentVersion, bumpLevel);
+            const titleVersion = projectedVersion ? `(v${projectedVersion})` : '';
+            const releaseTitle = `release${titleVersion}: ${source} -> ${target}`;
+
+            const section = (name, items, limit = 8) => {
+              if (!items.length) return '';
+              const visible = items.slice(0, limit);
+              const more = items.length > limit ? `\n- ...and ${items.length - limit} more` : '';
+              return `### ${name}\n${visible.join('\n')}${more}\n`;
+            };
+
+            const additions = (compare.data.files || []).reduce((sum, f) => sum + (f.additions || 0), 0);
+            const deletions = (compare.data.files || []).reduce((sum, f) => sum + (f.deletions || 0), 0);
+            const changedFiles = compare.data.files?.length || 0;
 
             const releaseBody = [
               '## Release Promotion',
               '',
               `Automated release PR from \`${source}\` to \`${target}\`.`,
               '',
-              '### Overview',
+              '### Version',
+              `- Current version: ${currentVersion ? `\`v${currentVersion}\`` : '_not detected_'}`,
+              `- Source version: ${sourceVersion ? `\`v${sourceVersion}\`` : '_not detected_'}`,
+              `- Projected next version: ${projectedVersion ? `\`v${projectedVersion}\`` : '_not available_'}`,
+              '',
+              '### Scope',
               `- Source: \`${source}\``,
               `- Target: \`${target}\``,
               `- Commits: ${commitCount}`,
+              `- Files changed: ${changedFiles}`,
+              `- Diff: +${additions} / -${deletions}`,
               `- Compare: ${compareUrl}`,
               '',
-              '### Included commits (latest)',
-              commitLines || '- (no commit details available)',
-              additionalCount > 0 ? `- ...and ${additionalCount} more commit(s)` : '',
+              section('Features', buckets.feat),
+              section('Fixes', buckets.fix),
+              section('CI / Build', buckets.ci),
+              section('Chores', buckets.chore),
+              section('Tests', buckets.test),
+              section('Other', buckets.other),
               '',
               '### Checklist',
-              '- [ ] CI is green',
-              '- [ ] QA/preview validated',
+              '- [ ] CI checks are green',
+              '- [ ] Preview/development smoke test complete',
               '- [ ] Ready to merge to production',
             ].filter(Boolean).join('\n');
 
