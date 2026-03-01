@@ -60,19 +60,22 @@ runs:
         VERCEL_ENV="${{ inputs.environment }}"
         VERCEL_ENV_LOWER=$(echo "$VERCEL_ENV" | tr '[:upper:]' '[:lower:]')
         PRODUCTION_FLAG=""
+        VERCEL_TARGET="preview"
 
-        # Map pipeline environment names to Vercel CLI environment names.
-        # Vercel only accepts: production, preview, development.
-        # "staging" is treated as a named preview deployment.
-        if [[ "$VERCEL_ENV_LOWER" == "production" ]]; then
-          VERCEL_CLI_ENV="production"
+        # Map pipeline environment names to Vercel target environments.
+        # Vercel accepts: production, preview, development.
+        case "$VERCEL_ENV_LOWER" in
+        production)
+          VERCEL_TARGET="production"
           PRODUCTION_FLAG="--prod"
-        else
-          VERCEL_CLI_ENV="preview"
-        fi
+          ;;
+        *)
+          VERCEL_TARGET="preview"
+          ;;
+        esac
 
         # Pull environment information
-        vercel pull --yes --environment=$VERCEL_CLI_ENV --token=${{ inputs.vercel-token }} \
+        vercel pull --yes --environment="$VERCEL_TARGET" --token=${{ inputs.vercel-token }} \
           --scope="${{ inputs.vercel-scope }}" \
           $PRODUCTION_FLAG
 
@@ -90,17 +93,19 @@ runs:
         VERCEL_ENV="${{ inputs.environment }}"
         VERCEL_ENV_LOWER=$(echo "$VERCEL_ENV" | tr '[:upper:]' '[:lower:]')
         BUILD_CMD="${{ inputs.build-command }}"
+        VERCEL_TARGET="preview"
+
+        case "$VERCEL_ENV_LOWER" in
+        production) VERCEL_TARGET="production" ;;
+        *) VERCEL_TARGET="preview" ;;
+        esac
 
         if [[ -n "$BUILD_CMD" ]]; then
           echo "Using custom build command: $BUILD_CMD"
-          vercel build --token=${{ inputs.vercel-token }} --yes
+          vercel build --target="$VERCEL_TARGET" --token=${{ inputs.vercel-token }} --yes
           eval "$BUILD_CMD"
         else
-          if [[ "$VERCEL_ENV_LOWER" == "production" ]]; then
-            vercel build --prod --token=${{ inputs.vercel-token }}
-          else
-            vercel build --token=${{ inputs.vercel-token }}
-          fi
+          vercel build --target="$VERCEL_TARGET" --token=${{ inputs.vercel-token }}
         fi
 
         echo "::endgroup::"
@@ -124,18 +129,19 @@ runs:
 
         VERCEL_ENV_LOWER=$(echo "$ENVIRONMENT" | tr '[:upper:]' '[:lower:]')
         SCOPE_ARG=""
-        PROD_FLAG=""
+        VERCEL_TARGET="preview"
 
         if [[ -n "$VERCEL_SCOPE" ]]; then
           SCOPE_ARG="--scope=$VERCEL_SCOPE"
         fi
 
-        if [[ "$VERCEL_ENV_LOWER" == "production" ]]; then
-          PROD_FLAG="--prod"
-        fi
+        case "$VERCEL_ENV_LOWER" in
+        production) VERCEL_TARGET="production" ;;
+        *) VERCEL_TARGET="preview" ;;
+        esac
 
         # Deploy prebuilt project
-        DEPLOY_OUTPUT=$(vercel deploy --prebuilt $PROD_FLAG --token="$VERCEL_TOKEN" $SCOPE_ARG 2>&1)
+        DEPLOY_OUTPUT=$(vercel deploy --prebuilt --target="$VERCEL_TARGET" --token="$VERCEL_TOKEN" $SCOPE_ARG 2>&1)
         DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | head -1)
 
         echo "deployment-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
