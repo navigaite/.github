@@ -170,8 +170,9 @@ jobs:
               sourceVersion && currentVersion && sourceVersion !== currentVersion
                 ? sourceVersion
                 : bumpSemver(currentVersion, bumpLevel);
-            const titleVersion = projectedVersion ? `(v${projectedVersion})` : '';
-            const releaseTitle = `release${titleVersion}: ${source} -> ${target}`;
+            const releaseTitle = projectedVersion
+              ? `Release v${projectedVersion}`
+              : `Release ${source} -> ${target}`;
 
             const section = (name, items, limit = 8) => {
               if (!items.length) return '';
