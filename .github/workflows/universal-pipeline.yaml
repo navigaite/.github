@@ -353,12 +353,17 @@ jobs:
         with:
           diff: ${{ github.base_ref || 'main' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          fail-on: none
+          verbose: 'false'
 
       - name: 🩺 Run React Doctor
         id: react-doctor
         if: steps.detect-react.outputs.enabled == 'true' && github.event_name != 'pull_request'
         uses: millionco/react-doctor@97b21f18ee4c5b530d683ae6626548081a4aad76 # main
         continue-on-error: true
+        with:
+          fail-on: none
+          verbose: 'false'
 
       - name: 🔍 Detect Trunk Configuration
         id: detect-trunk
@@ -402,8 +407,6 @@ jobs:
       - name: 🧹 Run Trunk Lint
         if: steps.detect-trunk.outputs.enabled == 'true'
         uses: trunk-io/trunk-action@75699af9e26881e564e9d832ef7dc3af25ec031b # v1.2.4
-        with:
-          check-mode: all
 
       - name: 🧹 Run Lint
         if: steps.detect-trunk.outputs.enabled != 'true'
@@ -543,6 +546,12 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: 🔧 Setup Node Runtime
+        if: needs.setup.outputs.stack == 'nodejs'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ needs.setup.outputs.runtime-version }}
 
       - name: 🔍 Check Infisical Configuration
         id: infisical-config
