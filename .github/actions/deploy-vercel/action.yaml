@@ -160,10 +160,22 @@ runs:
         if [[ -n "$DEPLOYMENT_ID" ]] && [[ "$DEPLOYMENT_ID" != *"*"* ]]; then
           SAFE_DASHBOARD_URL="https://vercel.com/dashboard/deployments/$DEPLOYMENT_ID"
         fi
+        GITHUB_DEPLOYMENTS_URL="https://github.com/${GITHUB_REPOSITORY}/deployments/activity_log?environment=${ENVIRONMENT}"
+        RESOLVED_URL=""
+        if [[ -n "$SAFE_DASHBOARD_URL" ]] && [[ "$SAFE_DASHBOARD_URL" == https://* ]] && [[ "$SAFE_DASHBOARD_URL" != *"*"* ]]; then
+          RESOLVED_URL="$SAFE_DASHBOARD_URL"
+        elif [[ -n "$DASHBOARD_URL" ]] && [[ "$DASHBOARD_URL" == https://* ]] && [[ "$DASHBOARD_URL" != *"*"* ]]; then
+          RESOLVED_URL="$DASHBOARD_URL"
+        elif [[ -n "$DEPLOY_URL" ]] && [[ "$DEPLOY_URL" == https://* ]] && [[ "$DEPLOY_URL" != *"*"* ]]; then
+          RESOLVED_URL="$DEPLOY_URL"
+        else
+          RESOLVED_URL="$GITHUB_DEPLOYMENTS_URL"
+        fi
 
         echo "deployment-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
         echo "dashboard-url=$DASHBOARD_URL" >> $GITHUB_OUTPUT
         echo "safe-dashboard-url=$SAFE_DASHBOARD_URL" >> $GITHUB_OUTPUT
+        echo "resolved-url=$RESOLVED_URL" >> $GITHUB_OUTPUT
         echo "✅ Deployed to: $DEPLOY_URL"
 
         # Set deployment URL for PR preview
@@ -181,9 +193,7 @@ runs:
       with:
         token: ${{ inputs.github-token }}
         environment: ${{ inputs.environment }}
-        environment-url:
-          ${{ steps.deploy.outputs.safe-dashboard-url != '' && steps.deploy.outputs.safe-dashboard-url ||
-          steps.deploy.outputs.deployment-url }}
+        environment-url: ${{ steps.deploy.outputs.resolved-url }}
         auto-merge: false
 
     - name: Update Deployment Status
@@ -193,9 +203,7 @@ runs:
         token: ${{ inputs.github-token }}
         deployment-id: ${{ steps.github-deployment.outputs.deployment_id }}
         state: ${{ job.status == 'success' && 'success' || 'failure' }}
-        environment-url:
-          ${{ steps.deploy.outputs.safe-dashboard-url != '' && steps.deploy.outputs.safe-dashboard-url ||
-          steps.deploy.outputs.deployment-url }}
+        environment-url: ${{ steps.deploy.outputs.resolved-url }}
 
     - name: Comment on PR
       if: inputs.github-token != '' && inputs.environment == 'preview' && github.event_name == 'pull_request'
@@ -249,6 +257,7 @@ runs:
         DEPLOY_URL: ${{ steps.deploy.outputs.deployment-url }}
         DASHBOARD_URL: ${{ steps.deploy.outputs.dashboard-url }}
         SAFE_DASHBOARD_URL: ${{ steps.deploy.outputs.safe-dashboard-url }}
+        RESOLVED_URL: ${{ steps.deploy.outputs.resolved-url }}
         ENVIRONMENT: ${{ inputs.environment }}
         DEPLOY_STATUS: ${{ steps.deploy.outcome == 'success' && '✅ Success' || '❌ Failed' }}
       run: |
@@ -259,21 +268,9 @@ runs:
           echo "| --- | --- |"
           echo "| Environment | \`$ENVIRONMENT\` |"
           echo "| Status | $DEPLOY_STATUS |"
-          if [[ -n "$SAFE_DASHBOARD_URL" ]]; then
-            echo "| URL | \`$SAFE_DASHBOARD_URL\` |"
-          else
-            echo "| URL | \`$DEPLOY_URL\` |"
-          fi
+          echo "| URL | \`$RESOLVED_URL\` |"
           echo ""
-          if [[ -n "$SAFE_DASHBOARD_URL" ]] && [[ "$SAFE_DASHBOARD_URL" == https://* ]] && [[ "$SAFE_DASHBOARD_URL" != *"*"* ]]; then
-            echo "[Open Deployment]($SAFE_DASHBOARD_URL)"
-          elif [[ -n "$DASHBOARD_URL" ]] && [[ "$DASHBOARD_URL" == https://* ]] && [[ "$DASHBOARD_URL" != *"*"* ]]; then
-            echo "[Open Deployment]($DASHBOARD_URL)"
-          elif [[ -n "$DEPLOY_URL" ]] && [[ "$DEPLOY_URL" == https://* ]] && [[ "$DEPLOY_URL" != *"*"* ]]; then
-            echo "[Open Deployment]($DEPLOY_URL)"
-          else
-            echo "> Deployment URL is redacted or masked by GitHub secrets. Open it from Vercel dashboard."
-          fi
+          echo "[Open Deployment]($RESOLVED_URL)"
         } >> "$GITHUB_STEP_SUMMARY"
 
 outputs:
@@ -284,6 +281,10 @@ outputs:
   safe-dashboard-url:
     description: Mask-safe Vercel dashboard URL for this deployment
     value: ${{ steps.deploy.outputs.safe-dashboard-url }}
+
+  resolved-url:
+    description: Best available URL (Vercel if safe, else GitHub deployments page)
+    value: ${{ steps.deploy.outputs.resolved-url }}
 
   dashboard-url:
     description: The Vercel dashboard URL for this deployment
