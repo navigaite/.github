@@ -34,12 +34,77 @@ runs:
         CUSTOM_CMD: ${{ inputs.test-command }}
         ENABLE_COVERAGE: ${{ inputs.coverage }}
       run: |
+        set -o pipefail
         echo "::group::🧪 Running Tests"
+        TEST_LOG="${RUNNER_TEMP}/test-output.log"
+        : > "$TEST_LOG"
+
+        TESTS_PASSED="-"
+        TESTS_FAILED="-"
+        TESTS_TOTAL="-"
+        TEST_FILES_PASSED="-"
+        TEST_FILES_FAILED="-"
+        TEST_FILES_TOTAL="-"
+        TEST_DURATION="-"
+        TEST_COMMAND_USED="-"
+
+        # Parse common test runner outputs (vitest, jest, pytest)
+        parse_test_metrics() {
+          local log_file="$1"
+
+          local vitest_tests_line
+          vitest_tests_line=$(grep -E "^[[:space:]]*Tests[[:space:]]+" "$log_file" | tail -1 || true)
+          if [[ -n "$vitest_tests_line" && "$vitest_tests_line" =~ Tests[[:space:]]+([0-9]+)[[:space:]]+passed[[:space:]]+\(([0-9]+)\) ]]; then
+            TESTS_PASSED="${BASH_REMATCH[1]}"
+            TESTS_TOTAL="${BASH_REMATCH[2]}"
+            TESTS_FAILED="$((TESTS_TOTAL - TESTS_PASSED))"
+          fi
+
+          local vitest_files_line
+          vitest_files_line=$(grep -E "^[[:space:]]*Test Files[[:space:]]+" "$log_file" | tail -1 || true)
+          if [[ -n "$vitest_files_line" && "$vitest_files_line" =~ Test[[:space:]]Files[[:space:]]+([0-9]+)[[:space:]]+passed[[:space:]]+\(([0-9]+)\) ]]; then
+            TEST_FILES_PASSED="${BASH_REMATCH[1]}"
+            TEST_FILES_TOTAL="${BASH_REMATCH[2]}"
+            TEST_FILES_FAILED="$((TEST_FILES_TOTAL - TEST_FILES_PASSED))"
+          fi
+
+          local vitest_duration_line
+          vitest_duration_line=$(grep -E "^[[:space:]]*Duration[[:space:]]+" "$log_file" | tail -1 || true)
+          if [[ -n "$vitest_duration_line" && "$vitest_duration_line" =~ Duration[[:space:]]+(.+)$ ]]; then
+            TEST_DURATION="${BASH_REMATCH[1]}"
+          fi
+
+          local pytest_line
+          pytest_line=$(grep -E "([0-9]+[[:space:]]+passed|[0-9]+[[:space:]]+failed).+in[[:space:]]+[0-9]+(\.[0-9]+)?s" "$log_file" | tail -1 || true)
+          if [[ -n "$pytest_line" ]]; then
+            local p_passed p_failed
+            p_passed=$(echo "$pytest_line" | grep -Eo "[0-9]+[[:space:]]+passed" | head -1 | grep -Eo "[0-9]+" || echo "0")
+            p_failed=$(echo "$pytest_line" | grep -Eo "[0-9]+[[:space:]]+failed" | head -1 | grep -Eo "[0-9]+" || echo "0")
+            TESTS_PASSED="$p_passed"
+            TESTS_FAILED="$p_failed"
+            TESTS_TOTAL="$((p_passed + p_failed))"
+            TEST_DURATION=$(echo "$pytest_line" | grep -Eo "in[[:space:]]+[0-9]+(\.[0-9]+)?s" | sed -E 's/^in[[:space:]]+//' || echo "$TEST_DURATION")
+          fi
+
+          local jest_line
+          jest_line=$(grep -E "^Tests:[[:space:]]" "$log_file" | tail -1 || true)
+          if [[ -n "$jest_line" ]]; then
+            local j_passed j_failed j_total
+            j_passed=$(echo "$jest_line" | grep -Eo "[0-9]+[[:space:]]+passed" | head -1 | grep -Eo "[0-9]+" || echo "")
+            j_failed=$(echo "$jest_line" | grep -Eo "[0-9]+[[:space:]]+failed" | head -1 | grep -Eo "[0-9]+" || echo "")
+            j_total=$(echo "$jest_line" | grep -Eo "[0-9]+[[:space:]]+total" | head -1 | grep -Eo "[0-9]+" || echo "")
+            [[ -n "$j_passed" ]] && TESTS_PASSED="$j_passed"
+            [[ -n "$j_failed" ]] && TESTS_FAILED="$j_failed"
+            [[ -n "$j_total" ]] && TESTS_TOTAL="$j_total"
+          fi
+        }
 
         # Use custom command if provided
         if [[ -n "$CUSTOM_CMD" ]]; then
           echo "Using custom test command: $CUSTOM_CMD"
-          eval "$CUSTOM_CMD"
+          TEST_COMMAND_USED="$CUSTOM_CMD"
+          eval "$CUSTOM_CMD" 2>&1 | tee "$TEST_LOG"
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
         else
           # Auto-detect and run appropriate tests
           case "$STACK" in
@@ -50,12 +115,18 @@ runs:
 
                 if [[ -n "$HAS_TEST_CI" ]]; then
                   echo "Running npm run test:ci..."
-                  npm run test:ci
+                  TEST_COMMAND_USED="npm run test:ci"
+                  npm run test:ci 2>&1 | tee "$TEST_LOG"
+                  TEST_EXIT_CODE=${PIPESTATUS[0]}
                 elif [[ -n "$HAS_TEST" ]]; then
                   echo "Running npm test..."
-                  npm test
+                  TEST_COMMAND_USED="npm test"
+                  npm test 2>&1 | tee "$TEST_LOG"
+                  TEST_EXIT_CODE=${PIPESTATUS[0]}
                 else
                   echo "::warning::No test script found in package.json, skipping tests"
+                  TEST_COMMAND_USED="none"
+                  TEST_EXIT_CODE=0
                 fi
               fi
               ;;
@@ -65,24 +136,36 @@ runs:
               if command -v pytest &> /dev/null; then
                 echo "Running pytest..."
                 if [[ "$ENABLE_COVERAGE" == "true" ]]; then
-                  pytest --cov --cov-report=xml --cov-report=term
+                  TEST_COMMAND_USED="pytest --cov --cov-report=xml --cov-report=term"
+                  pytest --cov --cov-report=xml --cov-report=term 2>&1 | tee "$TEST_LOG"
+                  TEST_EXIT_CODE=${PIPESTATUS[0]}
                 else
-                  pytest
+                  TEST_COMMAND_USED="pytest"
+                  pytest 2>&1 | tee "$TEST_LOG"
+                  TEST_EXIT_CODE=${PIPESTATUS[0]}
                 fi
               elif python -m unittest discover &> /dev/null; then
                 echo "Running unittest..."
-                python -m unittest discover
+                TEST_COMMAND_USED="python -m unittest discover"
+                python -m unittest discover 2>&1 | tee "$TEST_LOG"
+                TEST_EXIT_CODE=${PIPESTATUS[0]}
               else
                 echo "::warning::No Python test framework found, skipping tests"
+                TEST_COMMAND_USED="none"
+                TEST_EXIT_CODE=0
               fi
               ;;
 
             flutter)
               echo "Running flutter test..."
               if [[ "$ENABLE_COVERAGE" == "true" ]]; then
-                flutter test --coverage
+                TEST_COMMAND_USED="flutter test --coverage"
+                flutter test --coverage 2>&1 | tee "$TEST_LOG"
+                TEST_EXIT_CODE=${PIPESTATUS[0]}
               else
-                flutter test
+                TEST_COMMAND_USED="flutter test"
+                flutter test 2>&1 | tee "$TEST_LOG"
+                TEST_EXIT_CODE=${PIPESTATUS[0]}
               fi
               ;;
 
@@ -93,7 +176,23 @@ runs:
           esac
         fi
 
+        if [[ -f "$TEST_LOG" ]]; then
+          parse_test_metrics "$TEST_LOG"
+        fi
+
+        {
+          echo "TEST_COMMAND_USED=$TEST_COMMAND_USED"
+          echo "TESTS_PASSED=$TESTS_PASSED"
+          echo "TESTS_FAILED=$TESTS_FAILED"
+          echo "TESTS_TOTAL=$TESTS_TOTAL"
+          echo "TEST_FILES_PASSED=$TEST_FILES_PASSED"
+          echo "TEST_FILES_FAILED=$TEST_FILES_FAILED"
+          echo "TEST_FILES_TOTAL=$TEST_FILES_TOTAL"
+          echo "TEST_DURATION=$TEST_DURATION"
+        } >> "$GITHUB_ENV"
+
         echo "::endgroup::"
+        exit "${TEST_EXIT_CODE:-0}"
 
     - name: Upload Coverage
       id: detect-coverage
@@ -128,7 +227,16 @@ runs:
         TEST_OUTCOME: ${{ steps.test.outcome }}
         STACK: ${{ inputs.stack }}
         COVERAGE: ${{ inputs.coverage }}
+        COVERAGE_FOUND: ${{ steps.detect-coverage.outputs.found }}
         WORKING_DIR: ${{ inputs.working-directory }}
+        TEST_COMMAND_USED: ${{ env.TEST_COMMAND_USED }}
+        TESTS_PASSED: ${{ env.TESTS_PASSED }}
+        TESTS_FAILED: ${{ env.TESTS_FAILED }}
+        TESTS_TOTAL: ${{ env.TESTS_TOTAL }}
+        TEST_FILES_PASSED: ${{ env.TEST_FILES_PASSED }}
+        TEST_FILES_FAILED: ${{ env.TEST_FILES_FAILED }}
+        TEST_FILES_TOTAL: ${{ env.TEST_FILES_TOTAL }}
+        TEST_DURATION: ${{ env.TEST_DURATION }}
       run: |
         echo "### 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -141,6 +249,14 @@ runs:
           echo "⏭️ **Status:** Skipped" >> $GITHUB_STEP_SUMMARY
         fi
 
-        echo "- **Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
-        echo "- **Coverage:** $COVERAGE" >> $GITHUB_STEP_SUMMARY
-        echo "- **Working Directory:** $WORKING_DIR" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+        echo "| Stack | \`$STACK\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Command | \`$TEST_COMMAND_USED\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Files | ✅ $TEST_FILES_PASSED / ❌ $TEST_FILES_FAILED / Total $TEST_FILES_TOTAL |" >> $GITHUB_STEP_SUMMARY
+        echo "| Tests | ✅ $TESTS_PASSED / ❌ $TESTS_FAILED / Total $TESTS_TOTAL |" >> $GITHUB_STEP_SUMMARY
+        echo "| Duration | $TEST_DURATION |" >> $GITHUB_STEP_SUMMARY
+        echo "| Coverage Enabled | $COVERAGE |" >> $GITHUB_STEP_SUMMARY
+        echo "| Coverage Report Found | $COVERAGE_FOUND |" >> $GITHUB_STEP_SUMMARY
+        echo "| Working Directory | \`$WORKING_DIR\` |" >> $GITHUB_STEP_SUMMARY
