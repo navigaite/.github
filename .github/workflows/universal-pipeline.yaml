@@ -379,40 +379,90 @@ jobs:
         if: always() && steps.detect-react.outputs.enabled == 'true'
         shell: bash
         env:
-          EVENT_NAME: ${{ github.event_name }}
           PR_OUTCOME: ${{ steps.react-doctor-pr.outcome }}
+          PR_SCORE: ${{ steps.react-doctor-pr.outputs.score }}
           BRANCH_OUTCOME: ${{ steps.react-doctor.outcome }}
+          BRANCH_SCORE: ${{ steps.react-doctor.outputs.score }}
         run: |
-          OUTCOME="$PR_OUTCOME"
-          if [[ -z "$OUTCOME" ]]; then
+          MODE="not run"
+          OUTCOME="skipped"
+          SCORE="-"
+
+          if [[ -n "$PR_OUTCOME" && "$PR_OUTCOME" != "skipped" ]]; then
+            MODE="PR diff scan"
+            OUTCOME="$PR_OUTCOME"
+            [[ -n "$PR_SCORE" ]] && SCORE="$PR_SCORE"
+          elif [[ -n "$BRANCH_OUTCOME" && "$BRANCH_OUTCOME" != "skipped" ]]; then
+            MODE="full scan"
             OUTCOME="$BRANCH_OUTCOME"
+            [[ -n "$BRANCH_SCORE" ]] && SCORE="$BRANCH_SCORE"
           fi
 
           STATUS="⏭️ Skipped"
           if [[ "$OUTCOME" == "success" ]]; then
             STATUS="✅ Passed"
           elif [[ "$OUTCOME" == "failure" ]]; then
-            STATUS="⚠️ Issues Detected (non-blocking)"
+            STATUS="⚠️ Completed with findings (non-blocking)"
+          elif [[ "$OUTCOME" == "cancelled" ]]; then
+            STATUS="⚪ Cancelled"
           fi
 
           echo "### 🩺 React Doctor" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Status:** $STATUS" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            echo "- **Mode:** PR diff scan" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- **Mode:** full scan" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | $STATUS |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Mode | $MODE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Health Score | $SCORE |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 🧹 Run Trunk Lint
+        id: trunk-lint
         if: steps.detect-trunk.outputs.enabled == 'true'
         uses: trunk-io/trunk-action@75699af9e26881e564e9d832ef7dc3af25ec031b # v1.2.4
 
       - name: 🧹 Run Lint
+        id: fallback-lint
         if: steps.detect-trunk.outputs.enabled != 'true'
         uses: navigaite/.github/.github/actions/run-lint@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
+
+      - name: 📋 Lint Summary
+        if: always()
+        shell: bash
+        env:
+          TRUNK_ENABLED: ${{ steps.detect-trunk.outputs.enabled }}
+          TRUNK_OUTCOME: ${{ steps.trunk-lint.outcome }}
+          FALLBACK_OUTCOME: ${{ steps.fallback-lint.outcome }}
+          REACT_ENABLED: ${{ steps.detect-react.outputs.enabled }}
+          RD_PR_OUTCOME: ${{ steps.react-doctor-pr.outcome }}
+          RD_OUTCOME: ${{ steps.react-doctor.outcome }}
+        run: |
+          LINT_ENGINE="Custom lint action"
+          LINT_STATUS="$FALLBACK_OUTCOME"
+          if [[ "$TRUNK_ENABLED" == "true" ]]; then
+            LINT_ENGINE="Trunk"
+            LINT_STATUS="$TRUNK_OUTCOME"
+          fi
+
+          RD_STATUS="not run"
+          if [[ "$REACT_ENABLED" == "true" ]]; then
+            if [[ -n "$RD_PR_OUTCOME" && "$RD_PR_OUTCOME" != "skipped" ]]; then
+              RD_STATUS="$RD_PR_OUTCOME"
+            elif [[ -n "$RD_OUTCOME" && "$RD_OUTCOME" != "skipped" ]]; then
+              RD_STATUS="$RD_OUTCOME"
+            else
+              RD_STATUS="skipped"
+            fi
+          fi
+
+          echo "### 🧹 Lint Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Check | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Lint Engine | $LINT_ENGINE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Lint Status | $LINT_STATUS |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| React Doctor | $RD_STATUS |" >> "$GITHUB_STEP_SUMMARY"
 
   # =============================================================================
   # TEST
