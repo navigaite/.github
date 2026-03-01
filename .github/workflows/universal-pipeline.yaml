@@ -305,6 +305,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      pull-requests: write
     needs: setup
     if: needs.setup.outputs.enable-lint == 'true'
     steps:
@@ -325,6 +326,40 @@ jobs:
           package-manager: ${{ needs.setup.outputs.package-manager }}
           write-summary: 'false'
 
+      - name: 🔍 Detect React Project
+        id: detect-react
+        if: needs.setup.outputs.stack == 'nodejs'
+        shell: bash
+        run: |
+          if [[ ! -f package.json ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          HAS_REACT=$(jq -r '((.dependencies // {}) + (.devDependencies // {}) + (.peerDependencies // {})) | has("react")' package.json)
+          if [[ "$HAS_REACT" == "true" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "✓ React project detected"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ Not a React project, skipping React Doctor"
+          fi
+
+      - name: 🩺 Run React Doctor (PR)
+        id: react-doctor-pr
+        if: steps.detect-react.outputs.enabled == 'true' && github.event_name == 'pull_request'
+        uses: millionco/react-doctor@97b21f18ee4c5b530d683ae6626548081a4aad76 # main
+        continue-on-error: true
+        with:
+          diff: ${{ github.base_ref || 'main' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🩺 Run React Doctor
+        id: react-doctor
+        if: steps.detect-react.outputs.enabled == 'true' && github.event_name != 'pull_request'
+        uses: millionco/react-doctor@97b21f18ee4c5b530d683ae6626548081a4aad76 # main
+        continue-on-error: true
+
       - name: 🔍 Detect Trunk Configuration
         id: detect-trunk
         shell: bash
@@ -333,6 +368,35 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🩺 React Doctor Summary
+        if: always() && steps.detect-react.outputs.enabled == 'true'
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_OUTCOME: ${{ steps.react-doctor-pr.outcome }}
+          BRANCH_OUTCOME: ${{ steps.react-doctor.outcome }}
+        run: |
+          OUTCOME="$PR_OUTCOME"
+          if [[ -z "$OUTCOME" ]]; then
+            OUTCOME="$BRANCH_OUTCOME"
+          fi
+
+          STATUS="⏭️ Skipped"
+          if [[ "$OUTCOME" == "success" ]]; then
+            STATUS="✅ Passed"
+          elif [[ "$OUTCOME" == "failure" ]]; then
+            STATUS="⚠️ Issues Detected (non-blocking)"
+          fi
+
+          echo "### 🩺 React Doctor" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Status:** $STATUS" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            echo "- **Mode:** PR diff scan" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- **Mode:** full scan" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: 🧹 Run Trunk Lint
