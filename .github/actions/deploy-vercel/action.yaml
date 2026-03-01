@@ -144,6 +144,7 @@ runs:
         DEPLOY_OUTPUT=$(vercel deploy --prebuilt --target="$VERCEL_TARGET" --token="$VERCEL_TOKEN" $SCOPE_ARG 2>&1)
         DEPLOY_URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | grep -E 'https://[^ ]+\.vercel\.app/?$' | tail -1)
         DASHBOARD_URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://vercel.com/[^ ]+' | tail -1)
+        SAFE_DASHBOARD_URL=""
         if [[ -z "$DEPLOY_URL" ]]; then
           DEPLOY_URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | tail -1)
         fi
@@ -155,9 +156,14 @@ runs:
           INSPECT_OUTPUT=$(vercel inspect "$DEPLOY_URL" --token="$VERCEL_TOKEN" $SCOPE_ARG 2>&1 || true)
           DASHBOARD_URL=$(printf '%s\n' "$INSPECT_OUTPUT" | grep -Eo 'https://vercel.com/[^ ]+' | tail -1)
         fi
+        DEPLOYMENT_ID=$(printf '%s\n' "$DASHBOARD_URL" | sed -E 's#/$##' | awk -F'/' '{print $NF}')
+        if [[ -n "$DEPLOYMENT_ID" ]] && [[ "$DEPLOYMENT_ID" != *"*"* ]]; then
+          SAFE_DASHBOARD_URL="https://vercel.com/dashboard/deployments/$DEPLOYMENT_ID"
+        fi
 
         echo "deployment-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
         echo "dashboard-url=$DASHBOARD_URL" >> $GITHUB_OUTPUT
+        echo "safe-dashboard-url=$SAFE_DASHBOARD_URL" >> $GITHUB_OUTPUT
         echo "✅ Deployed to: $DEPLOY_URL"
 
         # Set deployment URL for PR preview
@@ -175,7 +181,9 @@ runs:
       with:
         token: ${{ inputs.github-token }}
         environment: ${{ inputs.environment }}
-        environment-url: ${{ steps.deploy.outputs.deployment-url }}
+        environment-url:
+          ${{ steps.deploy.outputs.safe-dashboard-url != '' && steps.deploy.outputs.safe-dashboard-url ||
+          steps.deploy.outputs.deployment-url }}
         auto-merge: false
 
     - name: Update Deployment Status
@@ -185,7 +193,9 @@ runs:
         token: ${{ inputs.github-token }}
         deployment-id: ${{ steps.github-deployment.outputs.deployment_id }}
         state: ${{ job.status == 'success' && 'success' || 'failure' }}
-        environment-url: ${{ steps.deploy.outputs.deployment-url }}
+        environment-url:
+          ${{ steps.deploy.outputs.safe-dashboard-url != '' && steps.deploy.outputs.safe-dashboard-url ||
+          steps.deploy.outputs.deployment-url }}
 
     - name: Comment on PR
       if: inputs.github-token != '' && inputs.environment == 'preview' && github.event_name == 'pull_request'
@@ -238,6 +248,7 @@ runs:
       env:
         DEPLOY_URL: ${{ steps.deploy.outputs.deployment-url }}
         DASHBOARD_URL: ${{ steps.deploy.outputs.dashboard-url }}
+        SAFE_DASHBOARD_URL: ${{ steps.deploy.outputs.safe-dashboard-url }}
         ENVIRONMENT: ${{ inputs.environment }}
         DEPLOY_STATUS: ${{ steps.deploy.outcome == 'success' && '✅ Success' || '❌ Failed' }}
       run: |
@@ -248,9 +259,15 @@ runs:
           echo "| --- | --- |"
           echo "| Environment | \`$ENVIRONMENT\` |"
           echo "| Status | $DEPLOY_STATUS |"
-          echo "| URL | \`$DEPLOY_URL\` |"
+          if [[ -n "$SAFE_DASHBOARD_URL" ]]; then
+            echo "| URL | \`$SAFE_DASHBOARD_URL\` |"
+          else
+            echo "| URL | \`$DEPLOY_URL\` |"
+          fi
           echo ""
-          if [[ -n "$DASHBOARD_URL" ]] && [[ "$DASHBOARD_URL" == https://* ]] && [[ "$DASHBOARD_URL" != *"*"* ]]; then
+          if [[ -n "$SAFE_DASHBOARD_URL" ]] && [[ "$SAFE_DASHBOARD_URL" == https://* ]] && [[ "$SAFE_DASHBOARD_URL" != *"*"* ]]; then
+            echo "[Open Deployment]($SAFE_DASHBOARD_URL)"
+          elif [[ -n "$DASHBOARD_URL" ]] && [[ "$DASHBOARD_URL" == https://* ]] && [[ "$DASHBOARD_URL" != *"*"* ]]; then
             echo "[Open Deployment]($DASHBOARD_URL)"
           elif [[ -n "$DEPLOY_URL" ]] && [[ "$DEPLOY_URL" == https://* ]] && [[ "$DEPLOY_URL" != *"*"* ]]; then
             echo "[Open Deployment]($DEPLOY_URL)"
@@ -263,6 +280,10 @@ outputs:
   deployment-url:
     description: The URL of the Vercel deployment
     value: ${{ steps.deploy.outputs.deployment-url }}
+
+  safe-dashboard-url:
+    description: Mask-safe Vercel dashboard URL for this deployment
+    value: ${{ steps.deploy.outputs.safe-dashboard-url }}
 
   dashboard-url:
     description: The Vercel dashboard URL for this deployment

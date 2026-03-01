@@ -51,9 +51,13 @@ runs:
         # Parse common test runner outputs (vitest, jest, pytest)
         parse_test_metrics() {
           local log_file="$1"
+          local clean_log_file="${RUNNER_TEMP}/test-output-clean.log"
+
+          # Strip ANSI color/control escape sequences and carriage returns.
+          sed -E 's/\x1B\[[0-9;]*[[:alpha:]]//g' "$log_file" | tr -d '\r' > "$clean_log_file"
 
           local vitest_tests_line
-          vitest_tests_line=$(grep -E "^[[:space:]]*Tests[[:space:]]+" "$log_file" | tail -1 || true)
+          vitest_tests_line=$(grep -E "^[[:space:]]*Tests[[:space:]]+" "$clean_log_file" | tail -1 || true)
           if [[ -n "$vitest_tests_line" && "$vitest_tests_line" =~ Tests[[:space:]]+([0-9]+)[[:space:]]+passed[[:space:]]+\(([0-9]+)\) ]]; then
             TESTS_PASSED="${BASH_REMATCH[1]}"
             TESTS_TOTAL="${BASH_REMATCH[2]}"
@@ -61,7 +65,7 @@ runs:
           fi
 
           local vitest_files_line
-          vitest_files_line=$(grep -E "^[[:space:]]*Test Files[[:space:]]+" "$log_file" | tail -1 || true)
+          vitest_files_line=$(grep -E "^[[:space:]]*Test Files[[:space:]]+" "$clean_log_file" | tail -1 || true)
           if [[ -n "$vitest_files_line" && "$vitest_files_line" =~ Test[[:space:]]Files[[:space:]]+([0-9]+)[[:space:]]+passed[[:space:]]+\(([0-9]+)\) ]]; then
             TEST_FILES_PASSED="${BASH_REMATCH[1]}"
             TEST_FILES_TOTAL="${BASH_REMATCH[2]}"
@@ -69,13 +73,13 @@ runs:
           fi
 
           local vitest_duration_line
-          vitest_duration_line=$(grep -E "^[[:space:]]*Duration[[:space:]]+" "$log_file" | tail -1 || true)
+          vitest_duration_line=$(grep -E "^[[:space:]]*Duration[[:space:]]+" "$clean_log_file" | tail -1 || true)
           if [[ -n "$vitest_duration_line" && "$vitest_duration_line" =~ Duration[[:space:]]+(.+)$ ]]; then
             TEST_DURATION="${BASH_REMATCH[1]}"
           fi
 
           local pytest_line
-          pytest_line=$(grep -E "([0-9]+[[:space:]]+passed|[0-9]+[[:space:]]+failed).+in[[:space:]]+[0-9]+(\.[0-9]+)?s" "$log_file" | tail -1 || true)
+          pytest_line=$(grep -E "([0-9]+[[:space:]]+passed|[0-9]+[[:space:]]+failed).+in[[:space:]]+[0-9]+(\.[0-9]+)?s" "$clean_log_file" | tail -1 || true)
           if [[ -n "$pytest_line" ]]; then
             local p_passed p_failed
             p_passed=$(echo "$pytest_line" | grep -Eo "[0-9]+[[:space:]]+passed" | head -1 | grep -Eo "[0-9]+" || echo "0")
@@ -87,7 +91,7 @@ runs:
           fi
 
           local jest_line
-          jest_line=$(grep -E "^Tests:[[:space:]]" "$log_file" | tail -1 || true)
+          jest_line=$(grep -E "^Tests:[[:space:]]" "$clean_log_file" | tail -1 || true)
           if [[ -n "$jest_line" ]]; then
             local j_passed j_failed j_total
             j_passed=$(echo "$jest_line" | grep -Eo "[0-9]+[[:space:]]+passed" | head -1 | grep -Eo "[0-9]+" || echo "")
