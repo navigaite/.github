@@ -21,6 +21,11 @@ inputs:
     required: false
     default: ''
 
+  write-summary:
+    description: Write dependency details to GitHub job summary
+    required: false
+    default: 'true'
+
 runs:
   using: composite
   steps:
@@ -150,6 +155,7 @@ runs:
         echo "::endgroup::"
 
     - name: Dependency Summary
+      if: inputs.write-summary == 'true'
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:

@@ -29,6 +29,11 @@ inputs:
     required: false
     default: 'true'
 
+  write-summary:
+    description: Write setup details to GitHub job summary
+    required: false
+    default: 'true'
+
 outputs:
   detected-stack:
     description: The detected or configured tech stack
@@ -256,6 +261,7 @@ runs:
         cache: ${{ inputs.enable-caching == 'true' }}
 
     - name: Environment Summary
+      if: inputs.write-summary == 'true'
       shell: bash
       env:
         STACK: ${{ steps.detect.outputs.stack }}

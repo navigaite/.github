@@ -142,7 +142,14 @@ runs:
 
         # Deploy prebuilt project
         DEPLOY_OUTPUT=$(vercel deploy --prebuilt --target="$VERCEL_TARGET" --token="$VERCEL_TOKEN" $SCOPE_ARG 2>&1)
-        DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | head -1)
+        DEPLOY_URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | grep -E 'https://[^ ]+\.vercel\.app/?$' | tail -1)
+        if [[ -z "$DEPLOY_URL" ]]; then
+          DEPLOY_URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | tail -1)
+        fi
+        if [[ -z "$DEPLOY_URL" ]]; then
+          echo "::error::Could not parse deployment URL from Vercel output"
+          exit 1
+        fi
 
         echo "deployment-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
         echo "✅ Deployed to: $DEPLOY_URL"
@@ -222,15 +229,26 @@ runs:
     - name: Deployment Summary
       if: always()
       shell: bash
+      env:
+        DEPLOY_URL: ${{ steps.deploy.outputs.deployment-url }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        DEPLOY_STATUS: ${{ steps.deploy.outcome == 'success' && '✅ Success' || '❌ Failed' }}
       run: |
-        echo "### 🚀 Vercel Deployment" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **URL:** ${{ steps.deploy.outputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
-        STATUS="${{ steps.deploy.outcome == 'success' && '✅ Success' || '❌ Failed' }}"
-        echo "- **Status:** $STATUS" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "[View Deployment](${{ steps.deploy.outputs.deployment-url }})" >> $GITHUB_STEP_SUMMARY
+        {
+          echo "### 🚀 Vercel Deployment"
+          echo ""
+          echo "| Item | Value |"
+          echo "| --- | --- |"
+          echo "| Environment | \`$ENVIRONMENT\` |"
+          echo "| Status | $DEPLOY_STATUS |"
+          echo "| URL | \`$DEPLOY_URL\` |"
+          echo ""
+          if [[ -n "$DEPLOY_URL" ]] && [[ "$DEPLOY_URL" == https://* ]] && [[ "$DEPLOY_URL" != *"*"* ]]; then
+            echo "[Open Deployment]($DEPLOY_URL)"
+          else
+            echo "> Deployment URL is redacted or masked by GitHub secrets. Open it from Vercel dashboard."
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
 
 outputs:
   deployment-url:

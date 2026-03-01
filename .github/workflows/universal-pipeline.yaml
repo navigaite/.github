@@ -147,6 +147,7 @@ jobs:
         uses: navigaite/.github/.github/actions/setup-environment@main
         with:
           stack: ${{ inputs.stack || 'auto' }}
+          write-summary: 'false'
 
       - name: 📋 Parse Configuration
         id: parse-config
@@ -252,14 +253,15 @@ jobs:
           ENABLE_DEPLOY: ${{ steps.parse-config.outputs.enable-deploy }}
           ENABLE_RELEASE: ${{ steps.parse-config.outputs.enable-release }}
         run: |
-          echo "## 🚀 Pipeline Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Pipeline Overview" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Environment" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tech Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
-          echo "- **Runtime Version:** $RUNTIME_VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "- **Package Manager:** $PKG_MANAGER" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Stack | \`$STACK\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Runtime | \`$RUNTIME_VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Package Manager | \`$PKG_MANAGER\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Pipeline Stages" >> $GITHUB_STEP_SUMMARY
+          echo "### Stages" >> $GITHUB_STEP_SUMMARY
           SECURITY=$([[ "$ENABLE_SECURITY" == "true" ]] && echo "✅" || echo "⏭️")
           LINT=$([[ "$ENABLE_LINT" == "true" ]] && echo "✅" || echo "⏭️")
           TEST=$([[ "$ENABLE_TEST" == "true" ]] && echo "✅" || echo "⏭️")
@@ -314,12 +316,14 @@ jobs:
         with:
           stack: ${{ needs.setup.outputs.stack }}
           node-version: ${{ needs.setup.outputs.runtime-version }}
+          write-summary: 'false'
 
       - name: 📦 Install Dependencies
         uses: navigaite/.github/.github/actions/install-dependencies@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
+          write-summary: 'false'
 
       - name: 🔍 Detect Trunk Configuration
         id: detect-trunk
@@ -363,12 +367,14 @@ jobs:
         with:
           stack: ${{ needs.setup.outputs.stack }}
           node-version: ${{ needs.setup.outputs.runtime-version }}
+          write-summary: 'false'
 
       - name: 📦 Install Dependencies
         uses: navigaite/.github/.github/actions/install-dependencies@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
+          write-summary: 'false'
 
       - name: 🧪 Run Tests
         uses: navigaite/.github/.github/actions/run-tests@main
@@ -402,12 +408,14 @@ jobs:
         with:
           stack: ${{ needs.setup.outputs.stack }}
           node-version: ${{ needs.setup.outputs.runtime-version }}
+          write-summary: 'false'
 
       - name: 📦 Install Dependencies
         uses: navigaite/.github/.github/actions/install-dependencies@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
+          write-summary: 'false'
 
       - name: 🔍 Check Infisical Configuration
         id: infisical-config
