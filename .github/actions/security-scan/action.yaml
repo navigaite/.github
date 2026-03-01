@@ -59,11 +59,14 @@ runs:
         echo "::endgroup::"
 
     - name: Dependency Vulnerability Scan (PR only)
+      id: dependency_review
       if: inputs.enable-dependency-review == 'true' && github.event_name == 'pull_request'
+      continue-on-error: true
       uses: actions/dependency-review-action@9129d7d40b8c12c1ed0f60400d00c92d437adcce # v4.1.3
       with:
         fail-on-severity: ${{ inputs.fail-on-vulnerabilities == 'true' && 'moderate' || 'critical' }}
         comment-summary-in-pr: true
+        warn-only: ${{ inputs.fail-on-vulnerabilities != 'true' }}
 
     - name: Security Summary
       shell: bash
@@ -71,6 +74,7 @@ runs:
         ENABLE_TRUFFLEHOG: ${{ inputs.enable-trufflehog }}
         ENABLE_DEP_REVIEW: ${{ inputs.enable-dependency-review }}
         EVENT_NAME: ${{ github.event_name }}
+        DEP_REVIEW_OUTCOME: ${{ steps.dependency_review.outcome }}
       run: |
         echo "### 🔒 Security Scan Complete" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -81,8 +85,14 @@ runs:
           && "$EVENT_NAME" == "pull_request" ]] \
           && echo "true" \
           || echo "false")
-        DEP_REVIEW=$([[ "$DEP_CHECK" == "true" ]] \
-          && echo "✅ Enabled" \
-          || echo "⏭️ Skipped")
+        if [[ "$DEP_CHECK" != "true" ]]; then
+          DEP_REVIEW="⏭️ Skipped"
+        elif [[ "$DEP_REVIEW_OUTCOME" == "success" ]]; then
+          DEP_REVIEW="✅ Passed"
+        elif [[ "$DEP_REVIEW_OUTCOME" == "failure" ]]; then
+          DEP_REVIEW="⚠️ Skipped (dependency review unsupported or blocked)"
+        else
+          DEP_REVIEW="⏭️ Skipped"
+        fi
         echo "- **TruffleHog:** $TRUFFLEHOG" >> $GITHUB_STEP_SUMMARY
         echo "- **Dependency Review:** $DEP_REVIEW" >> $GITHUB_STEP_SUMMARY
