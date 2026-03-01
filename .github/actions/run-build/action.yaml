@@ -145,7 +145,7 @@ runs:
         echo "Detected build output: $OUTPUT_PATH"
 
     - name: Upload Build Artifacts
-      if: inputs.upload-artifacts == 'true'
+      if: inputs.upload-artifacts == 'true' && (inputs.artifact-path != '' || steps.detect-output.outputs.output-path != '')
       id: upload
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
@@ -160,7 +160,7 @@ runs:
         if-no-files-found: warn
 
     - name: Attest Build Provenance
-      if: inputs.upload-artifacts == 'true' && inputs.attest-artifacts == 'true'
+      if: inputs.upload-artifacts == 'true' && inputs.attest-artifacts == 'true' && steps.upload.outputs.artifact-digest != ''
       uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
       continue-on-error: true # Don't break pipelines without OIDC token
       with:

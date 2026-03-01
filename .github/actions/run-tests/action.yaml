@@ -96,7 +96,25 @@ runs:
         echo "::endgroup::"
 
     - name: Upload Coverage
+      id: detect-coverage
       if: inputs.coverage == 'true' && steps.test.outcome == 'success'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        COVERAGE_FOUND="false"
+        for pattern in "coverage/lcov.info" "coverage/cobertura-coverage.xml" "coverage/coverage-final.json" "coverage.xml"; do
+          if [[ -f "$pattern" ]]; then
+            COVERAGE_FOUND="true"
+            break
+          fi
+        done
+        echo "found=$COVERAGE_FOUND" >> "$GITHUB_OUTPUT"
+        if [[ "$COVERAGE_FOUND" != "true" ]]; then
+          echo "::notice::Coverage enabled but no report files found, skipping Codecov upload"
+        fi
+
+    - name: Upload Coverage
+      if: inputs.coverage == 'true' && steps.test.outcome == 'success' && steps.detect-coverage.outputs.found == 'true'
       uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
       continue-on-error: true
       with:

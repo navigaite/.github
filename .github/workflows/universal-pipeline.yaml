@@ -449,13 +449,13 @@ jobs:
         uses: navigaite/.github/.github/actions/run-build@main
         with:
           stack: ${{ needs.setup.outputs.stack }}
-          upload-artifacts: ${{ needs.setup.outputs.enable-deploy == 'true' }}
-          attest-artifacts: true
+          upload-artifacts: false
+          attest-artifacts: false
 
   # =============================================================================
-  # DEPLOYMENT
+  # DEPLOYMENT (Provider-specific jobs to avoid loading unused actions)
   # =============================================================================
-  deploy:
+  deploy-vercel:
     name: 🚀 Deploy to ${{ matrix.environment }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -463,12 +463,12 @@ jobs:
       contents: read
       deployments: write
       pull-requests: write
-      packages: write
       id-token: write # OIDC for cloud providers
     needs: [setup, build]
     if: |
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
+      needs.setup.outputs.deploy-provider == 'vercel' &&
       needs.build.result == 'success'
     strategy:
       fail-fast: false
@@ -508,7 +508,6 @@ jobs:
           secret-path: ${{ secrets.INFISICAL_SECRET_PATH || '/' }}
 
       - name: 🚀 Deploy to Vercel
-        if: needs.setup.outputs.deploy-provider == 'vercel'
         uses: navigaite/.github/.github/actions/deploy-vercel@main
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -517,8 +516,32 @@ jobs:
           environment: ${{ matrix.environment }}
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
+  deploy-digitalocean:
+    name: 🚀 Deploy to ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+      id-token: write # OIDC for cloud providers
+    needs: [setup, build]
+    if: |
+      always() &&
+      needs.setup.outputs.enable-deploy == 'true' &&
+      needs.setup.outputs.deploy-provider == 'digitalocean' &&
+      needs.build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJSON(needs.setup.outputs.deploy-environments).*.name }}
+    environment:
+      name: ${{ matrix.environment }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
       - name: 🚀 Deploy to DigitalOcean
-        if: needs.setup.outputs.deploy-provider == 'digitalocean'
         uses: navigaite/.github/.github/actions/deploy-digitalocean@main
         with:
           digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
@@ -526,8 +549,32 @@ jobs:
           environment: ${{ matrix.environment }}
           is-pr-preview: ${{ matrix.environment == 'preview' && github.event_name == 'pull_request' }}
 
+  deploy-docker:
+    name: 🚀 Deploy to ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      deployments: write
+      packages: write
+      id-token: write # OIDC for cloud providers
+    needs: [setup, build]
+    if: |
+      always() &&
+      needs.setup.outputs.enable-deploy == 'true' &&
+      needs.setup.outputs.deploy-provider == 'docker' &&
+      needs.build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJSON(needs.setup.outputs.deploy-environments).*.name }}
+    environment:
+      name: ${{ matrix.environment }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
       - name: 🚀 Deploy Docker Image
-        if: needs.setup.outputs.deploy-provider == 'docker'
         uses: navigaite/.github/.github/actions/deploy-docker@main
         with:
           image-name: ${{ github.event.repository.name }}
