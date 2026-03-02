@@ -22,7 +22,7 @@ on:
         default: false
         type: boolean
     secrets:
-      github_token:
+      release_pr_token:
         description: Optional PAT to create PRs and trigger downstream workflows
         required: false
   workflow_dispatch:
@@ -64,7 +64,7 @@ jobs:
         id: create_pr
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
-          github-token: ${{ secrets.github_token || github.token }}
+          github-token: ${{ secrets.release_pr_token || github.token }}
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
