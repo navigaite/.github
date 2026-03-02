@@ -40,7 +40,7 @@ build:
   upload_artifacts: false
 
 review:
-  claude:
+  copilot:
     enable: false # Runs only for PRs targeting main, after successful build
 
 deployment:

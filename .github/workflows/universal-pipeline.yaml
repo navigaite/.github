@@ -77,9 +77,6 @@ on:
       # GitHub token (for deployments and release-please)
       GH_TOKEN:
         required: false
-      # Claude Code review
-      ANTHROPIC_API_KEY:
-        required: false
 
       # Infisical Universal Auth for loading secrets at build-time
       INFISICAL_CLIENT_ID:
@@ -132,7 +129,7 @@ jobs:
       enable-build: ${{ steps.parse-config.outputs.enable-build }}
       enable-deploy: ${{ steps.parse-config.outputs.enable-deploy }}
       enable-release: ${{ steps.parse-config.outputs.enable-release }}
-      enable-claude-review: ${{ steps.parse-config.outputs.enable-claude-review }}
+      enable-copilot-review: ${{ steps.parse-config.outputs.enable-copilot-review }}
 
       # Deployment configuration
       deploy-provider: ${{ steps.parse-config.outputs.deploy-provider }}
@@ -177,7 +174,7 @@ jobs:
             echo "enable-build=true" >> $GITHUB_OUTPUT
             echo "enable-deploy=false" >> $GITHUB_OUTPUT
             echo "enable-release=false" >> $GITHUB_OUTPUT
-            echo "enable-claude-review=false" >> $GITHUB_OUTPUT
+            echo "enable-copilot-review=false" >> $GITHUB_OUTPUT
             echo "deploy-provider=none" >> $GITHUB_OUTPUT
             echo "deploy-environments=[]" >> $GITHUB_OUTPUT
             echo "enable-sync=true" >> $GITHUB_OUTPUT
@@ -193,7 +190,7 @@ jobs:
             DEPLOY_PROVIDER=$(yq '.deployment.provider // "none"' "$CONFIG_FILE")
             ENABLE_DEPLOY=$([ "$DEPLOY_PROVIDER" != "none" ] && echo "true" || echo "false")
             ENABLE_RELEASE=$(yq '.release.enable // false' "$CONFIG_FILE")
-            ENABLE_CLAUDE_REVIEW=$(yq '.review.claude.enable // false' "$CONFIG_FILE")
+            ENABLE_COPILOT_REVIEW=$(yq '.review.copilot.enable // false' "$CONFIG_FILE")
 
             # Extract release sync configuration
             ENABLE_SYNC=$(yq '.release.sync_to_dev // true' "$CONFIG_FILE")
@@ -229,7 +226,7 @@ jobs:
             echo "enable-build=$ENABLE_BUILD" >> $GITHUB_OUTPUT
             echo "enable-deploy=$ENABLE_DEPLOY" >> $GITHUB_OUTPUT
             echo "enable-release=$ENABLE_RELEASE" >> $GITHUB_OUTPUT
-            echo "enable-claude-review=$ENABLE_CLAUDE_REVIEW" >> $GITHUB_OUTPUT
+            echo "enable-copilot-review=$ENABLE_COPILOT_REVIEW" >> $GITHUB_OUTPUT
             echo "deploy-provider=$DEPLOY_PROVIDER" >> $GITHUB_OUTPUT
             echo "deploy-environments=$DEPLOY_ENVS" >> $GITHUB_OUTPUT
             echo "enable-sync=$ENABLE_SYNC" >> $GITHUB_OUTPUT
@@ -243,7 +240,7 @@ jobs:
             echo "  Build: $ENABLE_BUILD"
             echo "  Deploy: $ENABLE_DEPLOY (Provider: $DEPLOY_PROVIDER)"
             echo "  Release: $ENABLE_RELEASE"
-            echo "  Claude Review: $ENABLE_CLAUDE_REVIEW"
+            echo "  Copilot Review: $ENABLE_COPILOT_REVIEW"
           fi
 
           echo "::endgroup::"
@@ -260,7 +257,7 @@ jobs:
           ENABLE_BUILD: ${{ steps.parse-config.outputs.enable-build }}
           ENABLE_DEPLOY: ${{ steps.parse-config.outputs.enable-deploy }}
           ENABLE_RELEASE: ${{ steps.parse-config.outputs.enable-release }}
-          ENABLE_CLAUDE_REVIEW: ${{ steps.parse-config.outputs.enable-claude-review }}
+          ENABLE_COPILOT_REVIEW: ${{ steps.parse-config.outputs.enable-copilot-review }}
         run: |
           echo "## 🚀 Pipeline Overview" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -277,12 +274,12 @@ jobs:
           BUILD=$([[ "$ENABLE_BUILD" == "true" ]] && echo "✅" || echo "⏭️")
           DEPLOY=$([[ "$ENABLE_DEPLOY" == "true" ]] && echo "✅" || echo "⏭️")
           RELEASE=$([[ "$ENABLE_RELEASE" == "true" ]] && echo "✅" || echo "⏭️")
-          CLAUDE_REVIEW=$([[ "$ENABLE_CLAUDE_REVIEW" == "true" ]] && echo "✅" || echo "⏭️")
+          COPILOT_REVIEW=$([[ "$ENABLE_COPILOT_REVIEW" == "true" ]] && echo "✅" || echo "⏭️")
           echo "- **Security Scan:** $SECURITY" >> $GITHUB_STEP_SUMMARY
           echo "- **Lint:** $LINT" >> $GITHUB_STEP_SUMMARY
           echo "- **Test:** $TEST" >> $GITHUB_STEP_SUMMARY
           echo "- **Build:** $BUILD" >> $GITHUB_STEP_SUMMARY
-          echo "- **Claude Review:** $CLAUDE_REVIEW" >> $GITHUB_STEP_SUMMARY
+          echo "- **Copilot Review:** $COPILOT_REVIEW" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy:** $DEPLOY" >> $GITHUB_STEP_SUMMARY
           echo "- **Release:** $RELEASE" >> $GITHUB_STEP_SUMMARY
 
@@ -580,70 +577,60 @@ jobs:
           attest-artifacts: false
 
   # =============================================================================
-  # CLAUDE CODE REVIEW
+  # COPILOT CODE REVIEW
   # =============================================================================
-  claude-review:
-    name: 🤖 Claude Review
+  copilot-review:
+    name: 🤖 Copilot Review
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
     needs: [setup, build]
     if: |
       always() &&
-      needs.setup.outputs.enable-claude-review == 'true' &&
+      needs.setup.outputs.enable-copilot-review == 'true' &&
       needs.build.result == 'success' &&
       github.event_name == 'pull_request' &&
       github.event.pull_request.base.ref == 'main' &&
       (github.event.action == 'opened' || github.event.action == 'reopened') &&
       github.event.pull_request.head.repo.fork == false
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-      - name: 🔍 Check Claude Secret
-        id: claude-secret
+      - name: 🤖 Request Copilot Review
+        id: copilot-review
         shell: bash
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
-          if [[ -n "$ANTHROPIC_API_KEY" ]]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::ANTHROPIC_API_KEY is not configured, skipping Claude review"
+          set -euo pipefail
+          if gh api "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
+            -X POST \
+            -f reviewers[]="copilot-pull-request-reviewer"; then
+            echo "already-requested=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-      - name: 🤖 Run Claude Code Review
-        id: claude-review
-        if: steps.claude-secret.outputs.available == 'true'
-        continue-on-error: true
-        uses: anthropics/claude-code-action@beta
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-          direct_prompt: |
-            Review this pull request for release readiness.
-            Focus on:
-            - behavioral regressions and runtime risks
-            - security and auth issues
-            - CI/CD and deployment pitfalls
-            - missing tests for changed logic
-            Leave concise, actionable review comments on the PR.
+          echo "already-requested=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::Copilot review request already exists or is unavailable for this repository"
 
-      - name: 📝 Claude Review Summary
+      - name: 📝 Copilot Review Summary
         if: always()
         shell: bash
         env:
-          CLAUDE_OUTCOME: ${{ steps.claude-review.outcome }}
+          COPILOT_OUTCOME: ${{ steps.copilot-review.outcome }}
+          ALREADY_REQUESTED: ${{ steps.copilot-review.outputs.already-requested }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "### 🤖 Claude Review" >> "$GITHUB_STEP_SUMMARY"
+          echo "### 🤖 Copilot Review" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$CLAUDE_OUTCOME" == "success" ]]; then
-            echo "- **Status:** ✅ Completed" >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "$CLAUDE_OUTCOME" == "failure" ]]; then
-            echo "- **Status:** ⚠️ Completed with action errors (non-blocking)" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$COPILOT_OUTCOME" == "success" && "$ALREADY_REQUESTED" == "false" ]]; then
+            echo "- **Status:** ✅ Requested Copilot review on PR #$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$COPILOT_OUTCOME" == "success" && "$ALREADY_REQUESTED" == "true" ]]; then
+            echo "- **Status:** ✅ Copilot review was already requested" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$COPILOT_OUTCOME" == "failure" ]]; then
+            echo "- **Status:** ⚠️ Failed to request Copilot review (non-blocking)" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- **Status:** ⏭️ Skipped" >> "$GITHUB_STEP_SUMMARY"
           fi

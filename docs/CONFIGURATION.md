@@ -55,7 +55,7 @@ build:
 
 # Automated PR review
 review:
-  claude:
+  copilot:
     enable: false # Runs only on pull_request -> main, after successful build
 
 # Deployment
@@ -454,11 +454,11 @@ Deployment provider.
 
 Automated PR review configuration.
 
-#### `review.claude.enable`
+#### `review.copilot.enable`
 
 **Type:** `boolean` **Default:** `false`
 
-Enable Claude Code PR review in CI.
+Enable GitHub Copilot PR review requests in CI.
 
 Behavior:
 
@@ -466,7 +466,7 @@ Behavior:
 - Runs only when the build stage succeeds
 - Runs only on PR `opened` / `reopened` events
 - Skips for forked PRs (secrets protection)
-- Requires `ANTHROPIC_API_KEY` secret
+- Requests reviewer: `copilot-pull-request-reviewer`
 
 ---
 
