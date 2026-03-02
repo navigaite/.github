@@ -1,11 +1,16 @@
 ---
 name: Release Management
-description: Automated versioning and changelog generation using release-please
+description: Automated versioning and changelog generation using release-please or semantic-release
 
 inputs:
   github-token:
     description: GitHub token with contents write and pull-requests write permissions
     required: true
+
+  strategy:
+    description: Release strategy (release-please or semantic-release)
+    required: false
+    default: release-please
 
   release-type:
     description: Release type (node, python, simple)
@@ -48,53 +53,54 @@ inputs:
 outputs:
   release-created:
     description: Whether a release was created
-    value: ${{ steps.release.outputs.release_created }}
+    value: ${{ steps.normalize.outputs.release-created }}
 
   release-id:
     description: Release ID
-    value: ${{ steps.release.outputs.id }}
+    value: ${{ steps.normalize.outputs.release-id }}
 
   release-name:
     description: Release name
-    value: ${{ steps.release.outputs.name }}
+    value: ${{ steps.normalize.outputs.release-name }}
 
   release-tag:
     description: Release tag
-    value: ${{ steps.release.outputs.tag_name }}
+    value: ${{ steps.normalize.outputs.release-tag }}
 
   release-version:
     description: Release version (without 'v' prefix)
-    value: ${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}.${{ steps.release.outputs.patch }}
+    value: ${{ steps.normalize.outputs.release-version }}
 
   release-major:
     description: Major version
-    value: ${{ steps.release.outputs.major }}
+    value: ${{ steps.normalize.outputs.release-major }}
 
   release-minor:
     description: Minor version
-    value: ${{ steps.release.outputs.minor }}
+    value: ${{ steps.normalize.outputs.release-minor }}
 
   release-patch:
     description: Patch version
-    value: ${{ steps.release.outputs.patch }}
+    value: ${{ steps.normalize.outputs.release-patch }}
 
   release-sha:
     description: Release commit SHA
-    value: ${{ steps.release.outputs.sha }}
+    value: ${{ steps.normalize.outputs.release-sha }}
 
   release-upload-url:
     description: Upload URL for release assets
-    value: ${{ steps.release.outputs.upload_url }}
+    value: ${{ steps.normalize.outputs.release-upload-url }}
 
   pr-number:
     description: Release PR number (if PR was opened/updated)
-    value: ${{ steps.release.outputs.pr }}
+    value: ${{ steps.normalize.outputs.pr-number }}
 
 runs:
   using: composite
   steps:
     - name: Run Release Please
-      id: release
+      id: release-please
+      if: inputs.strategy == 'release-please'
       uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
       with:
         token: ${{ inputs.github-token }}
@@ -104,15 +110,104 @@ runs:
         bump-patch-for-minor-pre-major: ${{ inputs.bump-patch-for-minor-pre-major }}
         changelog-types: ${{ inputs.changelog-types }}
 
+    - name: Run Semantic Release
+      id: semantic-release
+      if: inputs.strategy == 'semantic-release'
+      uses: cycjimmy/semantic-release-action@16ca923e6ccbb50770c415a0ccd43709a8c5f7a4 # v4.2.2
+      with:
+        semantic_version: 24
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+
+    - name: Normalize Release Outputs
+      id: normalize
+      shell: bash
+      env:
+        STRATEGY: ${{ inputs.strategy }}
+        REPO: ${{ github.repository }}
+        RP_RELEASE_CREATED: ${{ steps.release-please.outputs.release_created }}
+        RP_TAG_NAME: ${{ steps.release-please.outputs.tag_name }}
+        RP_RELEASE_ID: ${{ steps.release-please.outputs.id }}
+        RP_RELEASE_NAME: ${{ steps.release-please.outputs.name }}
+        RP_RELEASE_SHA: ${{ steps.release-please.outputs.sha }}
+        RP_UPLOAD_URL: ${{ steps.release-please.outputs.upload_url }}
+        RP_PR: ${{ steps.release-please.outputs.pr }}
+        RP_MAJOR: ${{ steps.release-please.outputs.major }}
+        RP_MINOR: ${{ steps.release-please.outputs.minor }}
+        RP_PATCH: ${{ steps.release-please.outputs.patch }}
+        SR_PUBLISHED: ${{ steps.semantic-release.outputs.new_release_published }}
+        SR_VERSION: ${{ steps.semantic-release.outputs.new_release_version }}
+        SR_TAG: ${{ steps.semantic-release.outputs.new_release_git_tag }}
+      run: |
+        release_created="false"
+        release_id=""
+        release_name=""
+        release_tag=""
+        release_version=""
+        release_major=""
+        release_minor=""
+        release_patch=""
+        release_sha=""
+        release_upload_url=""
+        pr_number=""
+
+        if [[ "$STRATEGY" == "semantic-release" ]]; then
+          [[ "$SR_PUBLISHED" == "true" ]] && release_created="true"
+          release_tag="$SR_TAG"
+          release_version="$SR_VERSION"
+          release_sha="${GITHUB_SHA}"
+          if [[ -n "$release_tag" ]]; then
+            release_name="$release_tag"
+            release_upload_url="https://github.com/$REPO/releases/tag/$release_tag"
+          fi
+        else
+          [[ "$RP_RELEASE_CREATED" == "true" ]] && release_created="true"
+          release_id="$RP_RELEASE_ID"
+          release_name="$RP_RELEASE_NAME"
+          release_tag="$RP_TAG_NAME"
+          release_sha="$RP_RELEASE_SHA"
+          release_upload_url="$RP_UPLOAD_URL"
+          release_major="$RP_MAJOR"
+          release_minor="$RP_MINOR"
+          release_patch="$RP_PATCH"
+          if [[ -n "$release_major" && -n "$release_minor" && -n "$release_patch" ]]; then
+            release_version="${release_major}.${release_minor}.${release_patch}"
+          elif [[ -n "$release_tag" ]]; then
+            release_version="${release_tag#v}"
+          fi
+
+          # release-please can return PR output as JSON; extract number cleanly.
+          if [[ "$RP_PR" =~ ^\{ ]]; then
+            pr_number=$(echo "$RP_PR" | jq -r '.number // empty' 2>/dev/null || true)
+          elif [[ "$RP_PR" =~ ^[0-9]+$ ]]; then
+            pr_number="$RP_PR"
+          fi
+        fi
+
+        {
+          echo "release-created=$release_created"
+          echo "release-id=$release_id"
+          echo "release-name=$release_name"
+          echo "release-tag=$release_tag"
+          echo "release-version=$release_version"
+          echo "release-major=$release_major"
+          echo "release-minor=$release_minor"
+          echo "release-patch=$release_patch"
+          echo "release-sha=$release_sha"
+          echo "release-upload-url=$release_upload_url"
+          echo "pr-number=$pr_number"
+        } >> "$GITHUB_OUTPUT"
+
     - name: Release Summary
       if: always()
       shell: bash
       env:
-        RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
-        TAG_NAME: ${{ steps.release.outputs.tag_name }}
-        RELEASE_ID: ${{ steps.release.outputs.id }}
-        RELEASE_SHA: ${{ steps.release.outputs.sha }}
-        PR_NUMBER: ${{ steps.release.outputs.pr }}
+        STRATEGY: ${{ inputs.strategy }}
+        RELEASE_CREATED: ${{ steps.normalize.outputs.release-created }}
+        TAG_NAME: ${{ steps.normalize.outputs.release-tag }}
+        RELEASE_ID: ${{ steps.normalize.outputs.release-id }}
+        RELEASE_SHA: ${{ steps.normalize.outputs.release-sha }}
+        PR_NUMBER: ${{ steps.normalize.outputs.pr-number }}
         REPO: ${{ github.repository }}
         RELEASE_TYPE: ${{ inputs.release-type }}
       run: |
@@ -140,8 +235,11 @@ runs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "No release was created. This is normal if:" >> $GITHUB_STEP_SUMMARY
           echo "- No releasable commits since last release" >> $GITHUB_STEP_SUMMARY
-          echo "- Release PR is still open and not merged" >> $GITHUB_STEP_SUMMARY
+          if [[ "$STRATEGY" == "release-please" ]]; then
+            echo "- Release PR is still open and not merged" >> $GITHUB_STEP_SUMMARY
+          fi
         fi
 
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Release Type:** $RELEASE_TYPE" >> $GITHUB_STEP_SUMMARY
+        echo "**Strategy:** $STRATEGY" >> $GITHUB_STEP_SUMMARY

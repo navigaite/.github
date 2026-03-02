@@ -289,6 +289,12 @@
           "enum": ["node", "python", "simple"],
           "default": "simple"
         },
+        "strategy": {
+          "type": "string",
+          "description": "Release strategy",
+          "enum": ["release-please", "semantic-release"],
+          "default": "release-please"
+        },
         "package_name": {
           "type": "string",
           "description": "Package name for releases"

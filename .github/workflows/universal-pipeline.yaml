@@ -137,6 +137,7 @@ jobs:
       # Release configuration
       enable-sync: ${{ steps.parse-config.outputs.enable-sync }}
       sync-target-branch: ${{ steps.parse-config.outputs.sync-target-branch }}
+      release-strategy: ${{ steps.parse-config.outputs.release-strategy }}
 
     steps:
       - name: 📥 Checkout code
@@ -177,6 +178,7 @@ jobs:
             echo "deploy-environments=[]" >> $GITHUB_OUTPUT
             echo "enable-sync=true" >> $GITHUB_OUTPUT
             echo "sync-target-branch=dev" >> $GITHUB_OUTPUT
+            echo "release-strategy=release-please" >> $GITHUB_OUTPUT
           else
             echo "✓ Found configuration file: $CONFIG_FILE"
 
@@ -188,10 +190,17 @@ jobs:
             DEPLOY_PROVIDER=$(yq '.deployment.provider // "none"' "$CONFIG_FILE")
             ENABLE_DEPLOY=$([ "$DEPLOY_PROVIDER" != "none" ] && echo "true" || echo "false")
             ENABLE_RELEASE=$(yq '.release.enable // false' "$CONFIG_FILE")
+            RELEASE_STRATEGY=$(yq '.release.strategy // "release-please"' "$CONFIG_FILE")
 
             # Extract release sync configuration
             ENABLE_SYNC=$(yq '.release.sync_to_dev // true' "$CONFIG_FILE")
             SYNC_TARGET=$(yq '.release.sync_target_branch // "dev"' "$CONFIG_FILE")
+
+            # Validate release strategy
+            if [[ "$RELEASE_STRATEGY" != "release-please" && "$RELEASE_STRATEGY" != "semantic-release" ]]; then
+              echo "::warning::Invalid release.strategy '$RELEASE_STRATEGY'. Falling back to 'release-please'"
+              RELEASE_STRATEGY="release-please"
+            fi
 
             # Extract deployment environments
             DEPLOY_ENVS=$(yq -o=json '.deployment.environments // []' "$CONFIG_FILE")
@@ -227,6 +236,7 @@ jobs:
             echo "deploy-environments=$DEPLOY_ENVS" >> $GITHUB_OUTPUT
             echo "enable-sync=$ENABLE_SYNC" >> $GITHUB_OUTPUT
             echo "sync-target-branch=$SYNC_TARGET" >> $GITHUB_OUTPUT
+            echo "release-strategy=$RELEASE_STRATEGY" >> $GITHUB_OUTPUT
 
             echo ""
             echo "📦 Configuration Summary:"
@@ -236,6 +246,7 @@ jobs:
             echo "  Build: $ENABLE_BUILD"
             echo "  Deploy: $ENABLE_DEPLOY (Provider: $DEPLOY_PROVIDER)"
             echo "  Release: $ENABLE_RELEASE"
+            echo "  Release Strategy: $RELEASE_STRATEGY"
           fi
 
           echo "::endgroup::"
@@ -252,6 +263,7 @@ jobs:
           ENABLE_BUILD: ${{ steps.parse-config.outputs.enable-build }}
           ENABLE_DEPLOY: ${{ steps.parse-config.outputs.enable-deploy }}
           ENABLE_RELEASE: ${{ steps.parse-config.outputs.enable-release }}
+          RELEASE_STRATEGY: ${{ steps.parse-config.outputs.release-strategy }}
         run: |
           echo "## 🚀 Pipeline Overview" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -260,6 +272,9 @@ jobs:
           echo "| Stack | \`$STACK\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Runtime | \`$RUNTIME_VERSION\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Package Manager | \`$PKG_MANAGER\` |" >> $GITHUB_STEP_SUMMARY
+          if [[ "$ENABLE_RELEASE" == "true" ]]; then
+            echo "| Release Strategy | \`$RELEASE_STRATEGY\` |" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Stages" >> $GITHUB_STEP_SUMMARY
           SECURITY=$([[ "$ENABLE_SECURITY" == "true" ]] && echo "✅" || echo "⏭️")
@@ -729,6 +744,7 @@ jobs:
         uses: navigaite/.github/.github/actions/release-management@main
         with:
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          strategy: ${{ needs.setup.outputs.release-strategy }}
           release-type:
             # yamllint disable-line rule:line-length
             ${{ needs.setup.outputs.stack == 'nodejs' && 'node' || needs.setup.outputs.stack == 'python' && 'python' ||
@@ -748,6 +764,7 @@ jobs:
       always() &&
       needs.setup.outputs.enable-sync == 'true' &&
       needs.setup.outputs.enable-release == 'true' &&
+      needs.setup.outputs.release-strategy == 'release-please' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push' &&
       needs.release.result == 'success'
