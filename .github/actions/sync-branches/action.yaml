@@ -38,13 +38,9 @@ runs:
 
     - name: Fetch All Branches
       shell: bash
-      env:
-        SOURCE_BRANCH: ${{ inputs.source-branch }}
-        TARGET_BRANCH: ${{ inputs.target-branch }}
       run: |
-        git fetch origin
-        git fetch origin $SOURCE_BRANCH:$SOURCE_BRANCH
-        git fetch origin $TARGET_BRANCH:$TARGET_BRANCH
+        # Fetch remote refs only; never fetch into local checked-out branches.
+        git fetch --prune origin
 
     - name: Check if Sync is Needed
       id: check
@@ -55,11 +51,18 @@ runs:
       run: |
         echo "::group::🔍 Checking if sync is needed"
 
-        # Check if target branch is behind source
-        git checkout $TARGET_BRANCH
+        # Ensure both remote branches exist
+        git show-ref --verify --quiet "refs/remotes/origin/$SOURCE_BRANCH" || {
+          echo "❌ Source branch origin/$SOURCE_BRANCH not found"
+          exit 1
+        }
+        git show-ref --verify --quiet "refs/remotes/origin/$TARGET_BRANCH" || {
+          echo "❌ Target branch origin/$TARGET_BRANCH not found"
+          exit 1
+        }
 
         # Get the merge-base (common ancestor)
-        MERGE_BASE=$(git merge-base $SOURCE_BRANCH $TARGET_BRANCH)
+        MERGE_BASE=$(git merge-base "origin/$SOURCE_BRANCH" "origin/$TARGET_BRANCH")
 
         # Get the latest commit on source branch
         SOURCE_COMMIT=$(git rev-parse origin/$SOURCE_BRANCH)
@@ -84,8 +87,8 @@ runs:
       run: |
         echo "::group::🔄 Syncing $SOURCE_BRANCH → $TARGET_BRANCH"
 
-        # Checkout target branch
-        git checkout $TARGET_BRANCH
+        # Create/reset local target branch from remote
+        git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
 
         # Merge source branch
         # Use --no-ff to create a merge commit (important for release-please to skip it)
