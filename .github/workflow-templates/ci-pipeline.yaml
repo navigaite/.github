@@ -43,3 +43,5 @@ jobs:
       DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
       # GitHub token for releases and PR comments
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      # Claude Code review (remove if not using Claude review stage)
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

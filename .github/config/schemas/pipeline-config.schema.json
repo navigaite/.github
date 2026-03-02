@@ -151,6 +151,23 @@
         }
       }
     },
+    "review": {
+      "type": "object",
+      "description": "Automated PR review configuration",
+      "properties": {
+        "claude": {
+          "type": "object",
+          "description": "Claude Code review configuration",
+          "properties": {
+            "enable": {
+              "type": "boolean",
+              "description": "Enable Claude Code PR review for PRs targeting main after successful build",
+              "default": false
+            }
+          }
+        }
+      }
+    },
     "deployment": {
       "type": "object",
       "description": "Deployment configuration",

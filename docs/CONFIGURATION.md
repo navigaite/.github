@@ -53,6 +53,11 @@ build:
   artifact_name: 'build-output'
   artifact_path: '' # Auto-detected if empty
 
+# Automated PR review
+review:
+  claude:
+    enable: false # Runs only on pull_request -> main, after successful build
+
 # Deployment
 deployment:
   provider: vercel # Options: vercel, digitalocean, docker, none
@@ -440,6 +445,28 @@ Deployment configuration.
 **Type:** `string` **Options:** `vercel`, `digitalocean`, `docker`, `none` **Default:** `none`
 
 Deployment provider.
+
+---
+
+### `review` (optional)
+
+**Type:** `object`
+
+Automated PR review configuration.
+
+#### `review.claude.enable`
+
+**Type:** `boolean` **Default:** `false`
+
+Enable Claude Code PR review in CI.
+
+Behavior:
+
+- Runs only on `pull_request` events targeting `main`
+- Runs only when the build stage succeeds
+- Runs only on PR `opened` / `reopened` events
+- Skips for forked PRs (secrets protection)
+- Requires `ANTHROPIC_API_KEY` secret
 
 ---
 
