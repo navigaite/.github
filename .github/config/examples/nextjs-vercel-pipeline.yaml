@@ -39,10 +39,6 @@ build:
   # Uses npm run build from package.json by default
   upload_artifacts: false
 
-review:
-  copilot:
-    enable: false # Runs only for PRs targeting main, after successful build
-
 deployment:
   provider: vercel
 

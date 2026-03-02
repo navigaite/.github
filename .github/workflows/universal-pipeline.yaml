@@ -129,7 +129,6 @@ jobs:
       enable-build: ${{ steps.parse-config.outputs.enable-build }}
       enable-deploy: ${{ steps.parse-config.outputs.enable-deploy }}
       enable-release: ${{ steps.parse-config.outputs.enable-release }}
-      enable-copilot-review: ${{ steps.parse-config.outputs.enable-copilot-review }}
 
       # Deployment configuration
       deploy-provider: ${{ steps.parse-config.outputs.deploy-provider }}
@@ -174,7 +173,6 @@ jobs:
             echo "enable-build=true" >> $GITHUB_OUTPUT
             echo "enable-deploy=false" >> $GITHUB_OUTPUT
             echo "enable-release=false" >> $GITHUB_OUTPUT
-            echo "enable-copilot-review=false" >> $GITHUB_OUTPUT
             echo "deploy-provider=none" >> $GITHUB_OUTPUT
             echo "deploy-environments=[]" >> $GITHUB_OUTPUT
             echo "enable-sync=true" >> $GITHUB_OUTPUT
@@ -190,7 +188,6 @@ jobs:
             DEPLOY_PROVIDER=$(yq '.deployment.provider // "none"' "$CONFIG_FILE")
             ENABLE_DEPLOY=$([ "$DEPLOY_PROVIDER" != "none" ] && echo "true" || echo "false")
             ENABLE_RELEASE=$(yq '.release.enable // false' "$CONFIG_FILE")
-            ENABLE_COPILOT_REVIEW=$(yq '.review.copilot.enable // false' "$CONFIG_FILE")
 
             # Extract release sync configuration
             ENABLE_SYNC=$(yq '.release.sync_to_dev // true' "$CONFIG_FILE")
@@ -226,7 +223,6 @@ jobs:
             echo "enable-build=$ENABLE_BUILD" >> $GITHUB_OUTPUT
             echo "enable-deploy=$ENABLE_DEPLOY" >> $GITHUB_OUTPUT
             echo "enable-release=$ENABLE_RELEASE" >> $GITHUB_OUTPUT
-            echo "enable-copilot-review=$ENABLE_COPILOT_REVIEW" >> $GITHUB_OUTPUT
             echo "deploy-provider=$DEPLOY_PROVIDER" >> $GITHUB_OUTPUT
             echo "deploy-environments=$DEPLOY_ENVS" >> $GITHUB_OUTPUT
             echo "enable-sync=$ENABLE_SYNC" >> $GITHUB_OUTPUT
@@ -240,7 +236,6 @@ jobs:
             echo "  Build: $ENABLE_BUILD"
             echo "  Deploy: $ENABLE_DEPLOY (Provider: $DEPLOY_PROVIDER)"
             echo "  Release: $ENABLE_RELEASE"
-            echo "  Copilot Review: $ENABLE_COPILOT_REVIEW"
           fi
 
           echo "::endgroup::"
@@ -257,7 +252,6 @@ jobs:
           ENABLE_BUILD: ${{ steps.parse-config.outputs.enable-build }}
           ENABLE_DEPLOY: ${{ steps.parse-config.outputs.enable-deploy }}
           ENABLE_RELEASE: ${{ steps.parse-config.outputs.enable-release }}
-          ENABLE_COPILOT_REVIEW: ${{ steps.parse-config.outputs.enable-copilot-review }}
         run: |
           echo "## 🚀 Pipeline Overview" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -274,12 +268,10 @@ jobs:
           BUILD=$([[ "$ENABLE_BUILD" == "true" ]] && echo "✅" || echo "⏭️")
           DEPLOY=$([[ "$ENABLE_DEPLOY" == "true" ]] && echo "✅" || echo "⏭️")
           RELEASE=$([[ "$ENABLE_RELEASE" == "true" ]] && echo "✅" || echo "⏭️")
-          COPILOT_REVIEW=$([[ "$ENABLE_COPILOT_REVIEW" == "true" ]] && echo "✅" || echo "⏭️")
           echo "- **Security Scan:** $SECURITY" >> $GITHUB_STEP_SUMMARY
           echo "- **Lint:** $LINT" >> $GITHUB_STEP_SUMMARY
           echo "- **Test:** $TEST" >> $GITHUB_STEP_SUMMARY
           echo "- **Build:** $BUILD" >> $GITHUB_STEP_SUMMARY
-          echo "- **Copilot Review:** $COPILOT_REVIEW" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy:** $DEPLOY" >> $GITHUB_STEP_SUMMARY
           echo "- **Release:** $RELEASE" >> $GITHUB_STEP_SUMMARY
 
@@ -575,66 +567,6 @@ jobs:
           stack: ${{ needs.setup.outputs.stack }}
           upload-artifacts: false
           attest-artifacts: false
-
-  # =============================================================================
-  # COPILOT CODE REVIEW
-  # =============================================================================
-  copilot-review:
-    name: 🤖 Copilot Review
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: write
-    needs: [setup, build]
-    if: |
-      always() &&
-      needs.setup.outputs.enable-copilot-review == 'true' &&
-      needs.build.result == 'success' &&
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.base.ref == 'main' &&
-      (github.event.action == 'opened' || github.event.action == 'reopened') &&
-      github.event.pull_request.head.repo.fork == false
-    steps:
-      - name: 🤖 Request Copilot Review
-        id: copilot-review
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          if gh api "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
-            -X POST \
-            -f reviewers[]="copilot-pull-request-reviewer"; then
-            echo "already-requested=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "already-requested=true" >> "$GITHUB_OUTPUT"
-          echo "::notice::Copilot review request already exists or is unavailable for this repository"
-
-      - name: 📝 Copilot Review Summary
-        if: always()
-        shell: bash
-        env:
-          COPILOT_OUTCOME: ${{ steps.copilot-review.outcome }}
-          ALREADY_REQUESTED: ${{ steps.copilot-review.outputs.already-requested }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          echo "### 🤖 Copilot Review" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$COPILOT_OUTCOME" == "success" && "$ALREADY_REQUESTED" == "false" ]]; then
-            echo "- **Status:** ✅ Requested Copilot review on PR #$PR_NUMBER" >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "$COPILOT_OUTCOME" == "success" && "$ALREADY_REQUESTED" == "true" ]]; then
-            echo "- **Status:** ✅ Copilot review was already requested" >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "$COPILOT_OUTCOME" == "failure" ]]; then
-            echo "- **Status:** ⚠️ Failed to request Copilot review (non-blocking)" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- **Status:** ⏭️ Skipped" >> "$GITHUB_STEP_SUMMARY"
-          fi
-          echo "- **Trigger:** PR to \`main\` (opened/reopened), after successful build" >> "$GITHUB_STEP_SUMMARY"
 
   # =============================================================================
   # DEPLOYMENT (Provider-specific jobs to avoid loading unused actions)

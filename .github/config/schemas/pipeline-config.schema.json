@@ -151,23 +151,6 @@
         }
       }
     },
-    "review": {
-      "type": "object",
-      "description": "Automated PR review configuration",
-      "properties": {
-        "copilot": {
-          "type": "object",
-          "description": "GitHub Copilot review configuration",
-          "properties": {
-            "enable": {
-              "type": "boolean",
-              "description": "Enable Copilot PR review requests for PRs targeting main after successful build",
-              "default": false
-            }
-          }
-        }
-      }
-    },
     "deployment": {
       "type": "object",
       "description": "Deployment configuration",
