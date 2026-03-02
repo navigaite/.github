@@ -141,7 +141,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🔍 Setup Environment
         id: setup-env
@@ -297,7 +297,7 @@ jobs:
     if: needs.setup.outputs.enable-security == 'true'
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0 # Required for TruffleHog
 
@@ -318,7 +318,7 @@ jobs:
     if: needs.setup.outputs.enable-lint == 'true'
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🔧 Setup Environment
         uses: navigaite/.github/.github/actions/setup-environment@main
@@ -484,7 +484,7 @@ jobs:
     if: needs.setup.outputs.enable-test == 'true'
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🔧 Setup Environment
         uses: navigaite/.github/.github/actions/setup-environment@main
@@ -525,7 +525,7 @@ jobs:
       (needs.test.result == 'success' || needs.test.result == 'skipped')
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🔧 Setup Environment
         uses: navigaite/.github/.github/actions/setup-environment@main
@@ -662,7 +662,7 @@ jobs:
       name: ${{ matrix.environment }}
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🔧 Setup Node Runtime
         if: needs.setup.outputs.stack == 'nodejs'
@@ -729,7 +729,7 @@ jobs:
       name: ${{ matrix.environment }}
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🚀 Deploy to DigitalOcean
         uses: navigaite/.github/.github/actions/deploy-digitalocean@main
@@ -762,7 +762,7 @@ jobs:
       name: ${{ matrix.environment }}
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🚀 Deploy Docker Image
         uses: navigaite/.github/.github/actions/deploy-docker@main
@@ -791,7 +791,7 @@ jobs:
       needs.build.result == 'success'
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 📦 Release Please
         uses: navigaite/.github/.github/actions/release-management@main
@@ -821,7 +821,7 @@ jobs:
       needs.release.result == 'success'
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
