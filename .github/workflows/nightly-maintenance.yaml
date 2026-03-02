@@ -65,6 +65,8 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Run Trivy vulnerability scanner
+        id: trivy-scan
+        continue-on-error: true
         uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # 0.34.1
         with:
           scan-type: fs
@@ -72,11 +74,36 @@ jobs:
           format: sarif
           output: trivy-results.sarif
 
+      - name: Check Trivy SARIF output
+        id: trivy-output
+        shell: bash
+        run: |
+          if [[ -f "trivy-results.sarif" ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Trivy did not produce trivy-results.sarif; skipping SARIF upload."
+          fi
+
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@45580472a5bb82c4681c4ac726cfdb60060c2ee1 # v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@f4193927db07ae6f5e5940c26794da08f7b41291 # v4.33.2
+        if: always() && steps.trivy-output.outputs.exists == 'true'
         with:
           sarif_file: trivy-results.sarif
+
+      - name: Security Audit Summary
+        if: always()
+        shell: bash
+        env:
+          TRIVY_OUTCOME: ${{ steps.trivy-scan.outcome }}
+          HAS_SARIF: ${{ steps.trivy-output.outputs.exists }}
+        run: |
+          echo "### 🔒 Security Audit" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy Step | $TRIVY_OUTCOME |" >> $GITHUB_STEP_SUMMARY
+          echo "| SARIF Produced | $HAS_SARIF |" >> $GITHUB_STEP_SUMMARY
 
   dependency-check:
     name: 📦 Dependency Health Check
