@@ -75,7 +75,7 @@ jobs:
 
             const parseSemver = (value) => {
               if (!value || typeof value !== 'string') return null;
-              const match = value.trim().match(/^v?(\\d+)\\.(\\d+)\\.(\\d+)$/);
+              const match = value.trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/);
               if (!match) return null;
               return {
                 major: Number(match[1]),
