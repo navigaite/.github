@@ -32,13 +32,27 @@ runs:
   using: composite
   steps:
     - name: TruffleHog Secret Scanning
-      if: inputs.enable-trufflehog == 'true'
+      if: |
+        inputs.enable-trufflehog == 'true' &&
+        (
+          github.event_name != 'push' ||
+          (github.event.before != github.sha && github.event.before != '0000000000000000000000000000000000000000')
+        )
       uses: trufflesecurity/trufflehog@7c0734f987ad0bb30ee8da210773b800ee2016d3 # v3.93.4
       with:
         path: ./
-        base: ${{ github.event.repository.default_branch }}
-        head: HEAD
+        base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         extra_args: ${{ inputs.trufflehog-extra-args }}
+
+    - name: TruffleHog Skip Notice
+      if: |
+        inputs.enable-trufflehog == 'true' &&
+        github.event_name == 'push' &&
+        (github.event.before == github.sha || github.event.before == '0000000000000000000000000000000000000000')
+      shell: bash
+      run: |
+        echo "::notice::Skipping TruffleHog diff scan on push because BASE and HEAD are identical or unavailable"
 
     - name: Check TruffleHog Results
       if: inputs.enable-trufflehog == 'true' && inputs.fail-on-secrets == 'true'
