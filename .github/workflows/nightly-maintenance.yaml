@@ -86,7 +86,7 @@ jobs:
           fi
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@f4193927db07ae6f5e5940c26794da08f7b41291 # v4.33.2
+        uses: github/codeql-action/upload-sarif@45580472a5bb82c4681c4ac726cfdb60060c2ee1 # v3
         if: always() && steps.trivy-output.outputs.exists == 'true'
         with:
           sarif_file: trivy-results.sarif
