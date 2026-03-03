@@ -92,6 +92,15 @@ jobs:
               return `${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
             };
 
+            const compareSemver = (a, b) => {
+              const av = parseSemver(a);
+              const bv = parseSemver(b);
+              if (!av || !bv) return 0;
+              if (av.major !== bv.major) return av.major - bv.major;
+              if (av.minor !== bv.minor) return av.minor - bv.minor;
+              return av.patch - bv.patch;
+            };
+
             const readPackageVersion = async (ref) => {
               try {
                 const { data } = await github.rest.repos.getContent({
@@ -109,6 +118,15 @@ jobs:
               }
             };
 
+            const readLatestReleaseVersion = async () => {
+              try {
+                const { data } = await github.rest.repos.getLatestRelease({ owner, repo });
+                return data?.tag_name ? data.tag_name.replace(/^v/, '') : null;
+              } catch (_err) {
+                return null;
+              }
+            };
+
             const compare = await github.rest.repos.compareCommits({
               owner,
               repo,
@@ -117,10 +135,12 @@ jobs:
             });
 
             const aheadBy = compare.data.ahead_by;
+            const behindBy = compare.data.behind_by;
             const commitCount = compare.data.total_commits;
             const compareUrl = compare.data.html_url;
 
             core.setOutput('ahead_by', String(aheadBy));
+            core.setOutput('behind_by', String(behindBy));
             core.setOutput('commit_count', String(commitCount));
             core.setOutput('compare_url', compareUrl);
 
@@ -130,8 +150,18 @@ jobs:
               return;
             }
 
+            if (behindBy > 0) {
+              core.setFailed(
+                `Source branch '${source}' is behind '${target}' by ${behindBy} commit(s). ` +
+                  `Sync '${target}' into '${source}' before creating a release PR.`
+              );
+              core.setOutput('status', 'blocked-behind');
+              return;
+            }
+
             const currentVersion = await readPackageVersion(target);
             const sourceVersion = await readPackageVersion(source);
+            const latestReleaseVersion = await readLatestReleaseVersion();
 
             let bumpLevel = 'patch';
             const buckets = {
@@ -166,10 +196,21 @@ jobs:
               else buckets.other.push(line);
             }
 
-            const projectedVersion =
-              sourceVersion && currentVersion && sourceVersion !== currentVersion
-                ? sourceVersion
-                : bumpSemver(currentVersion, bumpLevel);
+            let baselineVersion = latestReleaseVersion || currentVersion || sourceVersion;
+            if (
+              sourceVersion &&
+              baselineVersion &&
+              compareSemver(sourceVersion, baselineVersion) > 0
+            ) {
+              baselineVersion = sourceVersion;
+            }
+            if (!baselineVersion) {
+              baselineVersion = sourceVersion || currentVersion || null;
+            }
+
+            const projectedVersion = baselineVersion
+              ? bumpSemver(baselineVersion, bumpLevel)
+              : null;
             const releaseTitle = projectedVersion
               ? `Release v${projectedVersion}`
               : `Release ${source} -> ${target}`;
@@ -191,8 +232,10 @@ jobs:
               `Automated release PR from \`${source}\` to \`${target}\`.`,
               '',
               '### Version',
+              `- Latest release version: ${latestReleaseVersion ? `\`v${latestReleaseVersion}\`` : '_not detected_'}`,
               `- Current version: ${currentVersion ? `\`v${currentVersion}\`` : '_not detected_'}`,
               `- Source version: ${sourceVersion ? `\`v${sourceVersion}\`` : '_not detected_'}`,
+              `- Baseline for bump: ${baselineVersion ? `\`v${baselineVersion}\`` : '_not available_'}`,
               `- Projected next version: ${projectedVersion ? `\`v${projectedVersion}\`` : '_not available_'}`,
               '',
               '### Scope',
@@ -278,6 +321,7 @@ jobs:
             echo "| Target branch | \`${{ inputs.target_branch }}\` |"
             echo "| Status | \`${{ steps.create_pr.outputs.status || 'unknown' }}\` |"
             echo "| Ahead by | \`${{ steps.create_pr.outputs.ahead_by || '0' }}\` commit(s) |"
+            echo "| Behind by | \`${{ steps.create_pr.outputs.behind_by || '0' }}\` commit(s) |"
             echo "| Compared commits | \`${{ steps.create_pr.outputs.commit_count || '0' }}\` |"
             echo ""
             if [ "${{ steps.create_pr.outputs.status }}" = "created" ] || [ "${{ steps.create_pr.outputs.status }}" = "updated" ]; then
