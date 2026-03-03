@@ -138,15 +138,26 @@ jobs:
             const behindBy = compare.data.behind_by;
             const commitCount = compare.data.total_commits;
             const compareUrl = compare.data.html_url;
+            const changedFiles = compare.data.files?.length || 0;
 
             core.setOutput('ahead_by', String(aheadBy));
             core.setOutput('behind_by', String(behindBy));
             core.setOutput('commit_count', String(commitCount));
             core.setOutput('compare_url', compareUrl);
+            core.setOutput('changed_files', String(changedFiles));
 
             if (aheadBy === 0) {
               core.notice(`No changes to release: '${source}' is not ahead of '${target}'.`);
               core.setOutput('status', 'noop');
+              return;
+            }
+
+            if (changedFiles === 0) {
+              core.notice(
+                `No releasable diff: '${source}' is ahead of '${target}', but there are 0 file changes. ` +
+                  `Skipping release PR creation.`
+              );
+              core.setOutput('status', 'noop-empty-diff');
               return;
             }
 
@@ -224,8 +235,6 @@ jobs:
 
             const additions = (compare.data.files || []).reduce((sum, f) => sum + (f.additions || 0), 0);
             const deletions = (compare.data.files || []).reduce((sum, f) => sum + (f.deletions || 0), 0);
-            const changedFiles = compare.data.files?.length || 0;
-
             const releaseBody = [
               '## Release Promotion',
               '',
