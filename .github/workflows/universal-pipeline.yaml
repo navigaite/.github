@@ -193,7 +193,14 @@ jobs:
             ENABLE_DEPLOY=$([ "$DEPLOY_PROVIDER" != "none" ] && echo "true" || echo "false")
             ENABLE_RELEASE=$(yq '.release.enable // false' "$CONFIG_FILE")
             RELEASE_STRATEGY=$(yq '.release.strategy // "release-please"' "$CONFIG_FILE")
-            RELEASE_FORCE_PATCH_NO_RELEASE=$(yq '.release.force_patch_on_no_release // false' "$CONFIG_FILE")
+            RELEASE_FORCE_PATCH_NO_RELEASE=$(yq '.release.force_patch_on_no_release // ""' "$CONFIG_FILE")
+            if [[ -z "$RELEASE_FORCE_PATCH_NO_RELEASE" || "$RELEASE_FORCE_PATCH_NO_RELEASE" == "null" ]]; then
+              if [[ "$RELEASE_STRATEGY" == "semantic-release" ]]; then
+                RELEASE_FORCE_PATCH_NO_RELEASE="true"
+              else
+                RELEASE_FORCE_PATCH_NO_RELEASE="false"
+              fi
+            fi
 
             # Extract release sync configuration
             ENABLE_SYNC=$(yq '.release.sync_to_dev // true' "$CONFIG_FILE")
