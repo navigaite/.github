@@ -50,6 +50,11 @@ inputs:
         {"type":"ci","section":"Continuous Integration","hidden":true}
       ]
 
+  force-patch-on-no-release:
+    description: For semantic-release, create a patch release when no releasable commits are found
+    required: false
+    default: 'false'
+
 outputs:
   release-created:
     description: Whether a release was created
@@ -119,6 +124,54 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
 
+    - name: Fallback Patch Release (Semantic Release No-Op)
+      id: fallback-release
+      if:
+        inputs.strategy == 'semantic-release' && inputs.force-patch-on-no-release == 'true' &&
+        steps.semantic-release.outputs.new_release_published != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ github.repository }}
+        TARGET_SHA: ${{ github.sha }}
+      run: |
+        set -euo pipefail
+
+        git fetch --tags --force
+
+        latest_tag=$(git tag -l 'v*' --sort=-v:refname | head -n 1)
+        if [[ -z "$latest_tag" ]]; then
+          latest_tag="v0.0.0"
+        fi
+
+        latest_version="${latest_tag#v}"
+        IFS='.' read -r major minor patch <<< "$latest_version"
+        major="${major:-0}"
+        minor="${minor:-0}"
+        patch="${patch:-0}"
+        next_patch=$((patch + 1))
+        next_tag="v${major}.${minor}.${next_patch}"
+
+        if gh release view "$next_tag" --repo "$REPO" >/dev/null 2>&1; then
+          echo "created=false" >> "$GITHUB_OUTPUT"
+          echo "tag=$next_tag" >> "$GITHUB_OUTPUT"
+          echo "version=${next_tag#v}" >> "$GITHUB_OUTPUT"
+          echo "url=https://github.com/$REPO/releases/tag/$next_tag" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        gh release create "$next_tag" \
+          --repo "$REPO" \
+          --target "$TARGET_SHA" \
+          --generate-notes \
+          --latest \
+          --title "$next_tag"
+
+        echo "created=true" >> "$GITHUB_OUTPUT"
+        echo "tag=$next_tag" >> "$GITHUB_OUTPUT"
+        echo "version=${next_tag#v}" >> "$GITHUB_OUTPUT"
+        echo "url=https://github.com/$REPO/releases/tag/$next_tag" >> "$GITHUB_OUTPUT"
+
     - name: Normalize Release Outputs
       id: normalize
       shell: bash
@@ -138,6 +191,10 @@ runs:
         SR_PUBLISHED: ${{ steps.semantic-release.outputs.new_release_published }}
         SR_VERSION: ${{ steps.semantic-release.outputs.new_release_version }}
         SR_TAG: ${{ steps.semantic-release.outputs.new_release_git_tag }}
+        FB_CREATED: ${{ steps.fallback-release.outputs.created }}
+        FB_TAG: ${{ steps.fallback-release.outputs.tag }}
+        FB_VERSION: ${{ steps.fallback-release.outputs.version }}
+        FB_URL: ${{ steps.fallback-release.outputs.url }}
       run: |
         release_created="false"
         release_id=""
@@ -152,13 +209,22 @@ runs:
         pr_number=""
 
         if [[ "$STRATEGY" == "semantic-release" ]]; then
-          [[ "$SR_PUBLISHED" == "true" ]] && release_created="true"
-          release_tag="$SR_TAG"
-          release_version="$SR_VERSION"
-          release_sha="${GITHUB_SHA}"
-          if [[ -n "$release_tag" ]]; then
-            release_name="$release_tag"
-            release_upload_url="https://github.com/$REPO/releases/tag/$release_tag"
+          if [[ "$SR_PUBLISHED" == "true" ]]; then
+            release_created="true"
+            release_tag="$SR_TAG"
+            release_version="$SR_VERSION"
+            release_sha="${GITHUB_SHA}"
+            if [[ -n "$release_tag" ]]; then
+              release_name="$release_tag"
+              release_upload_url="https://github.com/$REPO/releases/tag/$release_tag"
+            fi
+          elif [[ "$FB_CREATED" == "true" ]]; then
+            release_created="true"
+            release_tag="$FB_TAG"
+            release_version="$FB_VERSION"
+            release_sha="${GITHUB_SHA}"
+            release_name="$FB_TAG"
+            release_upload_url="$FB_URL"
           fi
         else
           [[ "$RP_RELEASE_CREATED" == "true" ]] && release_created="true"

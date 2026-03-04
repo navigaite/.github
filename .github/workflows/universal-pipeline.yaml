@@ -138,6 +138,7 @@ jobs:
       enable-sync: ${{ steps.parse-config.outputs.enable-sync }}
       sync-target-branch: ${{ steps.parse-config.outputs.sync-target-branch }}
       release-strategy: ${{ steps.parse-config.outputs.release-strategy }}
+      release-force-patch-on-no-release: ${{ steps.parse-config.outputs.release-force-patch-on-no-release }}
 
     steps:
       - name: 📥 Checkout code
@@ -179,6 +180,7 @@ jobs:
             echo "enable-sync=true" >> $GITHUB_OUTPUT
             echo "sync-target-branch=dev" >> $GITHUB_OUTPUT
             echo "release-strategy=release-please" >> $GITHUB_OUTPUT
+            echo "release-force-patch-on-no-release=false" >> $GITHUB_OUTPUT
           else
             echo "✓ Found configuration file: $CONFIG_FILE"
 
@@ -191,6 +193,7 @@ jobs:
             ENABLE_DEPLOY=$([ "$DEPLOY_PROVIDER" != "none" ] && echo "true" || echo "false")
             ENABLE_RELEASE=$(yq '.release.enable // false' "$CONFIG_FILE")
             RELEASE_STRATEGY=$(yq '.release.strategy // "release-please"' "$CONFIG_FILE")
+            RELEASE_FORCE_PATCH_NO_RELEASE=$(yq '.release.force_patch_on_no_release // false' "$CONFIG_FILE")
 
             # Extract release sync configuration
             ENABLE_SYNC=$(yq '.release.sync_to_dev // true' "$CONFIG_FILE")
@@ -237,6 +240,7 @@ jobs:
             echo "enable-sync=$ENABLE_SYNC" >> $GITHUB_OUTPUT
             echo "sync-target-branch=$SYNC_TARGET" >> $GITHUB_OUTPUT
             echo "release-strategy=$RELEASE_STRATEGY" >> $GITHUB_OUTPUT
+            echo "release-force-patch-on-no-release=$RELEASE_FORCE_PATCH_NO_RELEASE" >> $GITHUB_OUTPUT
 
             echo ""
             echo "📦 Configuration Summary:"
@@ -247,6 +251,7 @@ jobs:
             echo "  Deploy: $ENABLE_DEPLOY (Provider: $DEPLOY_PROVIDER)"
             echo "  Release: $ENABLE_RELEASE"
             echo "  Release Strategy: $RELEASE_STRATEGY"
+            echo "  Release Fallback Patch: $RELEASE_FORCE_PATCH_NO_RELEASE"
           fi
 
           echo "::endgroup::"
@@ -264,6 +269,7 @@ jobs:
           ENABLE_DEPLOY: ${{ steps.parse-config.outputs.enable-deploy }}
           ENABLE_RELEASE: ${{ steps.parse-config.outputs.enable-release }}
           RELEASE_STRATEGY: ${{ steps.parse-config.outputs.release-strategy }}
+          RELEASE_FORCE_PATCH_NO_RELEASE: ${{ steps.parse-config.outputs.release-force-patch-on-no-release }}
         run: |
           echo "## 🚀 Pipeline Overview" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -274,6 +280,7 @@ jobs:
           echo "| Package Manager | \`$PKG_MANAGER\` |" >> $GITHUB_STEP_SUMMARY
           if [[ "$ENABLE_RELEASE" == "true" ]]; then
             echo "| Release Strategy | \`$RELEASE_STRATEGY\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Force Patch On No Release | \`$RELEASE_FORCE_PATCH_NO_RELEASE\` |" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Stages" >> $GITHUB_STEP_SUMMARY
@@ -748,11 +755,12 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: 📦 Release Please
+      - name: 📦 Run Release Management
         uses: navigaite/.github/.github/actions/release-management@main
         with:
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           strategy: ${{ needs.setup.outputs.release-strategy }}
+          force-patch-on-no-release: ${{ needs.setup.outputs.release-force-patch-on-no-release }}
           release-type:
             # yamllint disable-line rule:line-length
             ${{ needs.setup.outputs.stack == 'nodejs' && 'node' || needs.setup.outputs.stack == 'python' && 'python' ||
