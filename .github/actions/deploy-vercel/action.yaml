@@ -140,8 +140,15 @@ runs:
         *) VERCEL_TARGET="preview" ;;
         esac
 
-        # Deploy prebuilt project
-        DEPLOY_OUTPUT=$(vercel deploy --prebuilt --target="$VERCEL_TARGET" --token="$VERCEL_TOKEN" $SCOPE_ARG 2>&1)
+        # Deploy prebuilt project (non-interactive with hard timeout to prevent hanging jobs)
+        DEPLOY_OUTPUT=$(
+          timeout 15m vercel deploy \
+            --prebuilt \
+            --yes \
+            --target="$VERCEL_TARGET" \
+            --token="$VERCEL_TOKEN" \
+            $SCOPE_ARG 2>&1
+        )
         DEPLOY_URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | grep -E 'https://[^ ]+\.vercel\.app/?$' | tail -1)
         DASHBOARD_URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://vercel.com/[^ ]+' | tail -1)
         SAFE_DASHBOARD_URL=""
