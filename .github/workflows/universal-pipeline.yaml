@@ -787,7 +787,6 @@ jobs:
       always() &&
       needs.setup.outputs.enable-sync == 'true' &&
       needs.setup.outputs.enable-release == 'true' &&
-      needs.setup.outputs.release-strategy == 'release-please' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push' &&
       needs.release.result == 'success'
