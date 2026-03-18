@@ -151,6 +151,7 @@ jobs:
       sync-target-branch: ${{ steps.parse-config.outputs.sync-target-branch }}
       release-strategy: ${{ steps.parse-config.outputs.release-strategy }}
       release-force-patch-on-no-release: ${{ steps.parse-config.outputs.release-force-patch-on-no-release }}
+      release-extra-plugins: ${{ steps.parse-config.outputs.release-extra-plugins }}
 
     steps:
       - name: 📥 Checkout code
@@ -194,6 +195,7 @@ jobs:
             echo "sync-target-branch=dev" >> $GITHUB_OUTPUT
             echo "release-strategy=release-please" >> $GITHUB_OUTPUT
             echo "release-force-patch-on-no-release=false" >> $GITHUB_OUTPUT
+            echo "release-extra-plugins=" >> $GITHUB_OUTPUT
           else
             echo "✓ Found configuration file: $CONFIG_FILE"
 
@@ -214,6 +216,9 @@ jobs:
                 RELEASE_FORCE_PATCH_NO_RELEASE="false"
               fi
             fi
+
+            # Extract extra semantic-release plugins (newline-separated list)
+            RELEASE_EXTRA_PLUGINS=$(yq -r '(.release.extra_plugins // []) | join("\n")' "$CONFIG_FILE")
 
             # Extract release sync configuration
             ENABLE_SYNC=$(yq '.release.sync_to_dev // true' "$CONFIG_FILE")
@@ -269,6 +274,9 @@ jobs:
             echo "sync-target-branch=$SYNC_TARGET" >> $GITHUB_OUTPUT
             echo "release-strategy=$RELEASE_STRATEGY" >> $GITHUB_OUTPUT
             echo "release-force-patch-on-no-release=$RELEASE_FORCE_PATCH_NO_RELEASE" >> $GITHUB_OUTPUT
+            echo "release-extra-plugins<<PLUGINS_EOF" >> $GITHUB_OUTPUT
+            echo "$RELEASE_EXTRA_PLUGINS" >> $GITHUB_OUTPUT
+            echo "PLUGINS_EOF" >> $GITHUB_OUTPUT
 
             echo ""
             echo "📦 Configuration Summary:"
@@ -839,6 +847,7 @@ jobs:
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           strategy: ${{ needs.setup.outputs.release-strategy }}
           force-patch-on-no-release: ${{ needs.setup.outputs.release-force-patch-on-no-release }}
+          extra-plugins: ${{ needs.setup.outputs.release-extra-plugins }}
           release-type:
             # yamllint disable-line rule:line-length
             ${{ needs.setup.outputs.stack == 'nodejs' && 'node' || needs.setup.outputs.stack == 'python' && 'python' ||

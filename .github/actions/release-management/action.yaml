@@ -55,6 +55,11 @@ inputs:
     required: false
     default: 'false'
 
+  extra-plugins:
+    description: Extra semantic-release plugins to install (multiline, one per line)
+    required: false
+    default: ''
+
 outputs:
   release-created:
     description: Whether a release was created
@@ -121,6 +126,7 @@ runs:
       uses: cycjimmy/semantic-release-action@16ca923e6ccbb50770c415a0ccd43709a8c5f7a4 # v4.2.2
       with:
         semantic_version: 24
+        extra_plugins: ${{ inputs.extra-plugins }}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
 
