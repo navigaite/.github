@@ -55,6 +55,17 @@ on:
         type: boolean
         default: false
 
+    outputs:
+      release-created:
+        description: Whether a release was created
+        value: ${{ jobs.release.outputs.release-created }}
+      release-version:
+        description: Release version (without v prefix)
+        value: ${{ jobs.release.outputs.release-version }}
+      release-tag:
+        description: Release tag (with v prefix)
+        value: ${{ jobs.release.outputs.release-tag }}
+
     secrets:
       # Vercel secrets
       VERCEL_TOKEN:
@@ -133,6 +144,7 @@ jobs:
       # Deployment configuration
       deploy-provider: ${{ steps.parse-config.outputs.deploy-provider }}
       deploy-environments: ${{ steps.parse-config.outputs.deploy-environments }}
+      docker-images: ${{ steps.parse-config.outputs.docker-images }}
 
       # Release configuration
       enable-sync: ${{ steps.parse-config.outputs.enable-sync }}
@@ -177,6 +189,7 @@ jobs:
             echo "enable-release=false" >> $GITHUB_OUTPUT
             echo "deploy-provider=none" >> $GITHUB_OUTPUT
             echo "deploy-environments=[]" >> $GITHUB_OUTPUT
+            echo "docker-images=[]" >> $GITHUB_OUTPUT
             echo "enable-sync=true" >> $GITHUB_OUTPUT
             echo "sync-target-branch=dev" >> $GITHUB_OUTPUT
             echo "release-strategy=release-please" >> $GITHUB_OUTPUT
@@ -228,6 +241,13 @@ jobs:
                 )
               )]')
 
+            # Extract Docker image definitions for multi-image builds
+            DOCKER_IMAGES=$(yq -o=json '.deployment.docker.images // []' "$CONFIG_FILE")
+            if [[ "$DEPLOY_PROVIDER" == "docker" && "$DOCKER_IMAGES" == "[]" ]]; then
+              # Fallback: single image from repo name with default Dockerfile
+              DOCKER_IMAGES='[{"name":"default","dockerfile":"Dockerfile"}]'
+            fi
+
             # Apply input overrides
             [[ "$SKIP_SECURITY" == "true" ]] && ENABLE_SECURITY="false"
             [[ "$SKIP_LINT" == "true" ]] && ENABLE_LINT="false"
@@ -244,6 +264,7 @@ jobs:
             echo "enable-release=$ENABLE_RELEASE" >> $GITHUB_OUTPUT
             echo "deploy-provider=$DEPLOY_PROVIDER" >> $GITHUB_OUTPUT
             echo "deploy-environments=$DEPLOY_ENVS" >> $GITHUB_OUTPUT
+            echo "docker-images=$DOCKER_IMAGES" >> $GITHUB_OUTPUT
             echo "enable-sync=$ENABLE_SYNC" >> $GITHUB_OUTPUT
             echo "sync-target-branch=$SYNC_TARGET" >> $GITHUB_OUTPUT
             echo "release-strategy=$RELEASE_STRATEGY" >> $GITHUB_OUTPUT
@@ -709,7 +730,7 @@ jobs:
           is-pr-preview: ${{ matrix.environment == 'preview' && github.event_name == 'pull_request' }}
 
   deploy-docker:
-    name: 🚀 Deploy to ${{ matrix.environment }}
+    name: 🐳 Docker / ${{ matrix.image.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -717,27 +738,72 @@ jobs:
       deployments: write
       packages: write
       id-token: write # OIDC for cloud providers
-    needs: [setup, build]
+    needs: [setup, build, release]
     if: |
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'docker' &&
-      needs.build.result == 'success'
+      needs.build.result == 'success' &&
+      (needs.release.result == 'success' || needs.release.result == 'skipped')
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
-        environment: ${{ fromJSON(needs.setup.outputs.deploy-environments).*.name }}
-    environment:
-      name: ${{ matrix.environment }}
+        image: ${{ fromJSON(needs.setup.outputs.docker-images) }}
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: 🔍 Resolve Image Metadata
+        id: resolve
+        shell: bash
+        env:
+          REPO: ${{ github.repository }}
+          IMAGE_NAME_OVERRIDE: ${{ matrix.image.image_name }}
+          IMAGE_SUFFIX: ${{ matrix.image.name }}
+          RELEASE_VERSION: ${{ needs.release.outputs.release-version }}
+          EXTRA_BUILD_ARGS: ${{ matrix.image.build_args }}
+        run: |
+          REPO_LOWER="${REPO,,}"
+
+          # Determine image name: explicit override > repo-suffix > repo name
+          if [[ -n "$IMAGE_NAME_OVERRIDE" ]]; then
+            IMAGE_NAME="$IMAGE_NAME_OVERRIDE"
+          elif [[ -n "$IMAGE_SUFFIX" && "$IMAGE_SUFFIX" != "default" ]]; then
+            IMAGE_NAME="${REPO_LOWER}-${IMAGE_SUFFIX}"
+          else
+            IMAGE_NAME="$REPO_LOWER"
+          fi
+
+          # Determine image tag: release version > git sha
+          if [[ -n "$RELEASE_VERSION" ]]; then
+            IMAGE_TAG="$RELEASE_VERSION"
+          else
+            IMAGE_TAG="${GITHUB_SHA}"
+          fi
+
+          # Build args: always inject APP_VERSION when release version is known
+          BUILD_ARGS="${EXTRA_BUILD_ARGS}"
+          if [[ -n "$RELEASE_VERSION" ]]; then
+            BUILD_ARGS="${BUILD_ARGS:+${BUILD_ARGS}
+          }APP_VERSION=${RELEASE_VERSION}"
+          fi
+
+          echo "image-name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "image-tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "build-args<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BUILD_ARGS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: 🚀 Deploy Docker Image
         uses: navigaite/.github/.github/actions/deploy-docker@main
         with:
-          image-name: ${{ github.event.repository.name }}
-          image-tag: ${{ github.sha }}
+          dockerfile: ${{ matrix.image.dockerfile || 'Dockerfile' }}
+          context: ${{ matrix.image.context || '.' }}
+          image-name: ${{ steps.resolve.outputs.image-name }}
+          image-tag: ${{ steps.resolve.outputs.image-tag }}
+          registry: ${{ matrix.image.registry || 'ghcr' }}
+          build-args: ${{ steps.resolve.outputs.build-args }}
+          platforms: ${{ matrix.image.platforms || 'linux/amd64' }}
           registry-password: ${{ secrets.DOCKER_REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
           registry-username: ${{ secrets.DOCKER_REGISTRY_USERNAME || github.actor }}
 
@@ -753,6 +819,10 @@ jobs:
       pull-requests: write
       id-token: write # OIDC for release signing
     needs: [setup, build]
+    outputs:
+      release-created: ${{ steps.release-mgmt.outputs.release-created }}
+      release-version: ${{ steps.release-mgmt.outputs.release-version }}
+      release-tag: ${{ steps.release-mgmt.outputs.release-tag }}
     if: |
       always() &&
       needs.setup.outputs.enable-release == 'true' &&
@@ -763,6 +833,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: 📦 Run Release Management
+        id: release-mgmt
         uses: navigaite/.github/.github/actions/release-management@main
         with:
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
@@ -782,14 +853,15 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    needs: [setup, release]
+    needs: [setup, release, deploy-docker]
     if: |
       always() &&
       needs.setup.outputs.enable-sync == 'true' &&
       needs.setup.outputs.enable-release == 'true' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push' &&
-      needs.release.result == 'success'
+      needs.release.result == 'success' &&
+      (needs.deploy-docker.result == 'success' || needs.deploy-docker.result == 'skipped')
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
