@@ -242,7 +242,7 @@ jobs:
               )]')
 
             # Extract Docker image definitions for multi-image builds
-            DOCKER_IMAGES=$(yq -o=json '.deployment.docker.images // []' "$CONFIG_FILE")
+            DOCKER_IMAGES=$(yq -o=json -I=0 '.deployment.docker.images // []' "$CONFIG_FILE" | jq -c '.')
             if [[ "$DEPLOY_PROVIDER" == "docker" && "$DOCKER_IMAGES" == "[]" ]]; then
               # Fallback: single image from repo name with default Dockerfile
               DOCKER_IMAGES='[{"name":"default","dockerfile":"Dockerfile"}]'
