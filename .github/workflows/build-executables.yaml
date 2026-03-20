@@ -1,0 +1,126 @@
+---
+name: Build Executables
+# Reusable workflow that builds standalone executables for macOS and Windows
+# using the build-executable composite action.
+
+on:
+  workflow_call:
+    inputs:
+      executable-name:
+        description: Name for the output executable
+        required: true
+        type: string
+
+      spec-file:
+        description: Path to PyInstaller .spec file
+        required: false
+        type: string
+        default: ''
+
+      entry-point:
+        description: Python entry point file (used if no spec file)
+        required: false
+        type: string
+        default: ''
+
+      python-version:
+        description: Python version to use
+        required: false
+        type: string
+        default: '3.12'
+
+      extra-pip-packages:
+        description: Additional pip packages (space-separated)
+        required: false
+        type: string
+        default: ''
+
+      working-directory:
+        description: Working directory
+        required: false
+        type: string
+        default: .
+
+      create-release:
+        description: Create a GitHub release with the executables (only on tag pushes)
+        required: false
+        type: boolean
+        default: true
+
+      platforms:
+        description: 'JSON array of platforms to build for, e.g. ["macos-latest", "windows-latest"]'
+        required: false
+        type: string
+        default: '["macos-latest", "windows-latest"]'
+
+permissions: {}
+
+jobs:
+  build:
+    name: 📦 Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.platforms) }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: 🏗️ Build Executable
+        uses: navigaite/.github/.github/actions/build-executable@main
+        with:
+          spec-file: ${{ inputs.spec-file }}
+          entry-point: ${{ inputs.entry-point }}
+          executable-name: ${{ inputs.executable-name }}
+          python-version: ${{ inputs.python-version }}
+          extra-pip-packages: ${{ inputs.extra-pip-packages }}
+          working-directory: ${{ inputs.working-directory }}
+          upload-artifact: 'true'
+
+  release:
+    name: 🚀 Create Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    needs: build
+    if: inputs.create-release && startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: 📥 Download all artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+
+      - name: 📋 Prepare release assets
+        shell: bash
+        env:
+          EXECUTABLE_NAME: ${{ inputs.executable-name }}
+        run: |
+          echo "::group::📋 Preparing release assets"
+          mkdir -p release-assets
+
+          for dir in ${EXECUTABLE_NAME}-*/; do
+            platform="${dir#${EXECUTABLE_NAME}-}"
+            platform="${platform%/}"
+
+            if [[ -f "${dir}${EXECUTABLE_NAME}.exe" ]]; then
+              mv "${dir}${EXECUTABLE_NAME}.exe" "release-assets/${EXECUTABLE_NAME}-${platform}.exe"
+            elif [[ -f "${dir}${EXECUTABLE_NAME}" ]]; then
+              mv "${dir}${EXECUTABLE_NAME}" "release-assets/${EXECUTABLE_NAME}-${platform}"
+              chmod +x "release-assets/${EXECUTABLE_NAME}-${platform}"
+            fi
+          done
+
+          echo "Release assets:"
+          ls -lh release-assets/
+          echo "::endgroup::"
+
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
