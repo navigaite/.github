@@ -44,9 +44,33 @@ inputs:
     required: false
     default: '{}'
 
+  deploy-timeout:
+    description: Deployment timeout (e.g., 15m, 30m)
+    required: false
+    default: '15m'
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        case "${ENVIRONMENT,,}" in
+          preview|staging|production|development) ;;
+          *)
+            echo "::error::Invalid environment '$ENVIRONMENT'." \
+              "Must be one of: preview, staging, production, development"
+            exit 1
+            ;;
+        esac
+        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]]; then
+          echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"; exit 1
+        fi
+
     - name: Install Vercel CLI
       shell: bash
       run: npm install -g vercel@latest
@@ -55,10 +79,10 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
+        set -euo pipefail
         echo "::group::📥 Pulling Vercel Environment"
 
-        VERCEL_ENV="${{ inputs.environment }}"
-        VERCEL_ENV_LOWER=$(echo "$VERCEL_ENV" | tr '[:upper:]' '[:lower:]')
+        VERCEL_ENV_LOWER=$(echo "$ENVIRONMENT" | tr '[:upper:]' '[:lower:]')
         PRODUCTION_FLAG=""
         VERCEL_TARGET="preview"
 
@@ -75,12 +99,15 @@ runs:
         esac
 
         # Pull environment information
-        vercel pull --yes --environment="$VERCEL_TARGET" --token=${{ inputs.vercel-token }} \
-          --scope="${{ inputs.vercel-scope }}" \
+        vercel pull --yes --environment="$VERCEL_TARGET" --token="$VERCEL_TOKEN" \
+          --scope="$VERCEL_SCOPE" \
           $PRODUCTION_FLAG
 
         echo "::endgroup::"
       env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        VERCEL_TOKEN: ${{ inputs.vercel-token }}
+        VERCEL_SCOPE: ${{ inputs.vercel-scope }}
         VERCEL_ORG_ID: ${{ inputs.vercel-org-id }}
         VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }}
 
@@ -88,11 +115,10 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
+        set -euo pipefail
         echo "::group::🏗️ Building with Vercel"
 
-        VERCEL_ENV="${{ inputs.environment }}"
-        VERCEL_ENV_LOWER=$(echo "$VERCEL_ENV" | tr '[:upper:]' '[:lower:]')
-        BUILD_CMD="${{ inputs.build-command }}"
+        VERCEL_ENV_LOWER=$(echo "$ENVIRONMENT" | tr '[:upper:]' '[:lower:]')
         VERCEL_TARGET="preview"
 
         case "$VERCEL_ENV_LOWER" in
@@ -102,14 +128,17 @@ runs:
 
         if [[ -n "$BUILD_CMD" ]]; then
           echo "Using custom build command: $BUILD_CMD"
-          vercel build --target="$VERCEL_TARGET" --token=${{ inputs.vercel-token }} --yes
-          eval "$BUILD_CMD"
+          vercel build --target="$VERCEL_TARGET" --token="$VERCEL_TOKEN" --yes
+          bash -c "$BUILD_CMD"
         else
-          vercel build --target="$VERCEL_TARGET" --token=${{ inputs.vercel-token }}
+          vercel build --target="$VERCEL_TARGET" --token="$VERCEL_TOKEN"
         fi
 
         echo "::endgroup::"
       env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        BUILD_CMD: ${{ inputs.build-command }}
+        VERCEL_TOKEN: ${{ inputs.vercel-token }}
         VERCEL_ORG_ID: ${{ inputs.vercel-org-id }}
         VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }}
 
@@ -124,7 +153,9 @@ runs:
         VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }}
         ENVIRONMENT: ${{ inputs.environment }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
+        DEPLOY_TIMEOUT: ${{ inputs.deploy-timeout }}
       run: |
+        set -euo pipefail
         echo "::group::🚀 Deploying to Vercel ($ENVIRONMENT)"
 
         VERCEL_ENV_LOWER=$(echo "$ENVIRONMENT" | tr '[:upper:]' '[:lower:]')
@@ -142,7 +173,7 @@ runs:
 
         # Deploy prebuilt project (non-interactive with hard timeout to prevent hanging jobs)
         DEPLOY_OUTPUT=$(
-          timeout 15m vercel deploy \
+          timeout "$DEPLOY_TIMEOUT" vercel deploy \
             --prebuilt \
             --yes \
             --target="$VERCEL_TARGET" \
@@ -156,7 +187,8 @@ runs:
           DEPLOY_URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -Eo 'https://[^ ]+' | tail -1)
         fi
         if [[ -z "$DEPLOY_URL" ]]; then
-          echo "::error::Could not parse deployment URL from Vercel output"
+          echo "::error::Could not parse deployment URL from Vercel output." \
+            "Verify vercel-token has deploy permissions and vercel-project-id is correct"
           exit 1
         fi
         if [[ -z "$DASHBOARD_URL" ]]; then
@@ -268,6 +300,7 @@ runs:
         ENVIRONMENT: ${{ inputs.environment }}
         DEPLOY_STATUS: ${{ steps.deploy.outcome == 'success' && '✅ Success' || '❌ Failed' }}
       run: |
+        set -euo pipefail
         {
           echo "### 🚀 Vercel Deployment"
           echo ""

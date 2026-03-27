@@ -202,6 +202,7 @@ runs:
         FB_VERSION: ${{ steps.fallback-release.outputs.version }}
         FB_URL: ${{ steps.fallback-release.outputs.url }}
       run: |
+        set -euo pipefail
         release_created="false"
         release_id=""
         release_name=""
@@ -283,6 +284,7 @@ runs:
         REPO: ${{ github.repository }}
         RELEASE_TYPE: ${{ inputs.release-type }}
       run: |
+        set -euo pipefail
         echo "### 📦 Release Management" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 

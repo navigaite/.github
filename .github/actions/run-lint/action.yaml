@@ -25,6 +25,21 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      shell: bash
+      env:
+        STACK: ${{ inputs.stack }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        case "$STACK" in
+          nodejs|python|flutter) ;;
+          *) echo "::error::Invalid stack '$STACK'. Must be one of: nodejs, python, flutter"; exit 1 ;;
+        esac
+        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]]; then
+          echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"; exit 1
+        fi
+
     - name: Run Linting
       id: lint
       shell: bash
@@ -34,12 +49,13 @@ runs:
         STACK: ${{ inputs.stack }}
         CUSTOM_CMD: ${{ inputs.lint-command }}
       run: |
+        set -euo pipefail
         echo "::group::🧹 Running Linter"
 
         # Use custom command if provided
         if [[ -n "$CUSTOM_CMD" ]]; then
           echo "Using custom lint command: $CUSTOM_CMD"
-          eval "$CUSTOM_CMD"
+          bash -c "$CUSTOM_CMD"
         else
           # Auto-detect and run appropriate linter
           case "$STACK" in
@@ -51,13 +67,10 @@ runs:
 
                 # Some projects use "trunk check" via npm scripts. Ensure trunk exists on runner.
                 if [[ "$HAS_LINT" == *"trunk"* ]] && ! command -v trunk &> /dev/null; then
-                  echo "Installing Trunk CLI..."
-                  curl -fsSL https://get.trunk.io | bash -s -- -y
-                  export PATH="$HOME/.trunk/bin:$PATH"
-                  if ! command -v trunk &> /dev/null; then
-                    echo "::error::Failed to install Trunk CLI"
-                    exit 1
-                  fi
+                  echo "::error::Lint script references 'trunk' but Trunk CLI is not installed." \
+                    "Add trunk-io/trunk-action to your workflow before this action," \
+                    "or install Trunk CLI manually."
+                  exit 1
                 fi
 
                 if [[ -n "$HAS_LINT" ]]; then
@@ -110,6 +123,7 @@ runs:
         STACK: ${{ inputs.stack }}
         WORKING_DIR: ${{ inputs.working-directory }}
       run: |
+        set -euo pipefail
         echo "### 🧹 Lint Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 

@@ -38,6 +38,17 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        set -euo pipefail
+        case "${ENVIRONMENT,,}" in
+          preview|staging|production|development) ;;
+          *) echo "::error::Invalid environment '$ENVIRONMENT'. Must be one of: preview, staging, production, development"; exit 1 ;;
+        esac
+
     - name: Deploy to DigitalOcean App Platform
       id: deploy
       uses: digitalocean/app_action@5c95e0e12f850942e75d8903dc3be30cbea30953 # v1.1.7
@@ -58,6 +69,7 @@ runs:
         IS_PR_PREVIEW: ${{ inputs.is-pr-preview }}
         DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
       run: |
+        set -euo pipefail
         echo "### 🚀 DigitalOcean Deployment" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **App Name:** $APP_NAME" >> $GITHUB_STEP_SUMMARY

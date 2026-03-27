@@ -175,6 +175,7 @@ jobs:
           SKIP_BUILD: ${{ inputs.skip-build }}
           SKIP_DEPLOY: ${{ inputs.skip-deploy }}
         run: |
+          set -euo pipefail
           echo "::group::📋 Parsing Pipeline Configuration"
 
           # Check if config file exists
@@ -307,6 +308,7 @@ jobs:
           RELEASE_STRATEGY: ${{ steps.parse-config.outputs.release-strategy }}
           RELEASE_FORCE_PATCH_NO_RELEASE: ${{ steps.parse-config.outputs.release-force-patch-on-no-release }}
         run: |
+          set -euo pipefail
           echo "## 🚀 Pipeline Overview" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
@@ -389,6 +391,7 @@ jobs:
         if: needs.setup.outputs.stack == 'nodejs'
         shell: bash
         run: |
+          set -euo pipefail
           if [[ ! -f package.json ]]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -426,6 +429,7 @@ jobs:
         id: detect-trunk
         shell: bash
         run: |
+          set -euo pipefail
           if [[ -f ".trunk/trunk.yaml" ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
@@ -441,6 +445,7 @@ jobs:
           BRANCH_OUTCOME: ${{ steps.react-doctor.outcome }}
           BRANCH_SCORE: ${{ steps.react-doctor.outputs.score }}
         run: |
+          set -euo pipefail
           MODE="not run"
           OUTCOME="skipped"
           SCORE="-"
@@ -495,6 +500,7 @@ jobs:
           RD_PR_OUTCOME: ${{ steps.react-doctor-pr.outcome }}
           RD_OUTCOME: ${{ steps.react-doctor.outcome }}
         run: |
+          set -euo pipefail
           LINT_ENGINE="Custom lint action"
           LINT_STATUS="$FALLBACK_OUTCOME"
           if [[ "$TRUNK_ENABLED" == "true" ]]; then
@@ -600,6 +606,7 @@ jobs:
           INFISICAL_PROJECT_SLUG: ${{ vars.INFISICAL_PROJECT_SLUG || secrets.INFISICAL_PROJECT_SLUG }}
           INFISICAL_ENV_SLUG: ${{ vars.INFISICAL_ENV_SLUG || secrets.INFISICAL_ENV_SLUG }}
         run: |
+          set -euo pipefail
           if [[ -n "$INFISICAL_CLIENT_ID" && -n "$INFISICAL_CLIENT_SECRET" && -n "$INFISICAL_PROJECT_SLUG" && -n "$INFISICAL_ENV_SLUG" ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
@@ -669,6 +676,7 @@ jobs:
           INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           INFISICAL_PROJECT_SLUG_RAW: ${{ vars.INFISICAL_PROJECT_SLUG || secrets.INFISICAL_PROJECT_SLUG }}
         run: |
+          set -euo pipefail
           case "${DEPLOY_ENVIRONMENT,,}" in
           production) RESOLVED_ENV_SLUG="production" ;;
           *) RESOLVED_ENV_SLUG="preview" ;;
@@ -771,6 +779,7 @@ jobs:
           RELEASE_VERSION: ${{ needs.release.outputs.release-version }}
           EXTRA_BUILD_ARGS: ${{ matrix.image.build_args }}
         run: |
+          set -euo pipefail
           REPO_LOWER="${REPO,,}"
 
           # Determine image name: explicit override > repo-suffix > repo name
@@ -886,3 +895,65 @@ jobs:
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           create-pr: false
           auto-merge-pr: true
+
+  # ─── Pipeline Summary ───────────────────────────────────────────
+  pipeline-summary:
+    name: 📊 Pipeline Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    needs:
+      - setup
+      - security
+      - lint
+      - test
+      - build
+      - deploy-vercel
+      - deploy-digitalocean
+      - deploy-docker
+      - release
+      - sync-to-dev
+    if: always()
+    steps:
+      - name: Generate Pipeline Summary
+        shell: bash
+        env:
+          SETUP: ${{ needs.setup.result }}
+          SECURITY: ${{ needs.security.result }}
+          LINT: ${{ needs.lint.result }}
+          TEST: ${{ needs.test.result }}
+          BUILD: ${{ needs.build.result }}
+          DEPLOY_VERCEL: ${{ needs.deploy-vercel.result }}
+          DEPLOY_DO: ${{ needs.deploy-digitalocean.result }}
+          DEPLOY_DOCKER: ${{ needs.deploy-docker.result }}
+          RELEASE: ${{ needs.release.result }}
+          SYNC: ${{ needs.sync-to-dev.result }}
+        run: |
+          set -euo pipefail
+          status_icon() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              skipped) echo "⏭️" ;;
+              cancelled) echo "🚫" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          {
+            echo "## 📊 Pipeline Summary"
+            echo ""
+            echo "| Stage | Status |"
+            echo "| --- | --- |"
+            echo "| Setup | $(status_icon "$SETUP") $SETUP |"
+            echo "| Security | $(status_icon "$SECURITY") $SECURITY |"
+            echo "| Lint | $(status_icon "$LINT") $LINT |"
+            echo "| Test | $(status_icon "$TEST") $TEST |"
+            echo "| Build | $(status_icon "$BUILD") $BUILD |"
+            echo "| Deploy (Vercel) | $(status_icon "$DEPLOY_VERCEL") $DEPLOY_VERCEL |"
+            echo "| Deploy (DO) | $(status_icon "$DEPLOY_DO") $DEPLOY_DO |"
+            echo "| Deploy (Docker) | $(status_icon "$DEPLOY_DOCKER") $DEPLOY_DOCKER |"
+            echo "| Release | $(status_icon "$RELEASE") $RELEASE |"
+            echo "| Sync to Dev | $(status_icon "$SYNC") $SYNC |"
+          } >> "$GITHUB_STEP_SUMMARY"

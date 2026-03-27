@@ -25,6 +25,21 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      shell: bash
+      env:
+        STACK: ${{ inputs.stack }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        case "$STACK" in
+          nodejs|python|flutter) ;;
+          *) echo "::error::Invalid stack '$STACK'. Must be one of: nodejs, python, flutter"; exit 1 ;;
+        esac
+        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]]; then
+          echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"; exit 1
+        fi
+
     - name: Run Tests
       id: test
       shell: bash
@@ -34,7 +49,7 @@ runs:
         CUSTOM_CMD: ${{ inputs.test-command }}
         ENABLE_COVERAGE: ${{ inputs.coverage }}
       run: |
-        set -o pipefail
+        set -euo pipefail
         echo "::group::🧪 Running Tests"
         TEST_LOG="${RUNNER_TEMP}/test-output.log"
         : > "$TEST_LOG"
@@ -107,7 +122,7 @@ runs:
         if [[ -n "$CUSTOM_CMD" ]]; then
           echo "Using custom test command: $CUSTOM_CMD"
           TEST_COMMAND_USED="$CUSTOM_CMD"
-          eval "$CUSTOM_CMD" 2>&1 | tee "$TEST_LOG"
+          bash -c "$CUSTOM_CMD" 2>&1 | tee "$TEST_LOG"
           TEST_EXIT_CODE=${PIPESTATUS[0]}
         else
           # Auto-detect and run appropriate tests
@@ -204,6 +219,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
+        set -euo pipefail
         COVERAGE_FOUND="false"
         for pattern in "coverage/lcov.info" "coverage/cobertura-coverage.xml" "coverage/coverage-final.json" "coverage.xml"; do
           if [[ -f "$pattern" ]]; then
@@ -242,6 +258,7 @@ runs:
         TEST_FILES_TOTAL: ${{ env.TEST_FILES_TOTAL }}
         TEST_DURATION: ${{ env.TEST_DURATION }}
       run: |
+        set -euo pipefail
         echo "### 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 

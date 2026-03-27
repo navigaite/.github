@@ -37,9 +37,29 @@ inputs:
     required: false
     default: 'false'
 
+  artifact-retention-days:
+    description: Number of days to retain build artifacts
+    required: false
+    default: '7'
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      shell: bash
+      env:
+        STACK: ${{ inputs.stack }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        case "$STACK" in
+          nodejs|python|flutter) ;;
+          *) echo "::error::Invalid stack '$STACK'. Must be one of: nodejs, python, flutter"; exit 1 ;;
+        esac
+        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]]; then
+          echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"; exit 1
+        fi
+
     - name: Run Build
       id: build
       shell: bash
@@ -48,12 +68,13 @@ runs:
         STACK: ${{ inputs.stack }}
         CUSTOM_CMD: ${{ inputs.build-command }}
       run: |
+        set -euo pipefail
         echo "::group::🏗️ Running Build"
 
         # Use custom command if provided
         if [[ -n "$CUSTOM_CMD" ]]; then
           echo "Using custom build command: $CUSTOM_CMD"
-          eval "$CUSTOM_CMD"
+          bash -c "$CUSTOM_CMD"
         else
           # Auto-detect and run appropriate build
           case "$STACK" in
@@ -110,6 +131,7 @@ runs:
       env:
         STACK: ${{ inputs.stack }}
       run: |
+        set -euo pipefail
         OUTPUT_PATH=""
 
         case "$STACK" in
@@ -145,7 +167,9 @@ runs:
         echo "Detected build output: $OUTPUT_PATH"
 
     - name: Upload Build Artifacts
-      if: inputs.upload-artifacts == 'true' && (inputs.artifact-path != '' || steps.detect-output.outputs.output-path != '')
+      if:
+        inputs.upload-artifacts == 'true' && (inputs.artifact-path != '' || steps.detect-output.outputs.output-path !=
+        '')
       id: upload
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
@@ -156,11 +180,13 @@ runs:
             && inputs.artifact-path
             || steps.detect-output.outputs.output-path
           }}
-        retention-days: 7
+        retention-days: ${{ inputs.artifact-retention-days }}
         if-no-files-found: warn
 
     - name: Attest Build Provenance
-      if: inputs.upload-artifacts == 'true' && inputs.attest-artifacts == 'true' && steps.upload.outputs.artifact-digest != ''
+      if:
+        inputs.upload-artifacts == 'true' && inputs.attest-artifacts == 'true' && steps.upload.outputs.artifact-digest
+        != ''
       uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
       continue-on-error: true # Don't break pipelines without OIDC token
       with:
@@ -176,6 +202,7 @@ runs:
         WORKING_DIR: ${{ inputs.working-directory }}
         UPLOAD_ARTIFACTS: ${{ inputs.upload-artifacts }}
       run: |
+        set -euo pipefail
         echo "### 🏗️ Build Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 

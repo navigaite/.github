@@ -66,6 +66,7 @@ runs:
         INPUT_ARTIFACT_NAME: ${{ inputs.artifact-name }}
         INPUT_EXECUTABLE_NAME: ${{ inputs.executable-name }}
       run: |
+        set -euo pipefail
         # Auto-detect artifact name from OS if not specified
         if [[ -n "$INPUT_ARTIFACT_NAME" ]]; then
           echo "artifact-name=$INPUT_ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
@@ -89,6 +90,7 @@ runs:
       env:
         EXTRA_PACKAGES: ${{ inputs.extra-pip-packages }}
       run: |
+        set -euo pipefail
         echo "::group::📦 Installing dependencies"
         python -m pip install --upgrade pip
         pip install pyinstaller
@@ -117,6 +119,7 @@ runs:
         EXECUTABLE_NAME: ${{ inputs.executable-name }}
         PYINSTALLER_ARGS: ${{ inputs.pyinstaller-args }}
       run: |
+        set -euo pipefail
         echo "::group::🏗️ Building executable"
 
         if [[ -n "$SPEC_FILE" ]]; then
@@ -153,6 +156,7 @@ runs:
       env:
         EXE_PATH: ${{ steps.build.outputs.executable-path }}
       run: |
+        set -euo pipefail
         echo "::group::🧪 Testing executable"
         ./"$EXE_PATH" --version || ./"$EXE_PATH" --help || echo "::warning::Could not verify executable"
         echo "::endgroup::"
@@ -174,6 +178,7 @@ runs:
         EXE_PATH: ${{ steps.build.outputs.executable-path }}
         ARTIFACT_NAME: ${{ steps.resolve.outputs.artifact-name }}
       run: |
+        set -euo pipefail
         echo "### 📦 Executable Build" >> "$GITHUB_STEP_SUMMARY"
         echo "" >> "$GITHUB_STEP_SUMMARY"
 

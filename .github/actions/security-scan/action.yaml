@@ -32,6 +32,7 @@ runs:
   using: composite
   steps:
     - name: TruffleHog Secret Scanning
+      id: trufflehog-scan
       if: |
         inputs.enable-trufflehog == 'true' &&
         (
@@ -45,21 +46,27 @@ runs:
         head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         extra_args: ${{ inputs.trufflehog-extra-args }}
 
-    - name: TruffleHog Skip Notice
+    - name: TruffleHog Full Scan (Initial Push)
+      id: trufflehog-initial
       if: |
         inputs.enable-trufflehog == 'true' &&
         github.event_name == 'push' &&
         (github.event.before == github.sha || github.event.before == '0000000000000000000000000000000000000000')
-      shell: bash
-      run: |
-        echo "::notice::Skipping TruffleHog diff scan on push because BASE and HEAD are identical or unavailable"
+      uses: trufflesecurity/trufflehog@7c0734f987ad0bb30ee8da210773b800ee2016d3 # v3.93.4
+      with:
+        path: ./
+        extra_args: --since-commit=HEAD~10 ${{ inputs.trufflehog-extra-args }}
 
     - name: Check TruffleHog Results
       if: inputs.enable-trufflehog == 'true' && inputs.fail-on-secrets == 'true'
       shell: bash
+      env:
+        TRUFFLEHOG_OUTCOME: ${{ steps.trufflehog-scan.outcome }}
+        TRUFFLEHOG_INITIAL_OUTCOME: ${{ steps.trufflehog-initial.outcome }}
       run: |
+        set -euo pipefail
         echo "::group::🔍 TruffleHog Secret Scan Results"
-        if [[ $? -ne 0 ]]; then
+        if [[ "$TRUFFLEHOG_OUTCOME" == "failure" ]] || [[ "$TRUFFLEHOG_INITIAL_OUTCOME" == "failure" ]]; then
           echo "::error::TruffleHog detected secrets in the codebase"
           echo "### ⚠️ Security Alert: Secrets Detected" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -90,6 +97,7 @@ runs:
         EVENT_NAME: ${{ github.event_name }}
         DEP_REVIEW_OUTCOME: ${{ steps.dependency_review.outcome }}
       run: |
+        set -euo pipefail
         echo "### 🔒 Security Scan Complete" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         TRUFFLEHOG=$([[ "$ENABLE_TRUFFLEHOG" == "true" ]] \

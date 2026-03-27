@@ -33,12 +33,14 @@ runs:
     - name: Configure Git
       shell: bash
       run: |
+        set -euo pipefail
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
     - name: Fetch All Branches
       shell: bash
       run: |
+        set -euo pipefail
         # Fetch remote refs only; never fetch into local checked-out branches.
         git fetch --prune origin
 
@@ -49,6 +51,7 @@ runs:
         SOURCE_BRANCH: ${{ inputs.source-branch }}
         TARGET_BRANCH: ${{ inputs.target-branch }}
       run: |
+        set -euo pipefail
         echo "::group::🔍 Checking if sync is needed"
 
         # Ensure both remote branches exist
@@ -85,6 +88,7 @@ runs:
         SOURCE_BRANCH: ${{ inputs.source-branch }}
         TARGET_BRANCH: ${{ inputs.target-branch }}
       run: |
+        set -euo pipefail
         echo "::group::🔄 Syncing $SOURCE_BRANCH → $TARGET_BRANCH"
 
         # Create/reset local target branch from remote
@@ -201,6 +205,7 @@ runs:
         PR_URL: ${{ steps.create-pr.outputs.pr-url }}
         AUTO_MERGE: ${{ inputs.auto-merge-pr }}
       run: |
+        set -euo pipefail
         echo "### 🔄 Branch Sync" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 

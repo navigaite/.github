@@ -63,6 +63,7 @@ runs:
         INPUT_PYTHON_VERSION: ${{ inputs.python-version }}
         INPUT_FLUTTER_VERSION: ${{ inputs.flutter-version }}
       run: |
+        set -euo pipefail
         echo "::group::🔍 Detecting Tech Stack"
 
         STACK="$INPUT_STACK"
@@ -107,6 +108,7 @@ runs:
                 VERSION=$(jq -r '.engines.node // "20"' package.json | sed 's/[^0-9.]//g')
               else
                 VERSION="20"
+                echo "::warning::jq not available, defaulting to Node.js 20. Install jq or set node-version explicitly."
               fi
               echo "✓ Using default/extracted Node version: $VERSION"
             fi
@@ -139,11 +141,15 @@ runs:
                 echo "✓ Read Python version from pyproject.toml: $VERSION"
               else
                 VERSION="3.11"
-                echo "✓ Using default Python version: $VERSION"
+                echo "::warning::Could not extract Python version from" \
+                  "pyproject.toml, defaulting to 3.11." \
+                  "Set python-version or add .python-version file."
               fi
             else
               VERSION="3.11"
-              echo "✓ Using default Python version: $VERSION"
+              echo "::warning::No Python version file found," \
+                "defaulting to 3.11." \
+                "Set python-version or add .python-version file."
             fi
 
           # Detect Flutter project
@@ -168,7 +174,11 @@ runs:
             fi
 
           else
-            echo "::error::Could not auto-detect tech stack. Please specify the 'stack' input parameter."
+            echo "::error::Could not auto-detect tech stack." \
+              "Ensure your repo contains package.json (Node.js)," \
+              "requirements.txt/pyproject.toml (Python)," \
+              "or pubspec.yaml (Flutter)." \
+              "Alternatively, set the 'stack' input explicitly."
             exit 1
           fi
         else
@@ -242,7 +252,8 @@ runs:
       with:
         node-version: ${{ steps.detect.outputs.version }}
         cache:
-          ${{ inputs.enable-caching == 'true' && steps.detect.outputs.dependency-file != '' && steps.detect.outputs.package-manager || '' }}
+          ${{ inputs.enable-caching == 'true' && steps.detect.outputs.dependency-file != '' &&
+          steps.detect.outputs.package-manager || '' }}
         cache-dependency-path: ${{ steps.detect.outputs.dependency-file }}
 
     - name: Setup Python
@@ -269,6 +280,7 @@ runs:
         PKG_MANAGER: ${{ steps.detect.outputs.package-manager }}
         ENABLE_CACHING: ${{ inputs.enable-caching }}
       run: |
+        set -euo pipefail
         echo "### 🎯 Environment Setup Complete" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Tech Stack:** $STACK" >> $GITHUB_STEP_SUMMARY

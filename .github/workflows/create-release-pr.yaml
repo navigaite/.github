@@ -321,6 +321,7 @@ jobs:
 
       - name: Job summary
         run: |
+          set -euo pipefail
           {
             echo "## 🚀 Release PR"
             echo ""

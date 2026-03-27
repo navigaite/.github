@@ -21,6 +21,11 @@ inputs:
     required: false
     default: ''
 
+  max-retries:
+    description: Maximum retry attempts for package installation (npm only)
+    required: false
+    default: '3'
+
   write-summary:
     description: Write dependency details to GitHub job summary
     required: false
@@ -29,6 +34,21 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      shell: bash
+      env:
+        STACK: ${{ inputs.stack }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        case "$STACK" in
+          nodejs|python|flutter) ;;
+          *) echo "::error::Invalid stack '$STACK'. Must be one of: nodejs, python, flutter"; exit 1 ;;
+        esac
+        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]]; then
+          echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"; exit 1
+        fi
+
     - name: Install Dependencies
       shell: bash
       working-directory: ${{ inputs.working-directory }}
@@ -36,13 +56,15 @@ runs:
         STACK: ${{ inputs.stack }}
         PKG_MANAGER: ${{ inputs.package-manager }}
         CUSTOM_CMD: ${{ inputs.install-command }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
+        set -euo pipefail
         echo "::group::📥 Installing Dependencies"
 
         # Use custom command if provided
         if [[ -n "$CUSTOM_CMD" ]]; then
           echo "Using custom install command: $CUSTOM_CMD"
-          eval "$CUSTOM_CMD"
+          bash -c "$CUSTOM_CMD"
           echo "::endgroup::"
           exit 0
         fi
@@ -54,7 +76,7 @@ runs:
               npm)
                 echo "Installing with npm ci..."
                 ATTEMPT=1
-                MAX_ATTEMPTS=3
+                MAX_ATTEMPTS="${MAX_RETRIES}"
                 until [[ $ATTEMPT -gt $MAX_ATTEMPTS ]]; do
                   echo "npm ci attempt $ATTEMPT/$MAX_ATTEMPTS"
                   if npm ci \
@@ -66,7 +88,8 @@ runs:
                   fi
 
                   if [[ $ATTEMPT -eq $MAX_ATTEMPTS ]]; then
-                    echo "::error::npm ci failed after $MAX_ATTEMPTS attempts"
+                    echo "::error::npm ci failed after $MAX_ATTEMPTS attempts." \
+                      "Check network connectivity and that package-lock.json is in sync with package.json"
                     exit 1
                   fi
 
@@ -87,7 +110,8 @@ runs:
                 yarn install --frozen-lockfile
                 ;;
               *)
-                echo "::error::Unknown Node.js package manager: $PKG_MANAGER"
+                echo "::error::Unknown Node.js package manager '$PKG_MANAGER'." \
+                  "Valid options: npm, pnpm, yarn"
                 exit 1
                 ;;
             esac
@@ -126,7 +150,8 @@ runs:
                 pipenv install --dev
                 ;;
               *)
-                echo "::error::Unknown Python package manager: $PKG_MANAGER"
+                echo "::error::Unknown Python package manager '$PKG_MANAGER'." \
+                  "Valid options: pip, poetry, pipenv"
                 exit 1
                 ;;
             esac
@@ -146,7 +171,8 @@ runs:
             ;;
 
           *)
-            echo "::error::Unknown tech stack: $STACK"
+            echo "::error::Unknown tech stack '$STACK'." \
+              "Valid options: nodejs, python, flutter"
             exit 1
             ;;
         esac
@@ -163,6 +189,7 @@ runs:
         PKG_MANAGER: ${{ inputs.package-manager }}
         WORKING_DIR: ${{ inputs.working-directory }}
       run: |
+        set -euo pipefail
         echo "### 📦 Dependencies Installed" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Stack:** $STACK" >> $GITHUB_STEP_SUMMARY

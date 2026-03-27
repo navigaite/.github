@@ -56,6 +56,13 @@ inputs:
     required: false
     default: 'true'
 
+  cache-scope:
+    description: >-
+      GHA cache scope key. Set unique values per image in multi-image builds to prevent cache collisions (e.g.,
+      'app-frontend', 'app-backend').
+    required: false
+    default: ''
+
 runs:
   using: composite
   steps:
@@ -75,6 +82,7 @@ runs:
         INPUT_REGISTRY_URL: ${{ inputs.registry-url }}
         GITHUB_ACTOR: ${{ github.actor }}
       run: |
+        set -euo pipefail
         REGISTRY="$REGISTRY_TYPE"
         REGISTRY_URL=""
         USERNAME="$INPUT_USERNAME"
@@ -98,7 +106,8 @@ runs:
             REGISTRY_URL="$INPUT_REGISTRY_URL"
             ;;
           *)
-            echo "::error::Unknown registry type: $REGISTRY"
+            echo "::error::Unknown registry type '$REGISTRY'." \
+              "Valid options: dockerhub, ghcr, gcr, ecr, custom"
             exit 1
             ;;
         esac
@@ -139,8 +148,14 @@ runs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         build-args: ${{ inputs.build-args }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        cache-from: >-
+          ${{ inputs.cache-scope != ''
+            && format('type=gha,scope={0}', inputs.cache-scope)
+            || 'type=gha' }}
+        cache-to: >-
+          ${{ inputs.cache-scope != ''
+            && format('type=gha,mode=max,scope={0}', inputs.cache-scope)
+            || 'type=gha,mode=max' }}
 
     - name: Deployment Summary
       if: always()
@@ -153,6 +168,7 @@ runs:
         BUILD_DIGEST: ${{ steps.build.outputs.digest }}
         BUILD_OUTCOME: ${{ steps.build.outcome }}
       run: |
+        set -euo pipefail
         echo "### 🐳 Docker Build & Deploy" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Image:** $IMAGE_NAME" >> $GITHUB_STEP_SUMMARY
