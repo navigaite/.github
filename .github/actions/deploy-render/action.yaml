@@ -1,0 +1,182 @@
+---
+name: Deploy to Render
+description: Trigger a Render deployment via deploy hook and optionally track it in GitHub Deployments
+
+inputs:
+  deploy-hook-url:
+    description: Render deploy hook URL for the target service
+    required: true
+
+  environment:
+    description: Deployment environment name (for example staging or production)
+    required: true
+
+  service-name:
+    description: Human-readable service name for summaries and deployment records
+    required: false
+    default: render-service
+
+  service-url:
+    description: Public service URL to attach to the GitHub deployment status
+    required: false
+    default: ''
+
+  github-token:
+    description: GitHub token for deployment records and optional PR comments
+    required: false
+    default: ''
+
+  timeout-seconds:
+    description: Curl timeout for triggering the Render deploy hook
+    required: false
+    default: '30'
+
+  comment-on-pr:
+    description: Whether to comment on pull requests with the service URL
+    required: false
+    default: 'false'
+
+outputs:
+  resolved-url:
+    description: Best available URL for the deployment (service URL or GitHub deployments page)
+    value: ${{ steps.resolve.outputs.resolved-url }}
+
+  hook-response:
+    description: Render deploy hook response body
+    value: ${{ steps.trigger.outputs.hook-response }}
+
+runs:
+  using: composite
+  steps:
+    - name: Trigger Render Deploy Hook
+      id: trigger
+      shell: bash
+      env:
+        DEPLOY_HOOK_URL: ${{ inputs.deploy-hook-url }}
+        TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
+        SERVICE_NAME: ${{ inputs.service-name }}
+      run: |
+        echo "::group::🚀 Triggering Render deploy for ${SERVICE_NAME}"
+
+        if [[ -z "$DEPLOY_HOOK_URL" ]]; then
+          echo "::error::deploy-hook-url is required"
+          exit 1
+        fi
+
+        RESPONSE=$(curl -fsSL --max-time "$TIMEOUT_SECONDS" "$DEPLOY_HOOK_URL")
+
+        {
+          echo "hook-response<<EOF"
+          echo "$RESPONSE"
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+        echo "✅ Render deploy hook accepted for ${SERVICE_NAME}"
+        echo "::endgroup::"
+
+    - name: Resolve Deployment URL
+      id: resolve
+      shell: bash
+      env:
+        SERVICE_URL: ${{ inputs.service-url }}
+        ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        GITHUB_DEPLOYMENTS_URL="https://github.com/${GITHUB_REPOSITORY}/deployments/activity_log?environment=${ENVIRONMENT}"
+
+        if [[ -n "$SERVICE_URL" ]]; then
+          RESOLVED_URL="$SERVICE_URL"
+        else
+          RESOLVED_URL="$GITHUB_DEPLOYMENTS_URL"
+        fi
+
+        echo "resolved-url=$RESOLVED_URL" >> "$GITHUB_OUTPUT"
+
+    - name: Create GitHub Deployment
+      if: inputs.github-token != ''
+      id: github-deployment
+      uses: chrnorm/deployment-action@55729fcebec3d284f60f5bcabbd8376437d696b1 # v2.0.7
+      with:
+        token: ${{ inputs.github-token }}
+        environment: ${{ inputs.environment }}
+        environment-url: ${{ steps.resolve.outputs.resolved-url }}
+        description: Render deploy triggered for ${{ inputs.service-name }}
+        auto-merge: false
+
+    - name: Update GitHub Deployment Status
+      if: inputs.github-token != '' && always()
+      uses: chrnorm/deployment-status@9a72af4586197112e0491ea843682b5dc280d806 # v2.0.3
+      with:
+        token: ${{ inputs.github-token }}
+        deployment-id: ${{ steps.github-deployment.outputs.deployment_id }}
+        state: ${{ job.status == 'success' && 'success' || 'failure' }}
+        environment-url: ${{ steps.resolve.outputs.resolved-url }}
+
+    - name: Comment on Pull Request
+      if: inputs.github-token != '' && inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' && inputs.service-url != ''
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const serviceName = '${{ inputs.service-name }}';
+          const environment = '${{ inputs.environment }}';
+          const serviceUrl = '${{ inputs.service-url }}';
+
+          const body = `### 🚀 Render Deployment
+
+          **Service:** ${serviceName}
+          **Environment:** ${environment}
+          **URL:** ${serviceUrl}
+          **Commit:** ${context.sha.substring(0, 7)}
+
+          ---
+          <sub>Triggered through Render deploy hooks</sub>`;
+
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existing = comments.find(comment =>
+            comment.user.type === 'Bot' &&
+            comment.body.includes('Render Deployment') &&
+            comment.body.includes(`**Service:** ${serviceName}`)
+          );
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+          }
+
+    - name: Deployment Summary
+      if: always()
+      shell: bash
+      env:
+        SERVICE_NAME: ${{ inputs.service-name }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        RESOLVED_URL: ${{ steps.resolve.outputs.resolved-url }}
+        DEPLOY_STATUS: ${{ steps.trigger.outcome == 'success' && '✅ Triggered' || '❌ Failed' }}
+      run: |
+        {
+          echo "### 🚀 Render Deployment"
+          echo ""
+          echo "| Item | Value |"
+          echo "| --- | --- |"
+          echo "| Service | \`$SERVICE_NAME\` |"
+          echo "| Environment | \`$ENVIRONMENT\` |"
+          echo "| Status | $DEPLOY_STATUS |"
+          echo "| URL | \`$RESOLVED_URL\` |"
+          echo ""
+          echo "[Open Deployment]($RESOLVED_URL)"
+        } >> "$GITHUB_STEP_SUMMARY"
