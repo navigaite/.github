@@ -163,6 +163,7 @@ jobs:
         with:
           stack: ${{ inputs.stack || 'auto' }}
           write-summary: 'false'
+          enable-caching: 'false'
 
       - name: 📋 Parse Configuration
         id: parse-config
@@ -957,3 +958,4 @@ jobs:
             echo "| Release | $(status_icon "$RELEASE") $RELEASE |"
             echo "| Sync to Dev | $(status_icon "$SYNC") $SYNC |"
           } >> "$GITHUB_STEP_SUMMARY"
+
