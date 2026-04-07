@@ -259,25 +259,32 @@ runs:
         TEST_DURATION: ${{ env.TEST_DURATION }}
       run: |
         set -euo pipefail
-        echo "### 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
         if [[ "$TEST_OUTCOME" == "success" ]]; then
-          echo "✅ **Status:** Passed" >> $GITHUB_STEP_SUMMARY
+          STATUS_ICON="✅"; STATUS_LABEL="Passed"
         elif [[ "$TEST_OUTCOME" == "failure" ]]; then
-          echo "❌ **Status:** Failed" >> $GITHUB_STEP_SUMMARY
+          STATUS_ICON="❌"; STATUS_LABEL="Failed"
         else
-          echo "⏭️ **Status:** Skipped" >> $GITHUB_STEP_SUMMARY
+          STATUS_ICON="⏭️"; STATUS_LABEL="Skipped"
         fi
 
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-        echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
-        echo "| Stack | \`$STACK\` |" >> $GITHUB_STEP_SUMMARY
-        echo "| Command | \`$TEST_COMMAND_USED\` |" >> $GITHUB_STEP_SUMMARY
-        echo "| Test Files | ✅ $TEST_FILES_PASSED / ❌ $TEST_FILES_FAILED / Total $TEST_FILES_TOTAL |" >> $GITHUB_STEP_SUMMARY
-        echo "| Tests | ✅ $TESTS_PASSED / ❌ $TESTS_FAILED / Total $TESTS_TOTAL |" >> $GITHUB_STEP_SUMMARY
-        echo "| Duration | $TEST_DURATION |" >> $GITHUB_STEP_SUMMARY
-        echo "| Coverage Enabled | $COVERAGE |" >> $GITHUB_STEP_SUMMARY
-        echo "| Coverage Report Found | $COVERAGE_FOUND |" >> $GITHUB_STEP_SUMMARY
-        echo "| Working Directory | \`$WORKING_DIR\` |" >> $GITHUB_STEP_SUMMARY
+        if [[ "$COVERAGE" == "true" && "$COVERAGE_FOUND" == "true" ]]; then
+          COVERAGE_STATUS="✅ Uploaded"
+        elif [[ "$COVERAGE" == "true" ]]; then
+          COVERAGE_STATUS="⚠️ Enabled, no report found"
+        else
+          COVERAGE_STATUS="⏭️ Disabled"
+        fi
+
+        {
+          echo "### 🧪 Tests"
+          echo ""
+          echo "| | |"
+          echo "|:---|:---|"
+          echo "| **Status** | $STATUS_ICON $STATUS_LABEL |"
+          echo "| **Tests** | ✅ \`$TESTS_PASSED\` passed · ❌ \`$TESTS_FAILED\` failed · \`$TESTS_TOTAL\` total |"
+          echo "| **Test Files** | ✅ \`$TEST_FILES_PASSED\` passed · ❌ \`$TEST_FILES_FAILED\` failed · \`$TEST_FILES_TOTAL\` total |"
+          echo "| **Duration** | \`$TEST_DURATION\` |"
+          echo "| **Stack** | \`$STACK\` |"
+          echo "| **Command** | \`$TEST_COMMAND_USED\` |"
+          echo "| **Coverage** | $COVERAGE_STATUS |"
+        } >> "$GITHUB_STEP_SUMMARY"

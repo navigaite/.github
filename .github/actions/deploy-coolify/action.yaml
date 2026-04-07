@@ -140,26 +140,22 @@ runs:
         ENVIRONMENT: ${{ inputs.environment }}
       run: |
         set -euo pipefail
-        echo "### 🚀 Coolify Deployment" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
         case "$DEPLOY_STATUS" in
-          success)
-            echo "✅ **Status:** Deployed successfully" >> $GITHUB_STEP_SUMMARY
-            echo "- **URL:** $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
-            ;;
-          failure)
-            echo "❌ **Status:** Deployment failed" >> $GITHUB_STEP_SUMMARY
-            ;;
-          timeout)
-            echo "⏱️ **Status:** Deployment timed out" >> $GITHUB_STEP_SUMMARY
-            ;;
-          triggered)
-            echo "🔄 **Status:** Deployment triggered (not waiting)" >> $GITHUB_STEP_SUMMARY
-            ;;
-          *)
-            echo "❓ **Status:** Unknown" >> $GITHUB_STEP_SUMMARY
-            ;;
+          success)  STATUS_DISPLAY="✅ Deployed" ;;
+          failure)  STATUS_DISPLAY="❌ Failed" ;;
+          timeout)  STATUS_DISPLAY="⏱️ Timed out" ;;
+          triggered) STATUS_DISPLAY="🔄 Triggered" ;;
+          *)        STATUS_DISPLAY="❓ Unknown" ;;
         esac
 
-        echo "- **Environment:** $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+        {
+          echo "### 🚀 Coolify Deployment"
+          echo ""
+          echo "| | |"
+          echo "|:---|:---|"
+          echo "| **Status** | $STATUS_DISPLAY |"
+          echo "| **Environment** | \`$ENVIRONMENT\` |"
+          if [[ "$DEPLOY_STATUS" == "success" && -n "$DEPLOY_URL" ]]; then
+            echo "| **URL** | [$DEPLOY_URL]($DEPLOY_URL) |"
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"

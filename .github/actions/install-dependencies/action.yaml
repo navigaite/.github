@@ -190,18 +190,14 @@ runs:
         WORKING_DIR: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
-        echo "### 📦 Dependencies Installed" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
-        echo "- **Package Manager:** $PKG_MANAGER" >> $GITHUB_STEP_SUMMARY
-        echo "- **Working Directory:** $WORKING_DIR" >> $GITHUB_STEP_SUMMARY
+        DEP_COUNT=""
 
         # Show dependency counts for Node.js
         if [[ "$STACK" == "nodejs" ]] && command -v jq &> /dev/null; then
           if [[ -f "package.json" ]]; then
             DEPS=$(jq '.dependencies // {} | length' package.json)
             DEV_DEPS=$(jq '.devDependencies // {} | length' package.json)
-            echo "- **Dependencies:** $DEPS production, $DEV_DEPS development" >> $GITHUB_STEP_SUMMARY
+            DEP_COUNT="\`$DEPS\` prod · \`$DEV_DEPS\` dev"
           fi
         fi
 
@@ -209,6 +205,19 @@ runs:
         if [[ "$STACK" == "python" ]]; then
           if [[ -f "requirements.txt" ]]; then
             DEPS=$(grep -v "^#" requirements.txt | grep -v "^$" | wc -l | tr -d ' ')
-            echo "- **Dependencies:** $DEPS packages" >> $GITHUB_STEP_SUMMARY
+            DEP_COUNT="\`$DEPS\` packages"
           fi
         fi
+
+        {
+          echo "### 📦 Dependencies"
+          echo ""
+          echo "| | |"
+          echo "|:---|:---|"
+          echo "| **Stack** | \`$STACK\` |"
+          echo "| **Package Manager** | \`$PKG_MANAGER\` |"
+          echo "| **Working Directory** | \`$WORKING_DIR\` |"
+          if [[ -n "$DEP_COUNT" ]]; then
+            echo "| **Dependencies** | $DEP_COUNT |"
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"

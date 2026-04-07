@@ -310,31 +310,37 @@ jobs:
           RELEASE_FORCE_PATCH_NO_RELEASE: ${{ steps.parse-config.outputs.release-force-patch-on-no-release }}
         run: |
           set -euo pipefail
-          echo "## 🚀 Pipeline Overview" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
-          echo "| Stack | \`$STACK\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Runtime | \`$RUNTIME_VERSION\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Package Manager | \`$PKG_MANAGER\` |" >> $GITHUB_STEP_SUMMARY
-          if [[ "$ENABLE_RELEASE" == "true" ]]; then
-            echo "| Release Strategy | \`$RELEASE_STRATEGY\` |" >> $GITHUB_STEP_SUMMARY
-            echo "| Force Patch On No Release | \`$RELEASE_FORCE_PATCH_NO_RELEASE\` |" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Stages" >> $GITHUB_STEP_SUMMARY
-          SECURITY=$([[ "$ENABLE_SECURITY" == "true" ]] && echo "✅" || echo "⏭️")
-          LINT=$([[ "$ENABLE_LINT" == "true" ]] && echo "✅" || echo "⏭️")
-          TEST=$([[ "$ENABLE_TEST" == "true" ]] && echo "✅" || echo "⏭️")
-          BUILD=$([[ "$ENABLE_BUILD" == "true" ]] && echo "✅" || echo "⏭️")
-          DEPLOY=$([[ "$ENABLE_DEPLOY" == "true" ]] && echo "✅" || echo "⏭️")
-          RELEASE=$([[ "$ENABLE_RELEASE" == "true" ]] && echo "✅" || echo "⏭️")
-          echo "- **Security Scan:** $SECURITY" >> $GITHUB_STEP_SUMMARY
-          echo "- **Lint:** $LINT" >> $GITHUB_STEP_SUMMARY
-          echo "- **Test:** $TEST" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build:** $BUILD" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deploy:** $DEPLOY" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release:** $RELEASE" >> $GITHUB_STEP_SUMMARY
+          SECURITY=$([[ "$ENABLE_SECURITY" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
+          LINT=$([[ "$ENABLE_LINT" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
+          TEST=$([[ "$ENABLE_TEST" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
+          BUILD=$([[ "$ENABLE_BUILD" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
+          DEPLOY=$([[ "$ENABLE_DEPLOY" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
+          RELEASE=$([[ "$ENABLE_RELEASE" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
+
+          {
+            echo "## 🚀 Pipeline Overview"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Stack** | \`$STACK\` |"
+            echo "| **Runtime** | \`$RUNTIME_VERSION\` |"
+            echo "| **Package Manager** | \`$PKG_MANAGER\` |"
+            if [[ "$ENABLE_RELEASE" == "true" ]]; then
+              echo "| **Release Strategy** | \`$RELEASE_STRATEGY\` |"
+              echo "| **Force Patch on No Release** | \`$RELEASE_FORCE_PATCH_NO_RELEASE\` |"
+            fi
+            echo ""
+            echo "---"
+            echo ""
+            echo "| Stage | Status |"
+            echo "|:---|:---|"
+            echo "| 🔒 Security Scan | $SECURITY |"
+            echo "| 🧹 Lint | $LINT |"
+            echo "| 🧪 Test | $TEST |"
+            echo "| 🏗️ Build | $BUILD |"
+            echo "| 🚀 Deploy | $DEPLOY |"
+            echo "| 📦 Release | $RELEASE |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # =============================================================================
   # SECURITY SCANNING
@@ -470,13 +476,15 @@ jobs:
             STATUS="⚪ Cancelled"
           fi
 
-          echo "### 🩺 React Doctor" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Status | $STATUS |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Mode | $MODE |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Health Score | $SCORE |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### 🩺 React Doctor"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Status** | $STATUS |"
+            echo "| **Mode** | $MODE |"
+            echo "| **Health Score** | \`$SCORE\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 🧹 Run Trunk Lint
         id: trunk-lint
@@ -520,13 +528,31 @@ jobs:
             fi
           fi
 
-          echo "### 🧹 Lint Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Check | Result |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Lint Engine | $LINT_ENGINE |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Lint Status | $LINT_STATUS |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| React Doctor | $RD_STATUS |" >> "$GITHUB_STEP_SUMMARY"
+          STATUS_ICON="⏭️"
+          STATUS_LABEL="Skipped"
+          if [[ "$LINT_STATUS" == "success" ]]; then
+            STATUS_ICON="✅"; STATUS_LABEL="Passed"
+          elif [[ "$LINT_STATUS" == "failure" ]]; then
+            STATUS_ICON="❌"; STATUS_LABEL="Failed"
+          fi
+
+          case "$RD_STATUS" in
+            success) RD_DISPLAY="✅ Passed" ;;
+            failure) RD_DISPLAY="⚠️ Completed with findings" ;;
+            "not run") RD_DISPLAY="⏭️ Not a React project" ;;
+            skipped|"") RD_DISPLAY="⏭️ Skipped" ;;
+            *) RD_DISPLAY="$RD_STATUS" ;;
+          esac
+
+          {
+            echo "### 🧹 Lint"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Status** | $STATUS_ICON $STATUS_LABEL |"
+            echo "| **Engine** | \`$LINT_ENGINE\` |"
+            echo "| **React Doctor** | $RD_DISPLAY |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # =============================================================================
   # TEST

@@ -203,17 +203,23 @@ runs:
         UPLOAD_ARTIFACTS: ${{ inputs.upload-artifacts }}
       run: |
         set -euo pipefail
-        echo "### 🏗️ Build Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
         if [[ "$BUILD_OUTCOME" == "success" ]]; then
-          echo "✅ **Status:** Success" >> $GITHUB_STEP_SUMMARY
+          STATUS_ICON="✅"; STATUS_LABEL="Success"
         elif [[ "$BUILD_OUTCOME" == "failure" ]]; then
-          echo "❌ **Status:** Failed" >> $GITHUB_STEP_SUMMARY
+          STATUS_ICON="❌"; STATUS_LABEL="Failed"
         else
-          echo "⏭️ **Status:** Skipped" >> $GITHUB_STEP_SUMMARY
+          STATUS_ICON="⏭️"; STATUS_LABEL="Skipped"
         fi
 
-        echo "- **Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
-        echo "- **Working Directory:** $WORKING_DIR" >> $GITHUB_STEP_SUMMARY
-        echo "- **Artifacts Uploaded:** $UPLOAD_ARTIFACTS" >> $GITHUB_STEP_SUMMARY
+        ARTIFACTS_STATUS=$([[ "$UPLOAD_ARTIFACTS" == "true" ]] && echo "✅ Uploaded" || echo "⏭️ Skipped")
+
+        {
+          echo "### 🏗️ Build"
+          echo ""
+          echo "| | |"
+          echo "|:---|:---|"
+          echo "| **Status** | $STATUS_ICON $STATUS_LABEL |"
+          echo "| **Stack** | \`$STACK\` |"
+          echo "| **Working Directory** | \`$WORKING_DIR\` |"
+          echo "| **Artifacts** | $ARTIFACTS_STATUS |"
+        } >> "$GITHUB_STEP_SUMMARY"

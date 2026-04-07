@@ -285,35 +285,49 @@ runs:
         RELEASE_TYPE: ${{ inputs.release-type }}
       run: |
         set -euo pipefail
-        echo "### 📦 Release Management" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
         if [[ "$RELEASE_CREATED" == "true" ]]; then
-          echo "✅ **Release Created**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version:** $TAG_NAME" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release ID:** $RELEASE_ID" >> $GITHUB_STEP_SUMMARY
-          echo "- **SHA:** $RELEASE_SHA" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           RELEASE_URL="https://github.com/$REPO/releases/tag/$TAG_NAME"
-          echo "[View Release]($RELEASE_URL)" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### 📦 Release"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Status** | ✅ Created |"
+            echo "| **Version** | \`$TAG_NAME\` |"
+            echo "| **Release ID** | \`$RELEASE_ID\` |"
+            echo "| **SHA** | \`${RELEASE_SHA:0:7}\` |"
+            echo "| **Strategy** | \`$STRATEGY\` |"
+            echo "| **Release Type** | \`$RELEASE_TYPE\` |"
+            echo ""
+            echo "[View Release →]($RELEASE_URL)"
+          } >> "$GITHUB_STEP_SUMMARY"
         elif [[ -n "$PR_NUMBER" ]]; then
-          echo "📝 **Release PR Updated**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **PR Number:** #$PR_NUMBER" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           PR_URL="https://github.com/$REPO/pull/$PR_NUMBER"
-          echo "[View PR]($PR_URL)" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### 📦 Release"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Status** | 📝 PR Updated |"
+            echo "| **PR** | [#$PR_NUMBER]($PR_URL) |"
+            echo "| **Strategy** | \`$STRATEGY\` |"
+            echo "| **Release Type** | \`$RELEASE_TYPE\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
         else
-          echo "ℹ️ **No Release**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "No release was created. This is normal if:" >> $GITHUB_STEP_SUMMARY
-          echo "- No releasable commits since last release" >> $GITHUB_STEP_SUMMARY
-          if [[ "$STRATEGY" == "release-please" ]]; then
-            echo "- Release PR is still open and not merged" >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "### 📦 Release"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Status** | ℹ️ No release |"
+            echo "| **Strategy** | \`$STRATEGY\` |"
+            echo "| **Release Type** | \`$RELEASE_TYPE\` |"
+            echo ""
+            echo "_No release was created — no releasable commits since last release"
+            if [[ "$STRATEGY" == "release-please" ]]; then
+              echo "or release PR is still open._"
+            else
+              echo "._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
         fi
-
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Release Type:** $RELEASE_TYPE" >> $GITHUB_STEP_SUMMARY
-        echo "**Strategy:** $STRATEGY" >> $GITHUB_STEP_SUMMARY

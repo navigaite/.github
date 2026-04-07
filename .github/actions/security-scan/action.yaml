@@ -68,14 +68,15 @@ runs:
         echo "::group::🔍 TruffleHog Secret Scan Results"
         if [[ "$TRUFFLEHOG_OUTCOME" == "failure" ]] || [[ "$TRUFFLEHOG_INITIAL_OUTCOME" == "failure" ]]; then
           echo "::error::TruffleHog detected secrets in the codebase"
-          echo "### ⚠️ Security Alert: Secrets Detected" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "TruffleHog has detected potential secrets in your code." >> $GITHUB_STEP_SUMMARY
-          echo "Please review the findings above and remove any sensitive data." >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### ⚠️ Security Alert: Secrets Detected"
+            echo ""
+            echo "TruffleHog has detected potential secrets in your code."
+            echo "Please review the findings above and remove any sensitive data."
+          } >> "$GITHUB_STEP_SUMMARY"
           exit 1
         else
           echo "✅ No secrets detected"
-          echo "### ✅ Secret Scan: Clean" >> $GITHUB_STEP_SUMMARY
         fi
         echo "::endgroup::"
 
@@ -98,23 +99,27 @@ runs:
         DEP_REVIEW_OUTCOME: ${{ steps.dependency_review.outcome }}
       run: |
         set -euo pipefail
-        echo "### 🔒 Security Scan Complete" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
         TRUFFLEHOG=$([[ "$ENABLE_TRUFFLEHOG" == "true" ]] \
-          && echo "✅ Enabled" \
+          && echo "✅ Clean" \
           || echo "⏭️ Skipped")
         DEP_CHECK=$([[ "$ENABLE_DEP_REVIEW" == "true" \
           && "$EVENT_NAME" == "pull_request" ]] \
           && echo "true" \
           || echo "false")
         if [[ "$DEP_CHECK" != "true" ]]; then
-          DEP_REVIEW="⏭️ Skipped"
+          DEP_REVIEW="⏭️ Skipped (push event)"
         elif [[ "$DEP_REVIEW_OUTCOME" == "success" ]]; then
           DEP_REVIEW="✅ Passed"
         elif [[ "$DEP_REVIEW_OUTCOME" == "failure" ]]; then
-          DEP_REVIEW="⚠️ Skipped (dependency review unsupported or blocked)"
+          DEP_REVIEW="⚠️ Unsupported or blocked"
         else
           DEP_REVIEW="⏭️ Skipped"
         fi
-        echo "- **TruffleHog:** $TRUFFLEHOG" >> $GITHUB_STEP_SUMMARY
-        echo "- **Dependency Review:** $DEP_REVIEW" >> $GITHUB_STEP_SUMMARY
+        {
+          echo "### 🔒 Security Scan"
+          echo ""
+          echo "| Check | Status |"
+          echo "|:---|:---|"
+          echo "| 🔍 TruffleHog | $TRUFFLEHOG |"
+          echo "| 📦 Dependency Review | $DEP_REVIEW |"
+        } >> "$GITHUB_STEP_SUMMARY"

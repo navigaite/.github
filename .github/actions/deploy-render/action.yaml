@@ -171,12 +171,12 @@ runs:
         {
           echo "### 🚀 Render Deployment"
           echo ""
-          echo "| Item | Value |"
-          echo "| --- | --- |"
-          echo "| Service | \`$SERVICE_NAME\` |"
-          echo "| Environment | \`$ENVIRONMENT\` |"
-          echo "| Status | $DEPLOY_STATUS |"
-          echo "| URL | \`$RESOLVED_URL\` |"
-          echo ""
-          echo "[Open Deployment]($RESOLVED_URL)"
+          echo "| | |"
+          echo "|:---|:---|"
+          echo "| **Status** | $DEPLOY_STATUS |"
+          echo "| **Service** | \`$SERVICE_NAME\` |"
+          echo "| **Environment** | \`$ENVIRONMENT\` |"
+          if [[ -n "$RESOLVED_URL" ]]; then
+            echo "| **URL** | [$RESOLVED_URL]($RESOLVED_URL) |"
+          fi
         } >> "$GITHUB_STEP_SUMMARY"
