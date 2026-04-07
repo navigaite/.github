@@ -246,6 +246,14 @@ runs:
         echo "🧷 Dependency File: ${DEP_FILE:-none}"
         echo "::endgroup::"
 
+    - name: Install pnpm
+      if: >-
+        steps.detect.outputs.stack == 'nodejs' &&
+        steps.detect.outputs.package-manager == 'pnpm'
+      uses: pnpm/action-setup@v4
+      with:
+        run_install: false
+
     - name: Setup Node.js (Strict Cache)
       if: steps.detect.outputs.stack == 'nodejs'
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -287,3 +295,4 @@ runs:
         echo "- **Version:** $VERSION" >> $GITHUB_STEP_SUMMARY
         echo "- **Package Manager:** $PKG_MANAGER" >> $GITHUB_STEP_SUMMARY
         echo "- **Caching:** $ENABLE_CACHING" >> $GITHUB_STEP_SUMMARY
+
