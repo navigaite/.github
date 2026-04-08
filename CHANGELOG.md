@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.2](https://github.com/navigaite/.github/compare/v2.2.1...v2.2.2) (2026-04-08)
+
+
+### 🐛 Bug Fixes
+
+* preserve prerelease suffix in release version ([#42](https://github.com/navigaite/.github/issues/42)) ([d529c8e](https://github.com/navigaite/.github/commit/d529c8e85de018e499e9892a3e5db4284cae2cd4))
+
 ## [2.2.1](https://github.com/navigaite/.github/compare/v2.2.0...v2.2.1) (2026-04-08)
 
 
