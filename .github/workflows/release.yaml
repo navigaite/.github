@@ -38,24 +38,35 @@ jobs:
           manifest-file: .release-please-manifest.json
 
       - name: 🤖 Enable auto-merge on release PR
-        if: steps.release.outputs.pr != ''
+        if: steps.release.outputs.release_created != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_OUTPUT: ${{ steps.release.outputs.pr }}
         run: |
           set -euo pipefail
-          # release-please may output PR as JSON object or plain number
-          if [[ "$PR_OUTPUT" =~ ^\{ ]]; then
-            pr_number=$(echo "$PR_OUTPUT" | jq -r '.number // empty')
-          else
-            pr_number="$PR_OUTPUT"
+          # Try release-please pr output first (JSON or plain number)
+          pr_number=""
+          if [[ -n "$PR_OUTPUT" ]]; then
+            if [[ "$PR_OUTPUT" =~ ^\{ ]]; then
+              pr_number=$(echo "$PR_OUTPUT" | jq -r '.number // empty')
+            elif [[ "$PR_OUTPUT" =~ ^[0-9]+$ ]]; then
+              pr_number="$PR_OUTPUT"
+            fi
           fi
+
+          # Fallback: find open release PR by label
+          if [[ -z "$pr_number" ]]; then
+            pr_number=$(gh pr list --label "autorelease: pending" --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          fi
+
           if [[ -n "$pr_number" && "$pr_number" =~ ^[0-9]+$ ]]; then
             echo "Enabling auto-merge for release PR #${pr_number}"
             if ! gh pr merge "$pr_number" --squash --auto; then
               echo "::warning::Could not enable auto-merge for release PR #${pr_number}; continuing without failing the workflow."
             fi
+          else
+            echo "No open release PR found."
           fi
 
   update-major-tag:
