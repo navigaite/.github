@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/navigaite/.github/compare/v2.1.1...v2.1.2) (2026-04-08)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update stale action versions, fix DigitalOcean v2 migration ([#34](https://github.com/navigaite/.github/issues/34)) ([d78bd40](https://github.com/navigaite/.github/commit/d78bd406a22a7c6d10ca411647ffc7deb54bc66b))
+
 ## [2.1.1](https://github.com/navigaite/.github/compare/v2.1.0...v2.1.1) (2026-04-08)
 
 
