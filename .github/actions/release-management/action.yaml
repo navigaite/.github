@@ -302,10 +302,13 @@ runs:
           release_major="$RP_MAJOR"
           release_minor="$RP_MINOR"
           release_patch="$RP_PATCH"
-          if [[ -n "$release_tag" ]]; then
-            release_version="${release_tag#v}"
+          # Extract semver from tag, handling both v1.2.3 and component-v1.2.3 formats
+          if [[ "$release_tag" =~ (^|-)v?([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+            release_version="${BASH_REMATCH[2]}"
           elif [[ -n "$release_major" && -n "$release_minor" && -n "$release_patch" ]]; then
             release_version="${release_major}.${release_minor}.${release_patch}"
+          elif [[ -n "$release_tag" ]]; then
+            release_version="${release_tag#v}"
           fi
 
           # release-please can return PR output as JSON; extract number cleanly.
