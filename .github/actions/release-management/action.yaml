@@ -18,37 +18,24 @@ inputs:
     default: simple
 
   package-name:
-    description: Package name for release
+    description: 'Deprecated: use config-file instead. Package name for release'
     required: false
     default: ''
 
   bump-minor-pre-major:
-    description: Bump minor version before major release
+    description: 'Deprecated: use config-file instead. Bump minor version before major release'
     required: false
     default: 'true'
 
   bump-patch-for-minor-pre-major:
-    description: Bump patch version for minor pre-major
+    description: 'Deprecated: use config-file instead. Bump patch version for minor pre-major'
     required: false
     default: 'false'
 
   changelog-types:
-    description: Custom changelog types as JSON
+    description: 'Deprecated: use config-file instead. Custom changelog types as JSON'
     required: false
-    default: |
-      [
-        {"type":"feat","section":"Features","hidden":false},
-        {"type":"fix","section":"Bug Fixes","hidden":false},
-        {"type":"perf","section":"Performance Improvements","hidden":false},
-        {"type":"revert","section":"Reverts","hidden":false},
-        {"type":"docs","section":"Documentation","hidden":false},
-        {"type":"style","section":"Styles","hidden":true},
-        {"type":"chore","section":"Miscellaneous Chores","hidden":true},
-        {"type":"refactor","section":"Code Refactoring","hidden":false},
-        {"type":"test","section":"Tests","hidden":true},
-        {"type":"build","section":"Build System","hidden":true},
-        {"type":"ci","section":"Continuous Integration","hidden":true}
-      ]
+    default: ''
 
   force-patch-on-no-release:
     description: For semantic-release, create a patch release when no releasable commits are found
@@ -166,10 +153,7 @@ runs:
       with:
         token: ${{ inputs.github-token }}
         release-type: ${{ inputs.release-type }}
-        package-name: ${{ inputs.package-name }}
-        bump-minor-pre-major: ${{ inputs.bump-minor-pre-major }}
-        bump-patch-for-minor-pre-major: ${{ inputs.bump-patch-for-minor-pre-major }}
-        changelog-types: ${{ inputs.changelog-types }}
+        target-branch: ${{ inputs.target-branch || github.ref_name }}
 
     - name: Run Semantic Release
       id: semantic-release
