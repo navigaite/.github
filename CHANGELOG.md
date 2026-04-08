@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.3](https://github.com/navigaite/.github/compare/v2.2.2...v2.2.3) (2026-04-08)
+
+
+### 🐛 Bug Fixes
+
+* **release:** check both App secrets before generating token ([#46](https://github.com/navigaite/.github/issues/46)) ([46d7fe4](https://github.com/navigaite/.github/commit/46d7fe46dba15f3132178e81d9d5daaaf2822230))
+
 ## [2.2.2](https://github.com/navigaite/.github/compare/v2.2.1...v2.2.2) (2026-04-08)
 
 
