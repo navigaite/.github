@@ -106,6 +106,17 @@ on:
   pull_request:
     branches: [main, dev]
 
+# Caller permissions cap reusable workflow job permissions.
+# Include all permissions needed by enabled pipeline stages.
+permissions:
+  contents: write          # releases, tag updates
+  pull-requests: write     # PR comments (deploy URLs, release PRs)
+  id-token: write          # OIDC for cloud providers + SLSA attestation
+  deployments: write       # deployment status updates
+  packages: write          # Docker/GHCR image push
+  attestations: write      # SLSA build provenance
+  security-events: write   # security scan SARIF uploads
+
 jobs:
   pipeline:
     uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
