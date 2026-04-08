@@ -182,7 +182,7 @@ Based on your deployment provider, add secrets to the repo (Settings > Secrets >
 - **Vercel:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
 - **DigitalOcean:** `DIGITALOCEAN_TOKEN`
 - **Docker/GHCR:** uses `GITHUB_TOKEN` by default, or `DOCKER_REGISTRY_USERNAME` + `DOCKER_REGISTRY_PASSWORD`
-- **Workflow automation:** `WORKFLOW_APP_ID` + `WORKFLOW_APP_PRIVATE_KEY` (org-level GitHub App) -- used to generate tokens that can trigger workflows on automated merges (unlike `GITHUB_TOKEN`). This repo's `release.yaml` uses these to auto-merge release PRs and trigger the follow-up release publish workflow.
+- **Workflow automation (this repo only):** `WORKFLOW_APP_ID` + `WORKFLOW_APP_PRIVATE_KEY` (org-level GitHub App) -- **not needed for consumer repos**. Only used by this repo's `release.yaml` to auto-merge release PRs and trigger follow-up workflows. Falls back to `GITHUB_TOKEN` if not configured.
 
 ### Adding custom jobs alongside the pipeline
 
