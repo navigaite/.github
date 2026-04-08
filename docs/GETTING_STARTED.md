@@ -1,4 +1,4 @@
-# Getting Started with Universal Pipeline v2
+# Getting Started with Navigaite CI/CD
 
 This guide will walk you through setting up the Universal CI/CD Pipeline v2 for your project in less than 5 minutes.
 
@@ -28,7 +28,7 @@ on:
 
 jobs:
   pipeline:
-    uses: navigaite/github-organization/.github/workflows/v2/universal-pipeline.yaml@main
+    uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
     with:
       config-file: .github/pipeline.yaml
     secrets: inherit
@@ -271,7 +271,7 @@ Add `CODECOV_TOKEN` secret for private repos.
 
 - **[Full Configuration Reference](./CONFIGURATION.md)** - All available options
 - **[Branching Strategy](./BRANCHING_STRATEGY.md)** - How to use main/dev workflow
-- **[Example Configurations](../../.github/config/v2/examples/)** - Real-world examples
+- **[Example Configurations](../.github/config/examples/)** - Real-world examples
 
 ## 🆘 Troubleshooting
 
