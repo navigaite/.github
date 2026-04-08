@@ -937,7 +937,7 @@ jobs:
   # SYNC MAIN TO DEV (After Release)
   # =============================================================================
   sync-to-dev:
-    name: 🔄 Sync main → ${{ needs.setup.outputs.sync-target-branch }}
+    name: 🔄 Sync to Dev
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
