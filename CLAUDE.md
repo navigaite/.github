@@ -98,7 +98,7 @@ Use **conventional commits** -- this repo uses release-please with commitlint en
 
 ### Step 1: Create the caller workflow
 
-Create `.github/workflows/ci.yaml`. The workflow name **must** follow the convention `CI/CD Pipeline` for consistency across the org. The calling job should be named `pipeline`:
+Create `.github/workflows/ci.yaml`. The workflow name **should** follow the convention `CI/CD Pipeline` for consistency across the org. The calling job should be named `pipeline`:
 
 ```yaml
 name: CI/CD Pipeline
@@ -109,10 +109,16 @@ on:
   pull_request:
     branches: [main, dev]
 
+# Caller permissions cap reusable workflow job permissions.
+# Include all permissions needed by enabled pipeline stages.
 permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
+  contents: write          # releases, tag updates
+  pull-requests: write     # PR comments (deploy URLs, release PRs)
+  id-token: write          # OIDC for cloud providers + SLSA attestation
+  deployments: write       # deployment status updates
+  packages: write          # Docker/GHCR image push
+  attestations: write      # SLSA build provenance
+  security-events: write   # security scan SARIF uploads
 
 jobs:
   pipeline:
