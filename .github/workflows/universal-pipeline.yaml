@@ -694,9 +694,10 @@ jobs:
       id-token: write # OIDC for cloud providers
     needs: [setup, build]
     if: |
+      always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'vercel' &&
-      needs.build.result == 'success'
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -769,9 +770,10 @@ jobs:
       id-token: write # OIDC for cloud providers
     needs: [setup, build]
     if: |
+      always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'digitalocean' &&
-      needs.build.result == 'success'
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -804,7 +806,7 @@ jobs:
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'docker' &&
-      needs.build.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped')
     strategy:
       fail-fast: true
@@ -889,7 +891,7 @@ jobs:
       always() &&
       needs.setup.outputs.enable-release == 'true' &&
       github.event_name == 'push' &&
-      needs.build.result == 'success'
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
