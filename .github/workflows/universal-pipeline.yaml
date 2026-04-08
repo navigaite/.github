@@ -694,7 +694,6 @@ jobs:
       id-token: write # OIDC for cloud providers
     needs: [setup, build]
     if: |
-      always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'vercel' &&
       needs.build.result == 'success'
@@ -770,7 +769,6 @@ jobs:
       id-token: write # OIDC for cloud providers
     needs: [setup, build]
     if: |
-      always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'digitalocean' &&
       needs.build.result == 'success'
