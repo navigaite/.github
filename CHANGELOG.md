@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.1.1](https://github.com/navigaite/.github/compare/v2.1.0...v2.1.1) (2026-04-08)
+
+
+### 🐛 Bug Fixes
+
+* **pipeline:** fix sync job showing raw expression in name ([#32](https://github.com/navigaite/.github/issues/32)) ([3316ca0](https://github.com/navigaite/.github/commit/3316ca0fb0fd4841f768eba485be8d7604a90717))
+* **pipeline:** rename to Navigaite CI/CD, fix deploy job names ([#30](https://github.com/navigaite/.github/issues/30)) ([08f9460](https://github.com/navigaite/.github/commit/08f9460a59213774f861355b5c5985e3756e15d2))
+* **release:** remove component prefix from tags, add latest tag ([#29](https://github.com/navigaite/.github/issues/29)) ([b0c79c2](https://github.com/navigaite/.github/commit/b0c79c2cf41db647096c9791bec0c9eec9dc5208))
+
+
+### 📚 Documentation
+
+* modernize README with badges, version, and cleaner layout ([#27](https://github.com/navigaite/.github/issues/27)) ([626099f](https://github.com/navigaite/.github/commit/626099f4c141060a3e28eb58205db00fb565beca))
+
 ## [2.1.0](https://github.com/navigaite/.github/compare/navigaite-github-v2.0.0...navigaite-github-v2.1.0) (2026-04-08)
 
 
