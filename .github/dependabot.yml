@@ -17,8 +17,6 @@ updates:
       include: scope
     reviewers:
       - navigaite/engineering
-    assignees:
-      - navigaite/engineering
 
   # Node.js dependencies
   - package-ecosystem: npm

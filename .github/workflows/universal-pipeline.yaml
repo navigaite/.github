@@ -948,6 +948,7 @@ jobs:
       always() &&
       needs.setup.outputs.enable-sync == 'true' &&
       needs.setup.outputs.enable-release == 'true' &&
+      needs.release.outputs.release-created == 'true' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push' &&
       needs.release.result == 'success' &&

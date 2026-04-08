@@ -53,9 +53,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate branches
+        env:
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
         run: |
           set -euo pipefail
-          if [ "${{ inputs.source_branch }}" = "${{ inputs.target_branch }}" ]; then
+          if [ "$SOURCE_BRANCH" = "$TARGET_BRANCH" ]; then
             echo "Source and target branches must be different."
             exit 1
           fi
@@ -320,6 +323,15 @@ jobs:
             core.setOutput('pr_url', created.data.html_url);
 
       - name: Job summary
+        env:
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+          PR_STATUS: ${{ steps.create_pr.outputs.status }}
+          AHEAD_BY: ${{ steps.create_pr.outputs.ahead_by }}
+          BEHIND_BY: ${{ steps.create_pr.outputs.behind_by }}
+          COMMIT_COUNT: ${{ steps.create_pr.outputs.commit_count }}
+          PR_URL: ${{ steps.create_pr.outputs.pr_url }}
+          COMPARE_URL: ${{ steps.create_pr.outputs.compare_url }}
         run: |
           set -euo pipefail
           {
@@ -327,17 +339,17 @@ jobs:
             echo ""
             echo "| Metric | Value |"
             echo "| --- | --- |"
-            echo "| Source branch | \`${{ inputs.source_branch }}\` |"
-            echo "| Target branch | \`${{ inputs.target_branch }}\` |"
-            echo "| Status | \`${{ steps.create_pr.outputs.status || 'unknown' }}\` |"
-            echo "| Ahead by | \`${{ steps.create_pr.outputs.ahead_by || '0' }}\` commit(s) |"
-            echo "| Behind by | \`${{ steps.create_pr.outputs.behind_by || '0' }}\` commit(s) |"
-            echo "| Compared commits | \`${{ steps.create_pr.outputs.commit_count || '0' }}\` |"
+            echo "| Source branch | \`${SOURCE_BRANCH}\` |"
+            echo "| Target branch | \`${TARGET_BRANCH}\` |"
+            echo "| Status | \`${PR_STATUS:-unknown}\` |"
+            echo "| Ahead by | \`${AHEAD_BY:-0}\` commit(s) |"
+            echo "| Behind by | \`${BEHIND_BY:-0}\` commit(s) |"
+            echo "| Compared commits | \`${COMMIT_COUNT:-0}\` |"
             echo ""
-            if [ "${{ steps.create_pr.outputs.status }}" = "created" ] || [ "${{ steps.create_pr.outputs.status }}" = "updated" ]; then
-              echo "- PR: ${{ steps.create_pr.outputs.pr_url }}"
+            if [ "$PR_STATUS" = "created" ] || [ "$PR_STATUS" = "updated" ]; then
+              echo "- PR: $PR_URL"
             fi
-            if [ -n "${{ steps.create_pr.outputs.compare_url }}" ]; then
-              echo "- Compare: ${{ steps.create_pr.outputs.compare_url }}"
+            if [ -n "$COMPARE_URL" ]; then
+              echo "- Compare: $COMPARE_URL"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
