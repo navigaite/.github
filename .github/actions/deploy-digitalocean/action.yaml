@@ -9,7 +9,8 @@ inputs:
 
   app-name:
     description: DigitalOcean App Platform app name
-    required: true
+    required: false
+    default: ""
 
   app-spec-location:
     description: Path to app spec file
@@ -23,17 +24,17 @@ inputs:
   is-pr-preview:
     description: Deploy as PR preview
     required: false
-    default: 'false'
+    default: "false"
 
   print-build-logs:
     description: Print build logs
     required: false
-    default: 'true'
+    default: "true"
 
   print-deploy-logs:
     description: Print deploy logs
     required: false
-    default: 'true'
+    default: "true"
 
 runs:
   using: composite
@@ -51,7 +52,7 @@ runs:
 
     - name: Deploy to DigitalOcean App Platform
       id: deploy
-      uses: digitalocean/app_action@5c95e0e12f850942e75d8903dc3be30cbea30953 # v1.1.7
+      uses: digitalocean/app_action/deploy@f4c57e650e1dec6665ad5d3af739b67b9d31aab1 # v2.0.10
       with:
         token: ${{ inputs.digitalocean-token }}
         app_name: ${{ inputs.app-name }}
@@ -70,13 +71,17 @@ runs:
         DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
       run: |
         set -euo pipefail
-        echo "### 🚀 DigitalOcean Deployment" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **App Name:** $APP_NAME" >> $GITHUB_STEP_SUMMARY
-        echo "- **Environment:** $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
-        echo "- **PR Preview:** $IS_PR_PREVIEW" >> $GITHUB_STEP_SUMMARY
         STATUS=$([[ "$DEPLOY_OUTCOME" == "success" ]] && echo "✅ Success" || echo "❌ Failed")
-        echo "- **Status:** $STATUS" >> $GITHUB_STEP_SUMMARY
+        {
+          echo "### 🚀 DigitalOcean Deployment"
+          echo ""
+          echo "| | |"
+          echo "|:---|:---|"
+          echo "| **App** | \`${APP_NAME}\` |"
+          echo "| **Environment** | \`${ENVIRONMENT}\` |"
+          echo "| **PR Preview** | \`${IS_PR_PREVIEW}\` |"
+          echo "| **Status** | ${STATUS} |"
+        } >> "$GITHUB_STEP_SUMMARY"
 
 outputs:
   deployment-url:
