@@ -1,23 +1,38 @@
-# Universal CI/CD Pipeline v2
+<p align="center">
+  <strong>Universal CI/CD Pipeline</strong><br>
+  <em>A modern, configuration-driven GitHub Actions pipeline for any tech stack.</em>
+</p>
 
-**A modern, configuration-driven GitHub Actions pipeline that works with any tech stack and deployment target.**
+<p align="center">
+  <a href="https://github.com/navigaite/.github/releases/latest"><img src="https://img.shields.io/github/v/release/navigaite/.github?label=version&sort=semver&style=flat-square&color=4f46e5" alt="Latest Release"></a>
+  <a href="https://github.com/navigaite/.github/actions/workflows/test-actions.yaml"><img src="https://img.shields.io/github/actions/workflow/status/navigaite/.github/test-actions.yaml?branch=main&style=flat-square&label=CI" alt="CI Status"></a>
+  <a href="https://github.com/navigaite/.github/actions/workflows/nightly-maintenance.yaml"><img src="https://img.shields.io/github/actions/workflow/status/navigaite/.github/nightly-maintenance.yaml?branch=main&style=flat-square&label=nightly" alt="Nightly"></a>
+  <a href="https://github.com/navigaite/.github/blob/main/LICENSE"><img src="https://img.shields.io/github/license/navigaite/.github?style=flat-square&color=gray" alt="License"></a>
+</p>
+
+---
 
 ## Overview
 
-The Universal CI/CD Pipeline v2 is a reusable workflow system designed to be:
+The Universal Pipeline is a **reusable GitHub Actions workflow** that auto-detects your tech stack, runs security scans, lints, tests, builds, deploys, and releases — all from a single YAML config file.
 
-- **Technology Agnostic**: Auto-detects and supports Node.js, Python, Flutter, and more
-- **Deployment Flexible**: Deploy to Vercel, DigitalOcean, Docker registries, Coolify, or anywhere
-- **Configuration-Driven**: Simple YAML configuration file controls everything
-- **Secure by Default**: Built-in secret scanning, dependency checks, and shell injection prevention
-- **Release Automation**: Automatic semantic versioning and changelog generation
-- **Fast & Efficient**: Smart caching, parallel execution, and optimized workflows
+**Current version: `v2.1.0`** — consumers pin to `@v2` and always get the latest patch.
+
+### Highlights
+
+| | |
+|:--|:--|
+| **Stacks** | Node.js, Python, Flutter (auto-detected) |
+| **Deploy** | Vercel, DigitalOcean, Docker, Coolify |
+| **Security** | TruffleHog, dependency review, Trivy, SLSA attestations |
+| **Releases** | release-please or semantic-release with conventional commits |
+| **Maintenance** | Nightly security audits, cache cleanup, dependency checks |
+
+---
 
 ## Quick Start
 
-### 1. Create a Workflow File
-
-Create `.github/workflows/ci.yaml` in your project:
+**1. Add the workflow** to your repo at `.github/workflows/ci.yaml`:
 
 ```yaml
 name: CI/CD Pipeline
@@ -40,19 +55,17 @@ permissions:
 
 jobs:
   pipeline:
-    uses: navigaite/github-organization/.github/workflows/universal-pipeline.yaml@v2
+    uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
     with:
       config-file: .github/pipeline.yaml
     secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
 ```
 
-### 2. Create a Configuration File
-
-Create `.github/pipeline.yaml` in your project:
+**2. Add a config** at `.github/pipeline.yaml`:
 
 ```yaml
 version: "2.0"
@@ -61,41 +74,20 @@ deployment:
   provider: vercel
   environments:
     - name: preview
-      trigger:
-        event: pull_request
+      trigger: { event: pull_request }
     - name: production
-      trigger:
-        event: push
-        branch: main
+      trigger: { event: push, branch: main }
 
 release:
   enable: true
   type: node
 ```
 
-### 3. Configure Secrets
+**3. Push.** The pipeline handles the rest.
 
-Add required secrets to your repository depending on your deployment provider:
+> See [`.github/config/examples/`](.github/config/examples/) for Next.js + Vercel, Python + DigitalOcean, Flutter, and Docker-only configs.
 
-| Provider | Secrets |
-|----------|---------|
-| **Vercel** | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
-| **DigitalOcean** | `DIGITALOCEAN_TOKEN` |
-| **Docker** | `DOCKER_REGISTRY_PASSWORD` (or use `GITHUB_TOKEN` for GHCR) |
-| **Coolify** | `COOLIFY_TOKEN` |
-
-### 4. Push and Deploy
-
-The pipeline will automatically:
-
-1. Auto-detect your tech stack and package manager
-2. Run security scans (TruffleHog, dependency review)
-3. Lint your code (Trunk or custom)
-4. Run tests with coverage
-5. Build your project
-6. Deploy to your environments
-7. Create releases via release-please
-8. Sync version changes back to dev
+---
 
 ## Pipeline Architecture
 
@@ -103,115 +95,100 @@ The pipeline will automatically:
 Push / PR
     |
     v
- [Setup] ── auto-detect stack, parse config
+ [Setup] ─── auto-detect stack, parse config
     |
-    ├──> [Security] ── TruffleHog + dependency review
-    ├──> [Lint] ── Trunk / custom + React Doctor
-    └──> [Test] ── stack-specific tests + coverage
+    ├──> [Security] ─── TruffleHog + dependency review
+    ├──> [Lint] ─────── Trunk / custom + React Doctor
+    └──> [Test] ─────── stack-specific tests + coverage
             |
             v
-         [Build] ── compile + SLSA attestation
+         [Build] ────── compile + SLSA attestation
             |
             ├──> [Deploy Vercel]
             ├──> [Deploy DigitalOcean]
-            ├──> [Deploy Docker] (multi-image, multi-arch)
-            └──> [Release] ── release-please / semantic-release
+            ├──> [Deploy Docker] ── multi-image, multi-arch
+            └──> [Release] ──────── release-please / semantic-release
                     |
                     v
-              [Sync to Dev] ── auto-merge version changes
+              [Sync to Dev] ─── auto-merge version changes
 ```
 
-## Supported Tech Stacks
+---
 
-| Stack | Package Managers | Auto-Detection |
-|-------|-----------------|----------------|
-| **Node.js** | npm, pnpm, yarn | `package.json` |
-| **Python** | pip, poetry, pipenv | `requirements.txt`, `pyproject.toml` |
-| **Flutter** | pub, FVM | `pubspec.yaml` |
+## Supported Stacks & Providers
 
-## Deployment Providers
+<table>
+<tr><th>Tech Stack</th><th>Package Managers</th><th>Detection</th></tr>
+<tr><td><strong>Node.js</strong></td><td>npm, pnpm, yarn</td><td><code>package.json</code></td></tr>
+<tr><td><strong>Python</strong></td><td>pip, poetry, pipenv</td><td><code>requirements.txt</code>, <code>pyproject.toml</code></td></tr>
+<tr><td><strong>Flutter</strong></td><td>pub, FVM</td><td><code>pubspec.yaml</code></td></tr>
+</table>
 
-| Provider | Preview | Staging | Production | PR Previews |
-|----------|---------|---------|------------|-------------|
-| **Vercel** | Yes | Yes | Yes | Yes |
-| **DigitalOcean** | Yes | Yes | Yes | Yes |
-| **Docker** | - | - | Yes | - |
-| **Coolify** | - | - | Yes | - |
+<table>
+<tr><th>Provider</th><th>Preview</th><th>Staging</th><th>Production</th><th>Multi-arch</th></tr>
+<tr><td><strong>Vercel</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td>-</td></tr>
+<tr><td><strong>DigitalOcean</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td>-</td></tr>
+<tr><td><strong>Docker</strong></td><td>-</td><td>-</td><td>Yes</td><td>amd64 + arm64</td></tr>
+<tr><td><strong>Coolify</strong></td><td>-</td><td>-</td><td>Yes</td><td>-</td></tr>
+</table>
 
-Docker supports multi-platform builds (amd64/arm64) and multiple registries (GHCR, Docker Hub, GCR, ECR).
+---
 
 ## Release Management
 
-### For Consuming Repos
+Releases are driven by [conventional commits](https://www.conventionalcommits.org/) and [release-please](https://github.com/googleapis/release-please):
 
-Releases are managed by [release-please](https://github.com/googleapis/release-please) based on conventional commits:
+| Commit | Bump | Example |
+|--------|------|---------|
+| `fix:` | Patch | `fix: resolve login timeout` |
+| `feat:` | Minor | `feat: add dark mode` |
+| `feat!:` | Major | `feat!: redesign API` |
 
-| Commit Type | Version Bump | Example |
-|-------------|-------------|---------|
-| `fix:` | Patch (1.0.0 → 1.0.1) | `fix: resolve login timeout` |
-| `feat:` | Minor (1.0.0 → 1.1.0) | `feat: add dark mode` |
-| `feat!:` / `BREAKING CHANGE:` | Major (1.0.0 → 2.0.0) | `feat!: redesign API` |
+### This Repo's Release Flow
 
-Configure in your `.github/pipeline.yaml`:
+1. Push to `main` with conventional commits
+2. Release-please creates/updates a release PR with changelog
+3. Merge the PR to publish a GitHub Release (`v2.x.x`)
+4. The `v2` tag is automatically moved to the latest release
+
+### Configure Releases in Your Repo
 
 ```yaml
 release:
   enable: true
-  strategy: release-please  # or semantic-release
-  type: node                # or python, simple
-  sync_to_dev: true         # sync version changes back to dev
+  strategy: release-please   # or semantic-release
+  type: node                 # node | python | simple
+  sync_to_dev: true
   prerelease_branches:
     - branch: next
       label: beta
 ```
 
-### For This Repo
-
-This repo uses release-please with semantic versioning. On merge to `main`:
-
-1. Release-please analyzes commits and creates/updates a release PR
-2. Merging the release PR creates a GitHub release with changelog
-3. The major version tag (`v2`) is automatically updated to point to the latest `v2.x.x`
-
-**Consumers pinned to `@v2` always get the latest patch automatically.**
+---
 
 ## Configuration Reference
 
-### Pipeline Config (`.github/pipeline.yaml`)
+Full pipeline config (`.github/pipeline.yaml`):
 
 ```yaml
 version: "2.0"
 
-# Override auto-detection
-stack: nodejs
+stack: nodejs                   # or auto-detect
 runtime:
   node_version: "20"
 
-# Toggle pipeline stages
-security:
-  enable: true
-  fail_on_secrets: true
-lint:
-  enable: true
-test:
-  enable: true
-  coverage: true
-build:
-  enable: true
+security: { enable: true, fail_on_secrets: true }
+lint:     { enable: true }
+test:     { enable: true, coverage: true }
+build:    { enable: true }
 
-# Deployment
 deployment:
-  provider: vercel  # vercel | digitalocean | docker
+  provider: vercel              # vercel | digitalocean | docker
   environments:
     - name: preview
-      trigger:
-        event: pull_request
+      trigger: { event: pull_request }
     - name: production
-      trigger:
-        event: push
-        branch: main
-
-# Docker-specific (multi-image support)
+      trigger: { event: push, branch: main }
   docker:
     images:
       - name: api
@@ -220,7 +197,6 @@ deployment:
       - name: worker
         dockerfile: Dockerfile.worker
 
-# Release
 release:
   enable: true
   strategy: release-please
@@ -229,77 +205,83 @@ release:
   sync_target_branch: dev
 ```
 
-### Examples
-
-See [`.github/config/examples/`](.github/config/examples/) for complete configurations:
-
-- [Next.js + Vercel](.github/config/examples/nextjs-vercel-pipeline.yaml)
-- [Python + DigitalOcean](.github/config/examples/python-digitalocean-pipeline.yaml)
-- [Flutter](.github/config/examples/flutter-pipeline.yaml)
-- [Docker Only](.github/config/examples/docker-only-pipeline.yaml)
+---
 
 ## Security
 
-- **TruffleHog** scans for leaked secrets and credentials
-- **Dependency Review** checks for vulnerable dependencies in PRs
-- **Shell injection prevention** — all composite actions use `env:` blocks (semgrep compliant)
-- **Pinned action versions** — all third-party actions pinned to SHA
-- **Least-privilege permissions** — each job declares only the permissions it needs
-- **Nightly maintenance** — automated security audits, workflow linting, dependency checks
+| Layer | Tool | Purpose |
+|-------|------|---------|
+| Secrets | TruffleHog | Detect leaked credentials |
+| Dependencies | Dependency Review | Vulnerable package detection in PRs |
+| Containers | Trivy | Nightly vulnerability scans + SARIF upload |
+| Build | SLSA Attestations | Supply chain integrity |
+| Code | Shell injection prevention | All actions use `env:` blocks (semgrep compliant) |
+| Actions | SHA-pinned versions | Immutable third-party dependencies |
+| Permissions | Least privilege | Each job declares only what it needs |
+
+---
 
 ## Reusable Actions
 
-This repo provides 12 composite actions in [`.github/actions/`](.github/actions/):
+13 composite actions in [`.github/actions/`](.github/actions/):
 
 | Action | Purpose |
 |--------|---------|
 | `setup-environment` | Stack detection + runtime caching |
-| `install-dependencies` | npm/pip/pub installation |
+| `install-dependencies` | npm / pip / pub installation |
 | `run-lint` | Multi-language linting |
 | `run-tests` | Test execution with coverage |
-| `run-build` | Build compilation + SLSA attestations |
+| `run-build` | Build + SLSA attestations |
 | `security-scan` | TruffleHog + dependency review |
+| `release-management` | release-please / semantic-release |
+| `sync-branches` | Post-release branch sync |
 | `deploy-vercel` | Vercel deployment |
 | `deploy-digitalocean` | DigitalOcean App Platform |
-| `deploy-docker` | Docker build + registry push |
+| `deploy-docker` | Docker build + multi-registry push |
 | `deploy-coolify` | Coolify webhook deployment |
 | `build-executable` | PyInstaller cross-platform builds |
-| `release-management` | Release-please / semantic-release |
-| `sync-branches` | Post-release branch synchronization |
+
+---
 
 ## Nightly Maintenance
 
-A scheduled workflow runs daily at 2 AM UTC:
+Runs daily at **02:00 UTC** via [nightly-maintenance.yaml](.github/workflows/nightly-maintenance.yaml):
 
-- Cleans up workflow runs older than 30 days
-- Removes caches older than 7 days
-- Runs Trivy security audit with SARIF upload
-- Checks for outdated dependencies
-- Lints all workflow definitions with actionlint
+- Cleanup workflow runs > 30 days
+- Purge caches > 7 days
+- Trivy security audit (SARIF upload)
+- Outdated dependency report
+- Workflow lint (actionlint)
 
-See [`.github/workflows/nightly-maintenance.yaml`](.github/workflows/nightly-maintenance.yaml).
+---
 
 ## Documentation
 
-- [Getting Started](./docs/GETTING_STARTED.md)
-- [Configuration Reference](./docs/CONFIGURATION.md)
-- [Branching Strategy](./docs/BRANCHING_STRATEGY.md)
-- [Versioning Guide](./docs/VERSIONING_GUIDE.md)
-- [GitHub Actions Marketplace](./docs/GITHUB_ACTIONS_MARKETPLACE.md)
-- [Auto Sync Feature](./docs/AUTO_SYNC_FEATURE.md)
-- [GitHub Settings Guide](./docs/GITHUB_SETTINGS_GUIDE.md)
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](./docs/GETTING_STARTED.md) | Setup instructions |
+| [Configuration](./docs/CONFIGURATION.md) | Full config reference |
+| [Branching Strategy](./docs/BRANCHING_STRATEGY.md) | main / dev workflow |
+| [Versioning Guide](./docs/VERSIONING_GUIDE.md) | Semver + conventional commits |
+| [Auto Sync](./docs/AUTO_SYNC_FEATURE.md) | Post-release branch sync |
+| [GitHub Settings](./docs/GITHUB_SETTINGS_GUIDE.md) | Repo configuration |
+| [Actions Marketplace](./docs/GITHUB_ACTIONS_MARKETPLACE.md) | Curated action list |
+
+---
 
 ## Contributing
 
 1. Create a feature branch from `main`
-2. Make changes following [conventional commits](https://www.conventionalcommits.org/)
-3. Open a PR — the test-actions workflow validates all actions and workflows
-4. Merge to `main` — release-please handles versioning
-
-## License
-
-MIT License - see LICENSE file for details.
+2. Use [conventional commits](https://www.conventionalcommits.org/)
+3. Open a PR — CI validates all actions and workflows
+4. Merge to `main` — release-please handles the rest
 
 ---
 
-**Made with care by [Navigaite](https://navigaite.com)**
+## License
+
+MIT
+
+---
+
+<p align="center"><strong>Navigaite</strong> &mdash; navigate + AI + IT</p>
