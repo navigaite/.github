@@ -1,6 +1,6 @@
 ---
-name: Universal CI/CD Pipeline v2
-# This is a reusable workflow that provides a complete CI/CD pipeline for any tech stack
+name: Navigaite CI/CD
+# Reusable workflow that provides a complete CI/CD pipeline for any tech stack
 # Call this workflow from your project's workflow file
 
 on:
@@ -680,7 +680,7 @@ jobs:
   # DEPLOYMENT (Provider-specific jobs to avoid loading unused actions)
   # =============================================================================
   deploy-vercel:
-    name: 🚀 Deploy to ${{ matrix.environment }}
+    name: 🚀 Vercel / ${{ matrix.environment }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -756,7 +756,7 @@ jobs:
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
   deploy-digitalocean:
-    name: 🚀 Deploy to ${{ matrix.environment }}
+    name: 🚀 DigitalOcean / ${{ matrix.environment }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
