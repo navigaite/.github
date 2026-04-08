@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/navigaite/.github/compare/v2.2.0...v2.2.1) (2026-04-08)
+
+
+### 📚 Documentation
+
+* add consumer setup guide, clean up deploy conditions ([#41](https://github.com/navigaite/.github/issues/41)) ([7c6be34](https://github.com/navigaite/.github/commit/7c6be34ea1d86d0cb287afbc74299bfd6ce0ca72))
+
 ## [2.2.0](https://github.com/navigaite/.github/compare/v2.1.2...v2.2.0) (2026-04-08)
 
 
