@@ -2,22 +2,22 @@
 
 **A modern, configuration-driven GitHub Actions pipeline that works with any tech stack and deployment target.**
 
-## 🎯 Overview
+## Overview
 
-The Universal CI/CD Pipeline v2 is a complete rewrite of our pipeline system, designed to be:
+The Universal CI/CD Pipeline v2 is a reusable workflow system designed to be:
 
-- **🔄 Technology Agnostic**: Auto-detects and supports Node.js, Python, Flutter, and more
-- **🚀 Deployment Flexible**: Deploy to Vercel, DigitalOcean, Docker registries, or anywhere
-- **⚙️ Configuration-Driven**: Simple YAML configuration file controls everything
-- **🔒 Secure by Default**: Built-in secret scanning, dependency checks, and security best practices
-- **📦 Release Automation**: Automatic versioning and changelog generation
-- **⚡ Fast & Efficient**: Smart caching, parallel execution, and optimized workflows
+- **Technology Agnostic**: Auto-detects and supports Node.js, Python, Flutter, and more
+- **Deployment Flexible**: Deploy to Vercel, DigitalOcean, Docker registries, Coolify, or anywhere
+- **Configuration-Driven**: Simple YAML configuration file controls everything
+- **Secure by Default**: Built-in secret scanning, dependency checks, and shell injection prevention
+- **Release Automation**: Automatic semantic versioning and changelog generation
+- **Fast & Efficient**: Smart caching, parallel execution, and optimized workflows
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Create a Workflow File
 
-Create [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml) in your project:
+Create `.github/workflows/ci.yaml` in your project:
 
 ```yaml
 name: CI/CD Pipeline
@@ -27,30 +27,42 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+  merge_group: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  deployments: write
+  packages: write
+  id-token: write
+  attestations: write
+  security-events: write
 
 jobs:
   pipeline:
-    uses: navigaite/github-organization/.github/workflows/universal-pipeline.yaml@main
+    uses: navigaite/github-organization/.github/workflows/universal-pipeline.yaml@v2
     with:
       config-file: .github/pipeline.yaml
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
 ```
 
 ### 2. Create a Configuration File
 
-Create [`.github/pipeline.yaml`](.github/pipeline.yaml) in your project:
+Create `.github/pipeline.yaml` in your project:
 
 ```yaml
-version: '2.0'
+version: "2.0"
 
 deployment:
   provider: vercel
-
   environments:
     - name: preview
       trigger:
         event: pull_request
-
     - name: production
       trigger:
         event: push
@@ -63,95 +75,133 @@ release:
 
 ### 3. Configure Secrets
 
-Add required secrets to your repository:
+Add required secrets to your repository depending on your deployment provider:
 
-**For Vercel:**
+| Provider | Secrets |
+|----------|---------|
+| **Vercel** | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
+| **DigitalOcean** | `DIGITALOCEAN_TOKEN` |
+| **Docker** | `DOCKER_REGISTRY_PASSWORD` (or use `GITHUB_TOKEN` for GHCR) |
+| **Coolify** | `COOLIFY_TOKEN` |
 
-- `VERCEL_TOKEN`
-- `VERCEL_ORG_ID`
-- `VERCEL_PROJECT_ID`
+### 4. Push and Deploy
 
-**For DigitalOcean:**
+The pipeline will automatically:
 
-- `DIGITALOCEAN_TOKEN`
+1. Auto-detect your tech stack and package manager
+2. Run security scans (TruffleHog, dependency review)
+3. Lint your code (Trunk or custom)
+4. Run tests with coverage
+5. Build your project
+6. Deploy to your environments
+7. Create releases via release-please
+8. Sync version changes back to dev
 
-**For Docker:**
+## Pipeline Architecture
 
-- `DOCKER_REGISTRY_PASSWORD` (or use `GITHUB_TOKEN` for GHCR)
+```
+Push / PR
+    |
+    v
+ [Setup] ── auto-detect stack, parse config
+    |
+    ├──> [Security] ── TruffleHog + dependency review
+    ├──> [Lint] ── Trunk / custom + React Doctor
+    └──> [Test] ── stack-specific tests + coverage
+            |
+            v
+         [Build] ── compile + SLSA attestation
+            |
+            ├──> [Deploy Vercel]
+            ├──> [Deploy DigitalOcean]
+            ├──> [Deploy Docker] (multi-image, multi-arch)
+            └──> [Release] ── release-please / semantic-release
+                    |
+                    v
+              [Sync to Dev] ── auto-merge version changes
+```
 
-### 4. Push and Deploy! 🎉
+## Supported Tech Stacks
 
-That's it! The pipeline will:
+| Stack | Package Managers | Auto-Detection |
+|-------|-----------------|----------------|
+| **Node.js** | npm, pnpm, yarn | `package.json` |
+| **Python** | pip, poetry, pipenv | `requirements.txt`, `pyproject.toml` |
+| **Flutter** | pub, FVM | `pubspec.yaml` |
 
-- ✅ Auto-detect your tech stack
-- ✅ Run security scans
-- ✅ Lint your code
-- ✅ Run tests with coverage
-- ✅ Build your project
-- ✅ Deploy to your environments
-- ✅ Create releases automatically
+## Deployment Providers
 
-## 📚 Documentation
+| Provider | Preview | Staging | Production | PR Previews |
+|----------|---------|---------|------------|-------------|
+| **Vercel** | Yes | Yes | Yes | Yes |
+| **DigitalOcean** | Yes | Yes | Yes | Yes |
+| **Docker** | - | - | Yes | - |
+| **Coolify** | - | - | Yes | - |
 
-- **[Getting Started](./docs/GETTING_STARTED.md)** - Detailed setup instructions
-- **[Configuration Reference](./docs/CONFIGURATION.md)** - Complete configuration options
-- **[Branching Strategy](./docs/BRANCHING_STRATEGY.md)** - How to use main/dev branches
-- **[Build Summary](./docs/SUMMARY.md)** - Complete overview of the pipeline system
+Docker supports multi-platform builds (amd64/arm64) and multiple registries (GHCR, Docker Hub, GCR, ECR).
 
-## 🎨 Features
+## Release Management
 
-### Auto-Detection
+### For Consuming Repos
 
-The pipeline automatically detects:
+Releases are managed by [release-please](https://github.com/googleapis/release-please) based on conventional commits:
 
-- **Tech Stack**: Node.js, Python, or Flutter
-- **Package Manager**: npm, pnpm, yarn, pip, poetry, pipenv
-- **Runtime Version**: From `.nvmrc`, `.python-version`, or config files
-- **Build Output**: `.next`, `dist`, `build`, etc.
+| Commit Type | Version Bump | Example |
+|-------------|-------------|---------|
+| `fix:` | Patch (1.0.0 → 1.0.1) | `fix: resolve login timeout` |
+| `feat:` | Minor (1.0.0 → 1.1.0) | `feat: add dark mode` |
+| `feat!:` / `BREAKING CHANGE:` | Major (1.0.0 → 2.0.0) | `feat!: redesign API` |
 
-### Security Scanning
-
-- **TruffleHog**: Scans for leaked secrets and credentials
-- **Dependency Review**: Checks for vulnerable dependencies in PRs
-- **Configurable**: Choose fail-on-secrets vs. warning-only mode
-
-### Smart Caching
-
-- Dependency caching (npm, pip, Flutter)
-- Build output caching
-- Docker layer caching
-- Automatically configured per tech stack
-
-### Flexible Deployment
-
-**Supported Providers:**
-
-- **Vercel**: Preview, staging, and production deployments
-- **DigitalOcean App Platform**: With PR preview support
-- **Docker**: Multi-platform builds to any registry (GHCR, Docker Hub, GCR, ECR)
-- **Custom**: Easy to extend with custom deployment actions
-
-**Environment Strategy:**
-
-- `preview`: Deploys on pull requests
-- `staging`: Deploys from `dev` branch
-- `production`: Deploys from `main` branch
-
-### Automated Releases
-
-- **release-please**: Automatic semantic versioning
-- **Changelog Generation**: Based on conventional commits
-- **GitHub Releases**: Automatically created with release notes
-- **PR-based Workflow**: Review and merge release PRs when ready
-
-## 🌟 Examples
-
-### Next.js + Vercel
+Configure in your `.github/pipeline.yaml`:
 
 ```yaml
-version: '2.0'
+release:
+  enable: true
+  strategy: release-please  # or semantic-release
+  type: node                # or python, simple
+  sync_to_dev: true         # sync version changes back to dev
+  prerelease_branches:
+    - branch: next
+      label: beta
+```
+
+### For This Repo
+
+This repo uses release-please with semantic versioning. On merge to `main`:
+
+1. Release-please analyzes commits and creates/updates a release PR
+2. Merging the release PR creates a GitHub release with changelog
+3. The major version tag (`v2`) is automatically updated to point to the latest `v2.x.x`
+
+**Consumers pinned to `@v2` always get the latest patch automatically.**
+
+## Configuration Reference
+
+### Pipeline Config (`.github/pipeline.yaml`)
+
+```yaml
+version: "2.0"
+
+# Override auto-detection
+stack: nodejs
+runtime:
+  node_version: "20"
+
+# Toggle pipeline stages
+security:
+  enable: true
+  fail_on_secrets: true
+lint:
+  enable: true
+test:
+  enable: true
+  coverage: true
+build:
+  enable: true
+
+# Deployment
 deployment:
-  provider: vercel
+  provider: vercel  # vercel | digitalocean | docker
   environments:
     - name: preview
       trigger:
@@ -160,76 +210,96 @@ deployment:
       trigger:
         event: push
         branch: main
+
+# Docker-specific (multi-image support)
+  docker:
+    images:
+      - name: api
+        dockerfile: Dockerfile.api
+        platforms: linux/amd64,linux/arm64
+      - name: worker
+        dockerfile: Dockerfile.worker
+
+# Release
 release:
   enable: true
+  strategy: release-please
   type: node
+  sync_to_dev: true
+  sync_target_branch: dev
 ```
 
-### Python + DigitalOcean
+### Examples
 
-```yaml
-version: '2.0'
-stack: python
-deployment:
-  provider: digitalocean
-  digitalocean:
-    app_name: my-api
-  environments:
-    - name: production
-      trigger:
-        event: push
-        branch: main
-```
+See [`.github/config/examples/`](.github/config/examples/) for complete configurations:
 
-### Flutter + Docker
+- [Next.js + Vercel](.github/config/examples/nextjs-vercel-pipeline.yaml)
+- [Python + DigitalOcean](.github/config/examples/python-digitalocean-pipeline.yaml)
+- [Flutter](.github/config/examples/flutter-pipeline.yaml)
+- [Docker Only](.github/config/examples/docker-only-pipeline.yaml)
 
-```yaml
-version: '2.0'
-stack: flutter
-deployment:
-  provider: docker
-  docker:
-    image_name: my-flutter-app
-    registry: ghcr
-    platforms: linux/amd64,linux/arm64
-```
+## Security
 
-## 🆚 Comparison
+- **TruffleHog** scans for leaked secrets and credentials
+- **Dependency Review** checks for vulnerable dependencies in PRs
+- **Shell injection prevention** — all composite actions use `env:` blocks (semgrep compliant)
+- **Pinned action versions** — all third-party actions pinned to SHA
+- **Least-privilege permissions** — each job declares only the permissions it needs
+- **Nightly maintenance** — automated security audits, workflow linting, dependency checks
 
-| Feature | Multi-Tech Stack         | Multi-Deployment      | Auto-Detection | Config-Driven  | Automated Releases |
-| ------- | ------------------------ | --------------------- | -------------- | -------------- | ------------------ |
-| **V2**  | ✅ Node, Python, Flutter | ✅ Vercel, DO, Docker | ✅ Yes         | ✅ Single YAML | ✅ release-please  |
+## Reusable Actions
 
-## 🤝 Contributing
+This repo provides 12 composite actions in [`.github/actions/`](.github/actions/):
 
-Want to add support for a new tech stack or deployment provider?
+| Action | Purpose |
+|--------|---------|
+| `setup-environment` | Stack detection + runtime caching |
+| `install-dependencies` | npm/pip/pub installation |
+| `run-lint` | Multi-language linting |
+| `run-tests` | Test execution with coverage |
+| `run-build` | Build compilation + SLSA attestations |
+| `security-scan` | TruffleHog + dependency review |
+| `deploy-vercel` | Vercel deployment |
+| `deploy-digitalocean` | DigitalOcean App Platform |
+| `deploy-docker` | Docker build + registry push |
+| `deploy-coolify` | Coolify webhook deployment |
+| `build-executable` | PyInstaller cross-platform builds |
+| `release-management` | Release-please / semantic-release |
+| `sync-branches` | Post-release branch synchronization |
 
-1. Create a new composite action in [`.github/actions/`](.github/actions/)
-2. Add configuration schema properties
-3. Update the universal pipeline workflow
-4. Add example configuration
-5. Update documentation
+## Nightly Maintenance
 
-## 📝 License
+A scheduled workflow runs daily at 2 AM UTC:
 
-MIT License - see LICENSE file for details
+- Cleans up workflow runs older than 30 days
+- Removes caches older than 7 days
+- Runs Trivy security audit with SARIF upload
+- Checks for outdated dependencies
+- Lints all workflow definitions with actionlint
 
-## 💬 Support
+See [`.github/workflows/nightly-maintenance.yaml`](.github/workflows/nightly-maintenance.yaml).
 
-- **Issues**: [GitHub Issues](https://github.com/navigaite/github-organization/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/navigaite/github-organization/discussions)
+## Documentation
+
+- [Getting Started](./docs/GETTING_STARTED.md)
+- [Configuration Reference](./docs/CONFIGURATION.md)
+- [Branching Strategy](./docs/BRANCHING_STRATEGY.md)
+- [Versioning Guide](./docs/VERSIONING_GUIDE.md)
+- [GitHub Actions Marketplace](./docs/GITHUB_ACTIONS_MARKETPLACE.md)
+- [Auto Sync Feature](./docs/AUTO_SYNC_FEATURE.md)
+- [GitHub Settings Guide](./docs/GITHUB_SETTINGS_GUIDE.md)
+
+## Contributing
+
+1. Create a feature branch from `main`
+2. Make changes following [conventional commits](https://www.conventionalcommits.org/)
+3. Open a PR — the test-actions workflow validates all actions and workflows
+4. Merge to `main` — release-please handles versioning
+
+## License
+
+MIT License - see LICENSE file for details.
 
 ---
 
-**Made with ❤️ by Navigaite**
-
-- **Modular workflow architecture**: Compose workflows from reusable components (action-_ entrypoints, sub-_ reusable jobs)
-- **Next.js optimized**: Built specifically for Next.js projects
-- **Vercel deployment**: Seamless integration with Vercel deployments
-- **Security scanning**: Integrated CodeQL and vulnerability scanning
-- **Matrix testing**: Test across multiple Node.js versions
-- **Release management**: Automated changelog and release notes
-
-## Workflow Types
-
-Our workflows follow a naming convention that indicates their purpose:
+**Made with care by [Navigaite](https://navigaite.com)**
