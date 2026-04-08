@@ -302,10 +302,10 @@ runs:
           release_major="$RP_MAJOR"
           release_minor="$RP_MINOR"
           release_patch="$RP_PATCH"
-          if [[ -n "$release_major" && -n "$release_minor" && -n "$release_patch" ]]; then
-            release_version="${release_major}.${release_minor}.${release_patch}"
-          elif [[ -n "$release_tag" ]]; then
+          if [[ -n "$release_tag" ]]; then
             release_version="${release_tag#v}"
+          elif [[ -n "$release_major" && -n "$release_minor" && -n "$release_patch" ]]; then
+            release_version="${release_major}.${release_minor}.${release_patch}"
           fi
 
           # release-please can return PR output as JSON; extract number cleanly.
