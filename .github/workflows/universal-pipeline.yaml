@@ -154,6 +154,7 @@ jobs:
       release-extra-plugins: ${{ steps.parse-config.outputs.release-extra-plugins }}
       prerelease-branches: ${{ steps.parse-config.outputs.prerelease-branches }}
       release-config-file: ${{ steps.parse-config.outputs.release-config-file }}
+      release-config-file-stable: ${{ steps.parse-config.outputs.release-config-file-stable }}
       release-manifest-file: ${{ steps.parse-config.outputs.release-manifest-file }}
 
     steps:
@@ -203,6 +204,7 @@ jobs:
             echo "release-extra-plugins=" >> $GITHUB_OUTPUT
             echo "prerelease-branches=[]" >> $GITHUB_OUTPUT
             echo "release-config-file=" >> $GITHUB_OUTPUT
+            echo "release-config-file-stable=" >> $GITHUB_OUTPUT
             echo "release-manifest-file=" >> $GITHUB_OUTPUT
           else
             echo "✓ Found configuration file: $CONFIG_FILE"
@@ -237,6 +239,7 @@ jobs:
 
             # Extract release-please manifest config file paths
             RP_CONFIG_FILE=$(yq -r '.release.config_file // ""' "$CONFIG_FILE")
+            RP_CONFIG_FILE_STABLE=$(yq -r '.release.config_file_stable // ""' "$CONFIG_FILE")
             RP_MANIFEST_FILE=$(yq -r '.release.manifest_file // ""' "$CONFIG_FILE")
 
             # Validate release strategy
@@ -294,6 +297,7 @@ jobs:
             echo "PLUGINS_EOF" >> $GITHUB_OUTPUT
             echo "prerelease-branches=$PRERELEASE_BRANCHES" >> $GITHUB_OUTPUT
             echo "release-config-file=$RP_CONFIG_FILE" >> $GITHUB_OUTPUT
+            echo "release-config-file-stable=$RP_CONFIG_FILE_STABLE" >> $GITHUB_OUTPUT
             echo "release-manifest-file=$RP_MANIFEST_FILE" >> $GITHUB_OUTPUT
 
             echo ""
@@ -917,6 +921,17 @@ jobs:
           echo "is-prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
           echo "prerelease-type=$PRERELEASE_TYPE" >> "$GITHUB_OUTPUT"
 
+          # Select config file: use stable config on non-prerelease branches if available
+          STABLE_CONFIG="${{ needs.setup.outputs.release-config-file-stable }}"
+          DEFAULT_CONFIG="${{ needs.setup.outputs.release-config-file }}"
+          if [[ "$IS_PRERELEASE" == "false" && -n "$STABLE_CONFIG" ]]; then
+            echo "config-file=$STABLE_CONFIG" >> "$GITHUB_OUTPUT"
+            echo "Using stable config: $STABLE_CONFIG"
+          else
+            echo "config-file=$DEFAULT_CONFIG" >> "$GITHUB_OUTPUT"
+            echo "Using default config: $DEFAULT_CONFIG"
+          fi
+
       - name: 📦 Run Release Management
         id: release-mgmt
         uses: navigaite/.github/.github/actions/release-management@main
@@ -925,7 +940,7 @@ jobs:
           strategy: ${{ needs.setup.outputs.release-strategy }}
           force-patch-on-no-release: ${{ needs.setup.outputs.release-force-patch-on-no-release }}
           extra-plugins: ${{ needs.setup.outputs.release-extra-plugins }}
-          config-file: ${{ needs.setup.outputs.release-config-file }}
+          config-file: ${{ steps.prerelease.outputs.config-file }}
           manifest-file: ${{ needs.setup.outputs.release-manifest-file }}
           target-branch: ${{ github.ref_name }}
           prerelease: ${{ steps.prerelease.outputs.is-prerelease }}
