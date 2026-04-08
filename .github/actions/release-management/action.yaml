@@ -60,6 +60,31 @@ inputs:
     required: false
     default: ''
 
+  config-file:
+    description: Path to release-please config file (for monorepo manifest mode)
+    required: false
+    default: ''
+
+  manifest-file:
+    description: Path to release-please manifest file (for monorepo manifest mode)
+    required: false
+    default: ''
+
+  target-branch:
+    description: Target branch for release-please
+    required: false
+    default: ''
+
+  prerelease:
+    description: Whether this is a prerelease branch
+    required: false
+    default: 'false'
+
+  prerelease-type:
+    description: Prerelease type label (e.g., beta, alpha, rc)
+    required: false
+    default: ''
+
 outputs:
   release-created:
     description: Whether a release was created
@@ -108,9 +133,35 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Run Release Please
+    - name: Inject prerelease config
+      id: inject-prerelease
+      if: inputs.strategy == 'release-please' && inputs.config-file != '' && inputs.prerelease == 'true'
+      shell: bash
+      env:
+        CONFIG_FILE: ${{ inputs.config-file }}
+        PRERELEASE_TYPE: ${{ inputs.prerelease-type }}
+      run: |
+        set -euo pipefail
+        echo "Injecting prerelease config into $CONFIG_FILE"
+        tmp=$(mktemp)
+        jq --arg ptype "$PRERELEASE_TYPE" '. + {"prerelease": true, "prerelease-type": $ptype}' "$CONFIG_FILE" > "$tmp"
+        mv "$tmp" "$CONFIG_FILE"
+        echo "Updated config:"
+        cat "$CONFIG_FILE"
+
+    - name: Run Release Please (manifest mode)
+      id: release-please-manifest
+      if: inputs.strategy == 'release-please' && inputs.config-file != ''
+      uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
+      with:
+        token: ${{ inputs.github-token }}
+        config-file: ${{ inputs.config-file }}
+        manifest-file: ${{ inputs.manifest-file || '.release-please-manifest.json' }}
+        target-branch: ${{ inputs.target-branch || github.ref_name }}
+
+    - name: Run Release Please (legacy mode)
       id: release-please
-      if: inputs.strategy == 'release-please'
+      if: inputs.strategy == 'release-please' && inputs.config-file == ''
       uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
       with:
         token: ${{ inputs.github-token }}
@@ -194,6 +245,16 @@ runs:
         RP_MAJOR: ${{ steps.release-please.outputs.major }}
         RP_MINOR: ${{ steps.release-please.outputs.minor }}
         RP_PATCH: ${{ steps.release-please.outputs.patch }}
+        RPM_RELEASE_CREATED: ${{ steps.release-please-manifest.outputs.releases_created }}
+        RPM_TAG_NAME: ${{ steps.release-please-manifest.outputs.tag_name }}
+        RPM_RELEASE_ID: ${{ steps.release-please-manifest.outputs.id }}
+        RPM_RELEASE_NAME: ${{ steps.release-please-manifest.outputs.name }}
+        RPM_RELEASE_SHA: ${{ steps.release-please-manifest.outputs.sha }}
+        RPM_UPLOAD_URL: ${{ steps.release-please-manifest.outputs.upload_url }}
+        RPM_PR: ${{ steps.release-please-manifest.outputs.pr }}
+        RPM_MAJOR: ${{ steps.release-please-manifest.outputs.major }}
+        RPM_MINOR: ${{ steps.release-please-manifest.outputs.minor }}
+        RPM_PATCH: ${{ steps.release-please-manifest.outputs.patch }}
         SR_PUBLISHED: ${{ steps.semantic-release.outputs.new_release_published }}
         SR_VERSION: ${{ steps.semantic-release.outputs.new_release_version }}
         SR_TAG: ${{ steps.semantic-release.outputs.new_release_git_tag }}
@@ -214,6 +275,20 @@ runs:
         release_sha=""
         release_upload_url=""
         pr_number=""
+
+        # Use manifest mode outputs if available, fall back to legacy
+        if [[ -z "$RP_RELEASE_CREATED" && -n "$RPM_RELEASE_CREATED" ]]; then
+          RP_RELEASE_CREATED="$RPM_RELEASE_CREATED"
+          RP_TAG_NAME="$RPM_TAG_NAME"
+          RP_RELEASE_ID="$RPM_RELEASE_ID"
+          RP_RELEASE_NAME="$RPM_RELEASE_NAME"
+          RP_RELEASE_SHA="$RPM_RELEASE_SHA"
+          RP_UPLOAD_URL="$RPM_UPLOAD_URL"
+          RP_PR="$RPM_PR"
+          RP_MAJOR="$RPM_MAJOR"
+          RP_MINOR="$RPM_MINOR"
+          RP_PATCH="$RPM_PATCH"
+        fi
 
         if [[ "$STRATEGY" == "semantic-release" ]]; then
           if [[ "$SR_PUBLISHED" == "true" ]]; then
