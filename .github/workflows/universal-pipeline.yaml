@@ -152,6 +152,9 @@ jobs:
       release-strategy: ${{ steps.parse-config.outputs.release-strategy }}
       release-force-patch-on-no-release: ${{ steps.parse-config.outputs.release-force-patch-on-no-release }}
       release-extra-plugins: ${{ steps.parse-config.outputs.release-extra-plugins }}
+      prerelease-branches: ${{ steps.parse-config.outputs.prerelease-branches }}
+      release-config-file: ${{ steps.parse-config.outputs.release-config-file }}
+      release-manifest-file: ${{ steps.parse-config.outputs.release-manifest-file }}
 
     steps:
       - name: 📥 Checkout code
@@ -198,6 +201,9 @@ jobs:
             echo "release-strategy=release-please" >> $GITHUB_OUTPUT
             echo "release-force-patch-on-no-release=false" >> $GITHUB_OUTPUT
             echo "release-extra-plugins=" >> $GITHUB_OUTPUT
+            echo "prerelease-branches=[]" >> $GITHUB_OUTPUT
+            echo "release-config-file=" >> $GITHUB_OUTPUT
+            echo "release-manifest-file=" >> $GITHUB_OUTPUT
           else
             echo "✓ Found configuration file: $CONFIG_FILE"
 
@@ -225,6 +231,13 @@ jobs:
             # Extract release sync configuration
             ENABLE_SYNC=$(yq '.release.sync_to_dev // true' "$CONFIG_FILE")
             SYNC_TARGET=$(yq '.release.sync_target_branch // "dev"' "$CONFIG_FILE")
+
+            # Extract prerelease branch configuration
+            PRERELEASE_BRANCHES=$(yq -o=json -I=0 '.release.prerelease_branches // []' "$CONFIG_FILE" | jq -c '.')
+
+            # Extract release-please manifest config file paths
+            RP_CONFIG_FILE=$(yq -r '.release.config_file // ""' "$CONFIG_FILE")
+            RP_MANIFEST_FILE=$(yq -r '.release.manifest_file // ""' "$CONFIG_FILE")
 
             # Validate release strategy
             if [[ "$RELEASE_STRATEGY" != "release-please" && "$RELEASE_STRATEGY" != "semantic-release" ]]; then
@@ -279,6 +292,9 @@ jobs:
             echo "release-extra-plugins<<PLUGINS_EOF" >> $GITHUB_OUTPUT
             echo "$RELEASE_EXTRA_PLUGINS" >> $GITHUB_OUTPUT
             echo "PLUGINS_EOF" >> $GITHUB_OUTPUT
+            echo "prerelease-branches=$PRERELEASE_BRANCHES" >> $GITHUB_OUTPUT
+            echo "release-config-file=$RP_CONFIG_FILE" >> $GITHUB_OUTPUT
+            echo "release-manifest-file=$RP_MANIFEST_FILE" >> $GITHUB_OUTPUT
 
             echo ""
             echo "📦 Configuration Summary:"
@@ -870,11 +886,36 @@ jobs:
     if: |
       always() &&
       needs.setup.outputs.enable-release == 'true' &&
-      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
       needs.build.result == 'success'
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: 🔍 Resolve prerelease config
+        id: prerelease
+        shell: bash
+        env:
+          PRERELEASE_BRANCHES: ${{ needs.setup.outputs.prerelease-branches }}
+          CURRENT_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          IS_PRERELEASE="false"
+          PRERELEASE_TYPE=""
+
+          if [[ "$PRERELEASE_BRANCHES" != "[]" ]]; then
+            MATCH=$(echo "$PRERELEASE_BRANCHES" | jq -r \
+              --arg branch "$CURRENT_BRANCH" \
+              '.[] | select(.branch == $branch) | .label')
+            if [[ -n "$MATCH" ]]; then
+              IS_PRERELEASE="true"
+              PRERELEASE_TYPE="$MATCH"
+              echo "Branch '$CURRENT_BRANCH' is a prerelease branch with label '$MATCH'"
+            fi
+          fi
+
+          echo "is-prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "prerelease-type=$PRERELEASE_TYPE" >> "$GITHUB_OUTPUT"
 
       - name: 📦 Run Release Management
         id: release-mgmt
@@ -884,8 +925,12 @@ jobs:
           strategy: ${{ needs.setup.outputs.release-strategy }}
           force-patch-on-no-release: ${{ needs.setup.outputs.release-force-patch-on-no-release }}
           extra-plugins: ${{ needs.setup.outputs.release-extra-plugins }}
+          config-file: ${{ needs.setup.outputs.release-config-file }}
+          manifest-file: ${{ needs.setup.outputs.release-manifest-file }}
+          target-branch: ${{ github.ref_name }}
+          prerelease: ${{ steps.prerelease.outputs.is-prerelease }}
+          prerelease-type: ${{ steps.prerelease.outputs.prerelease-type }}
           release-type:
-            # yamllint disable-line rule:line-length
             ${{ needs.setup.outputs.stack == 'nodejs' && 'node' || needs.setup.outputs.stack == 'python' && 'python' ||
             'simple' }}
   # =============================================================================
