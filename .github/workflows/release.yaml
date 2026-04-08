@@ -34,12 +34,16 @@ jobs:
         shell: bash
         env:
           APP_ID: ${{ secrets.WORKFLOW_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
         run: |
-          if [[ -n "$APP_ID" ]]; then
+          if [[ -n "$APP_ID" && -n "$APP_PRIVATE_KEY" ]]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::WORKFLOW_APP_ID not set — falling back to GITHUB_TOKEN. Auto-merged PRs won't trigger follow-up workflows."
+            missing=()
+            [[ -z "$APP_ID" ]] && missing+=("WORKFLOW_APP_ID")
+            [[ -z "$APP_PRIVATE_KEY" ]] && missing+=("WORKFLOW_APP_PRIVATE_KEY")
+            echo "::warning::${missing[*]} not set — falling back to GITHUB_TOKEN. Auto-merged PRs won't trigger follow-up workflows."
           fi
 
       - name: 🔑 Generate GitHub App token
