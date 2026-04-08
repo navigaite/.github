@@ -1,0 +1,95 @@
+---
+name: Release
+
+run-name: "Release | ${{ github.actor }}"
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: 📦 Release Please
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release-created: ${{ steps.release.outputs.release_created }}
+      release-tag: ${{ steps.release.outputs.tag_name }}
+      release-version: ${{ steps.release.outputs.version }}
+      release-major: ${{ steps.release.outputs.major }}
+      release-minor: ${{ steps.release.outputs.minor }}
+      release-patch: ${{ steps.release.outputs.patch }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: 📦 Run Release Please
+        id: release
+        uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .github/release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  update-major-tag:
+    name: 🏷️ Update Major Version Tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    needs: release-please
+    if: needs.release-please.outputs.release-created == 'true'
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: 🏷️ Update major version tag
+        shell: bash
+        env:
+          MAJOR: ${{ needs.release-please.outputs.release-major }}
+          TAG: ${{ needs.release-please.outputs.release-tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          MAJOR_TAG="v${MAJOR}"
+          echo "Updating ${MAJOR_TAG} to point to ${TAG}"
+
+          # Delete existing major tag (local + remote) and recreate
+          git tag -d "${MAJOR_TAG}" 2>/dev/null || true
+          git push origin ":refs/tags/${MAJOR_TAG}" 2>/dev/null || true
+
+          # Create new major tag pointing to the release tag
+          git tag "${MAJOR_TAG}" "${TAG}"
+          git push origin "${MAJOR_TAG}"
+
+          echo "✅ ${MAJOR_TAG} now points to ${TAG}"
+
+      - name: 📋 Summary
+        shell: bash
+        env:
+          MAJOR: ${{ needs.release-please.outputs.release-major }}
+          TAG: ${{ needs.release-please.outputs.release-tag }}
+          VERSION: ${{ needs.release-please.outputs.release-version }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### 🏷️ Release Published"
+            echo ""
+            echo "| | |"
+            echo "|:---|:---|"
+            echo "| **Version** | \`${VERSION}\` |"
+            echo "| **Tag** | \`${TAG}\` |"
+            echo "| **Major Tag** | \`v${MAJOR}\` → \`${TAG}\` |"
+            echo ""
+            echo "Consumers using \`@v${MAJOR}\` will now get \`${TAG}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
