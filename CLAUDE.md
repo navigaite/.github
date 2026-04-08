@@ -94,17 +94,31 @@ Use **conventional commits** -- this repo uses release-please with commitlint en
 
 5. **Infisical integration** -- secrets can be injected at build time via Infisical. This is optional and configured per-consumer.
 
-## How Consumers Use This
+## Setting Up the Pipeline in a Consumer Repo
 
-### Minimal caller workflow (`.github/workflows/ci.yaml`):
+### Step 1: Create the caller workflow
+
+Create `.github/workflows/ci.yaml`. The workflow name **should** follow the convention `CI/CD Pipeline` for consistency across the org. The calling job should be named `pipeline`:
 
 ```yaml
 name: CI/CD Pipeline
+
 on:
   push:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+
+# Caller permissions cap reusable workflow job permissions.
+# Include all permissions needed by enabled pipeline stages.
+permissions:
+  contents: write          # releases, tag updates
+  pull-requests: write     # PR comments (deploy URLs, release PRs)
+  id-token: write          # OIDC for cloud providers + SLSA attestation
+  deployments: write       # deployment status updates
+  packages: write          # Docker/GHCR image push
+  attestations: write      # SLSA build provenance
+  security-events: write   # security scan SARIF uploads
 
 jobs:
   pipeline:
@@ -114,14 +128,41 @@ jobs:
     secrets: inherit
 ```
 
-### Minimal pipeline config (`.github/pipeline.yaml`):
+**Important:**
+- Pin to `@v2` (rolling tag, gets patches automatically). Use `@main` only for testing unreleased changes.
+- `secrets: inherit` passes all repo/org secrets to the pipeline.
+- The `permissions` block is required for releases, PR comments, and OIDC-based deployments.
+
+### Step 2: Create the pipeline config
+
+Create `.github/pipeline.yaml`. This controls what the pipeline does:
 
 ```yaml
 version: '2.0'
 
+# Stack is auto-detected from project files. Override if needed:
+# stack: nodejs
+# runtime:
+#   node_version: '22'
+
+# Customize commands only if auto-detection doesn't work:
+# lint:
+#   command: 'trunk check --ci --no-fix'
+# test:
+#   command: 'pnpm turbo run test'
+# build:
+#   command: 'pnpm turbo run build'
+
 deployment:
-  provider: vercel
+  provider: vercel  # or: digitalocean, docker, none
   environments:
+    - name: preview
+      trigger:
+        event: pull_request
+    - name: staging
+      trigger:
+        event: push
+        branch: dev
     - name: production
       trigger:
         event: push
@@ -129,10 +170,52 @@ deployment:
 
 release:
   enable: true
-  type: node
+  type: node  # or: python, simple
 ```
 
-The pipeline auto-detects everything else (stack, runtime version, lint/test/build commands).
+### Step 3: Add secrets
+
+Based on your deployment provider, add secrets to the repo (Settings > Secrets > Actions):
+
+- **Vercel:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
+- **DigitalOcean:** `DIGITALOCEAN_TOKEN`
+- **Docker/GHCR:** uses `GITHUB_TOKEN` by default, or `DOCKER_REGISTRY_USERNAME` + `DOCKER_REGISTRY_PASSWORD`
+- **Releases:** `GH_TOKEN` (PAT with `contents: write`) -- needed if you want release PR merges to trigger follow-up workflows
+
+### Adding custom jobs alongside the pipeline
+
+If the pipeline's built-in deploy doesn't fit (e.g. Render webhooks, Coolify, custom deploy logic), set `deployment.provider: none` and add your own jobs that depend on `pipeline`:
+
+```yaml
+jobs:
+  pipeline:
+    uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
+    with:
+      config-file: .github/pipeline.yaml
+    secrets: inherit
+
+  deploy-production:
+    name: Deploy Production
+    needs: [pipeline]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -sf "${{ secrets.DEPLOY_HOOK }}"
+```
+
+### Naming conventions
+
+- **Workflow file:** `.github/workflows/ci.yaml`
+- **Workflow name:** `CI/CD Pipeline`
+- **Config file:** `.github/pipeline.yaml`
+- **Commit style:** conventional commits (`feat:`, `fix:`, `chore:`, etc.)
+- **Branch strategy:** `main` (production) + `dev` (staging) + feature branches
+
+See `docs/CONFIGURATION.md` for the full config reference and `docs/GETTING_STARTED.md` for a 5-minute quickstart.
+
+## Known Limitations
+
+- **Skipped deploy jobs show `${{ matrix.environment }}`** in the GitHub Actions sidebar. This is a GitHub Actions UI limitation: when a matrix job is skipped (e.g. deploy-vercel when provider is `none`), the matrix expression is never resolved so GitHub shows it raw. There's no fix short of splitting each deploy provider into its own reusable workflow. It's cosmetic only -- the jobs are properly skipped and don't affect the pipeline result.
 
 ## Testing Changes
 
