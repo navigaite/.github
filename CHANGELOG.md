@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.2.0](https://github.com/navigaite/.github/compare/v2.1.2...v2.2.0) (2026-04-08)
+
+
+### ✨ Features
+
+* support separate release config for stable vs prerelease branches ([#36](https://github.com/navigaite/.github/issues/36)) ([a80cdda](https://github.com/navigaite/.github/commit/a80cdda3c22b7a45a858b32684a0519bbf569f62))
+
+
+### 🐛 Bug Fixes
+
+* **release:** find open release PR when release-please output is empty ([#40](https://github.com/navigaite/.github/issues/40)) ([64d880a](https://github.com/navigaite/.github/commit/64d880af1447bdd07cdc83e104c27fa80b2936c6))
+
+
+### 📚 Documentation
+
+* add AI agent instructions, fix release-please v4 inputs ([#38](https://github.com/navigaite/.github/issues/38)) ([56819f6](https://github.com/navigaite/.github/commit/56819f673bc83c1694a712a578f3c55a0bcd5445))
+
 ## [2.1.2](https://github.com/navigaite/.github/compare/v2.1.1...v2.1.2) (2026-04-08)
 
 
