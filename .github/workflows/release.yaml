@@ -51,7 +51,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 🏷️ Update major version tag
+      - name: 🏷️ Update rolling tags
         shell: bash
         env:
           MAJOR: ${{ needs.release-please.outputs.release-major }}
@@ -61,18 +61,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          MAJOR_TAG="v${MAJOR}"
-          echo "Updating ${MAJOR_TAG} to point to ${TAG}"
-
-          # Delete existing major tag (local + remote) and recreate
-          git tag -d "${MAJOR_TAG}" 2>/dev/null || true
-          git push origin ":refs/tags/${MAJOR_TAG}" 2>/dev/null || true
-
-          # Create new major tag pointing to the release tag
-          git tag "${MAJOR_TAG}" "${TAG}"
-          git push origin "${MAJOR_TAG}"
-
-          echo "✅ ${MAJOR_TAG} now points to ${TAG}"
+          for ROLLING_TAG in "v${MAJOR}" "latest"; do
+            echo "Updating ${ROLLING_TAG} to point to ${TAG}"
+            git tag -d "${ROLLING_TAG}" 2>/dev/null || true
+            git push origin ":refs/tags/${ROLLING_TAG}" 2>/dev/null || true
+            git tag "${ROLLING_TAG}" "${TAG}"
+            git push origin "${ROLLING_TAG}"
+            echo "✅ ${ROLLING_TAG} → ${TAG}"
+          done
 
       - name: 📋 Summary
         shell: bash
@@ -90,6 +86,7 @@ jobs:
             echo "| **Version** | \`${VERSION}\` |"
             echo "| **Tag** | \`${TAG}\` |"
             echo "| **Major Tag** | \`v${MAJOR}\` → \`${TAG}\` |"
+            echo "| **Latest Tag** | \`latest\` → \`${TAG}\` |"
             echo ""
-            echo "Consumers using \`@v${MAJOR}\` will now get \`${TAG}\`."
+            echo "Consumers using \`@v${MAJOR}\` or \`@latest\` will now get \`${TAG}\`."
           } >> "$GITHUB_STEP_SUMMARY"
