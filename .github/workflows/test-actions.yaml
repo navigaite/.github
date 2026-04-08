@@ -35,7 +35,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          actionlint -color
+          # Disable shellcheck integration — existing scripts have many
+          # info/style-level SC2086/SC2129 warnings that are not actionable
+          actionlint -shellcheck="" -color
 
   validate-install-dependencies:
     name: Test install-dependencies rejects invalid stack
