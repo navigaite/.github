@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.1](https://github.com/navigaite/.github/compare/v2.1.0...v2.1.1) (2026-04-08)
+
+
+### 🐛 Bug Fixes
+
+* **release:** remove component prefix from tags, add latest tag ([#29](https://github.com/navigaite/.github/issues/29)) ([b0c79c2](https://github.com/navigaite/.github/commit/b0c79c2cf41db647096c9791bec0c9eec9dc5208))
+
+
+### 📚 Documentation
+
+* modernize README with badges, version, and cleaner layout ([#27](https://github.com/navigaite/.github/issues/27)) ([626099f](https://github.com/navigaite/.github/commit/626099f4c141060a3e28eb58205db00fb565beca))
+
 ## [2.1.0](https://github.com/navigaite/.github/compare/navigaite-github-v2.0.0...navigaite-github-v2.1.0) (2026-04-08)
 
 
