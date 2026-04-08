@@ -94,6 +94,8 @@ Use **conventional commits** -- this repo uses release-please with commitlint en
 
 5. **Infisical integration** -- secrets can be injected at build time via Infisical. This is optional and configured per-consumer.
 
+6. **GitHub App for workflow triggers** -- `GITHUB_TOKEN` merges don't trigger subsequent workflow runs (GitHub's anti-loop protection). This repo uses a GitHub App (`WORKFLOW_APP_ID` + `WORKFLOW_APP_PRIVATE_KEY` org secrets) via `actions/create-github-app-token` to generate tokens for release-please and auto-merge, so merging a release PR triggers the release publish workflow.
+
 ## Setting Up the Pipeline in a Consumer Repo
 
 ### Step 1: Create the caller workflow
@@ -180,7 +182,7 @@ Based on your deployment provider, add secrets to the repo (Settings > Secrets >
 - **Vercel:** `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
 - **DigitalOcean:** `DIGITALOCEAN_TOKEN`
 - **Docker/GHCR:** uses `GITHUB_TOKEN` by default, or `DOCKER_REGISTRY_USERNAME` + `DOCKER_REGISTRY_PASSWORD`
-- **Releases:** `GH_TOKEN` (PAT with `contents: write`) -- needed if you want release PR merges to trigger follow-up workflows
+- **Workflow automation:** `WORKFLOW_APP_ID` + `WORKFLOW_APP_PRIVATE_KEY` (org-level GitHub App) -- used to generate tokens that can trigger workflows on automated merges (unlike `GITHUB_TOKEN`). This repo's `release.yaml` uses these to auto-merge release PRs and trigger the follow-up release publish workflow.
 
 ### Adding custom jobs alongside the pipeline
 
