@@ -60,6 +60,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      actions: read
       security-events: write
     steps:
       - name: Checkout repository
