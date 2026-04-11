@@ -82,14 +82,15 @@ The `navigaite` org enforces a consistent branching strategy via org-level GitHu
 
 **Profile A — Small repos** (feature → main):
 
-- `main` is the only long-lived branch
+- `main` is the only long-lived branch, and the default branch
 - Feature branches squash-merge to `main` via PR
 - Release-please produces stable versions (`v1.0.0`, `v1.1.0`)
 - No `dev` branch, no prerelease versions
 
 **Profile B — Large repos** (feature → dev → main):
 
-- `dev` is the integration branch, `main` is production
+- `dev` is the integration branch and the **default branch** (PRs target `dev` by default)
+- `main` is the production branch
 - Feature branches squash-merge to `dev` via PR
 - Release-please on `dev` produces beta versions (`v0.4.0-beta.1`)
 - Promotion: merge-commit PR from `dev → main` (preserves conventional commit history)
@@ -149,8 +150,17 @@ Large repos add overlay rulesets that restrict merge methods per branch:
 - **"dev: squash only"** — forces squash on `dev`
 - **"main: merge only (promotions)"** — forces merge commits on `main`
 
+### Default Branch
+
+- **Large repos** (with `dev`): default = `dev` — PRs naturally target where feature work belongs
+- **Small repos** (no `dev`): default = `main`
+
+The org ruleset explicitly targets `~DEFAULT_BRANCH`, `refs/heads/main`, and `refs/heads/dev` so both branches are
+protected regardless of which is the default.
+
 ### Repo Settings (All Repos)
 
+- Default branch: `dev` (large) or `main` (small)
 - Squash merge: enabled (title = PR title, body = PR body)
 - Merge commit: enabled
 - Rebase: disabled
