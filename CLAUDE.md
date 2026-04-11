@@ -76,11 +76,86 @@ Use **conventional commits** -- this repo uses release-please with commitlint en
 - The `release.yaml` workflow updates rolling `v{MAJOR}` and `latest` tags so consumers pinned to `@v2` get patches automatically
 - **Never manually edit version numbers** -- release-please handles it
 
-### Branching
+### Branching & Release Strategy
 
-- `main` is the release branch
-- Feature/fix branches are merged to `main` via PR
-- After release, version changes auto-sync to `dev` (if it exists in the consuming repo)
+The `navigaite` org enforces a consistent branching strategy via org-level GitHub rulesets. Two profiles exist:
+
+**Profile A — Small repos** (feature → main):
+
+- `main` is the only long-lived branch
+- Feature branches squash-merge to `main` via PR
+- Release-please produces stable versions (`v1.0.0`, `v1.1.0`)
+- No `dev` branch, no prerelease versions
+
+**Profile B — Large repos** (feature → dev → main):
+
+- `dev` is the integration branch, `main` is production
+- Feature branches squash-merge to `dev` via PR
+- Release-please on `dev` produces beta versions (`v0.4.0-beta.1`)
+- Promotion: merge-commit PR from `dev → main` (preserves conventional commit history)
+- Release-please on `main` produces stable versions (`v1.0.0`)
+- Pipeline auto-syncs `main` back to `dev` after promotion (`sync_to_dev: true`)
+- A CI branch guard job prevents feature PRs from targeting `main`
+
+**Merge methods:**
+
+- Feature PRs: squash (enforced via repo-level rulesets for large repos)
+- Release-please PRs: squash
+- dev → main promotions: merge commit (enforced via repo-level ruleset on `main`)
+
+**Promotion preconditions (large repos):**
+
+1. No open release-please PR on `dev`
+2. All CI checks pass
+3. Merge commit method (enforced by ruleset)
+
+**Pipeline config for large repos with prerelease:**
+
+```yaml
+release:
+  enable: true
+  strategy: release-please
+  config_file: release-please-config.json            # prerelease for dev
+  config_file_stable: release-please-config.main.json # stable for main
+  manifest_file: .release-please-manifest.json
+  sync_to_dev: true
+  prerelease_branches:
+    - branch: dev
+      label: beta
+```
+
+### Org-Level GitHub Rulesets
+
+Two org rulesets apply to ALL `navigaite` repos:
+
+**"Protected branches"** — targets `main` (default branch) + `dev`:
+
+- PR required: 1 approval, dismiss stale reviews, resolve conversations
+- Merge methods: squash + merge (repo-level rulesets narrow per branch)
+- Required status checks: Lint, Test, Build, Branch Guard
+- Signed commits, no force push, no deletion
+- Copilot code review: auto-review on push
+- Bypass: org admins + `navigaite-workflow-app` bot
+
+**"Tag protection"** — targets `v*` tags:
+
+- No deletion, no force push, restrict creation
+- Bypass: org admins + `navigaite-workflow-app` bot
+
+### Repo-Level Rulesets (Large Repos Only)
+
+Large repos add overlay rulesets that restrict merge methods per branch:
+
+- **"dev: squash only"** — forces squash on `dev`
+- **"main: merge only (promotions)"** — forces merge commits on `main`
+
+### Repo Settings (All Repos)
+
+- Squash merge: enabled (title = PR title, body = PR body)
+- Merge commit: enabled
+- Rebase: disabled
+- Delete branch on merge: yes
+- Auto-merge: yes
 
 ## Key Design Decisions
 
