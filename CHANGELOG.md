@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.2.4](https://github.com/navigaite/.github/compare/v2.2.3...v2.2.4) (2026-04-11)
+
+
+### 🐛 Bug Fixes
+
+* add actions:read permission to security-audit job ([c8b66bd](https://github.com/navigaite/.github/commit/c8b66bd7be7c81c43f4f4bee45c966f956a9a3ce))
+
+
+### 📚 Documentation
+
+* add comprehensive branching and release strategy to CLAUDE.md ([c2e7f66](https://github.com/navigaite/.github/commit/c2e7f669d01fda4543a3d6db3737e02c50a0ddbb))
+* add default branch guidance to branching strategy ([f279713](https://github.com/navigaite/.github/commit/f279713a8424cec3d7409be496e5d33114d66b5d))
+
 ## [2.2.3](https://github.com/navigaite/.github/compare/v2.2.2...v2.2.3) (2026-04-08)
 
 
