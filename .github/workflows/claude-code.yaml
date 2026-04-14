@@ -23,6 +23,10 @@ name: 🤖 Claude Code
 #           contains(github.event.comment.body, '@claude')) ||
 #         (github.event_name == 'issue_comment' &&
 #           contains(github.event.comment.body, '@claude'))
+#       permissions:
+#         contents: write
+#         pull-requests: write
+#         issues: write
 #       uses: navigaite/.github/.github/workflows/claude-code.yaml@main
 #       secrets: inherit
 
@@ -38,7 +42,7 @@ on:
       allowed_bots:
         description: >-
           Comma-separated bot logins whose comments trigger Claude.
-          Use '*' to allow all bots. Empty string blocks all bots.
+          Use '"*"' (quoted) to allow all bots. Empty string blocks all bots.
         required: false
         type: string
         default: copilot[bot]
@@ -66,8 +70,26 @@ jobs:
       pull-requests: write
       issues: write
     steps:
+      - name: Check author association
+        if: >-
+          github.event_name == 'issue_comment' &&
+          !contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)
+        shell: bash
+        run: |
+          echo "::notice::Ignoring comment from non-member (association: ${{ github.event.comment.author_association }})"
+          exit 1
+
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: >-
+            ${{
+              (github.event_name == 'pull_request_review' ||
+               github.event_name == 'pull_request_review_comment')
+              && github.event.pull_request.head.sha
+              || (github.event_name == 'issue_comment' && github.event.issue.pull_request
+                  && format('refs/pull/{0}/head', github.event.issue.number))
+              || github.sha
+            }}
           fetch-depth: 1
 
       - name: Run Claude Code
