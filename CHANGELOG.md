@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.2](https://github.com/navigaite/.github/compare/v2.4.1...v2.4.2) (2026-04-14)
+
+
+### 🐛 Bug Fixes
+
+* **templates:** grant caller-level permissions for trunk-upgrade ([#71](https://github.com/navigaite/.github/issues/71)) ([2c38cd9](https://github.com/navigaite/.github/commit/2c38cd9741ddfc681d4f7759f14dda182b1e7d8b))
+
 ## [2.4.1](https://github.com/navigaite/.github/compare/v2.4.0...v2.4.1) (2026-04-14)
 
 
