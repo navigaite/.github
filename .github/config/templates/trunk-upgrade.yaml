@@ -11,7 +11,12 @@ on:
     - cron: '__CRON__'
   workflow_dispatch: {}
 
-permissions: {}
+# Caller-level permissions cap the reusable workflow's job permissions.
+# The called workflow needs contents+pull-requests write to push a branch
+# and open a PR with the upgrade diff.
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   upgrade:
