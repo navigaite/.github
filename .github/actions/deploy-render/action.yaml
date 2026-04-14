@@ -56,6 +56,7 @@ runs:
         TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
         SERVICE_NAME: ${{ inputs.service-name }}
       run: |
+        set -euo pipefail
         echo "::group::🚀 Triggering Render deploy for ${SERVICE_NAME}"
 
         if [[ -z "$DEPLOY_HOOK_URL" ]]; then
@@ -81,6 +82,7 @@ runs:
         SERVICE_URL: ${{ inputs.service-url }}
         ENVIRONMENT: ${{ inputs.environment }}
       run: |
+        set -euo pipefail
         GITHUB_DEPLOYMENTS_URL="https://github.com/${GITHUB_REPOSITORY}/deployments/activity_log?environment=${ENVIRONMENT}"
 
         if [[ -n "$SERVICE_URL" ]]; then
@@ -168,6 +170,7 @@ runs:
         RESOLVED_URL: ${{ steps.resolve.outputs.resolved-url }}
         DEPLOY_STATUS: ${{ steps.trigger.outcome == 'success' && '✅ Triggered' || '❌ Failed' }}
       run: |
+        set -euo pipefail
         {
           echo "### 🚀 Render Deployment"
           echo ""

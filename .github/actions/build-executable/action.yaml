@@ -59,6 +59,18 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      shell: bash
+      env:
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]] \
+          || [[ "$WORKING_DIR" == \\* ]] || [[ "$WORKING_DIR" == //* ]] \
+          || [[ "$WORKING_DIR" =~ ^[A-Za-z]:[\\/] ]]; then
+          echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"; exit 1
+        fi
+
     - name: Resolve Configuration
       id: resolve
       shell: bash
