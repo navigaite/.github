@@ -18,7 +18,7 @@ name: 🤖 Claude Code
 #     claude:
 #       if: >-
 #         (github.event_name == 'pull_request_review' &&
-#           github.event.review.user.login == 'copilot[bot]') ||
+#           github.event.review.user.login == 'copilot-pull-request-reviewer[bot]') ||
 #         (github.event_name == 'pull_request_review_comment' &&
 #           contains(github.event.comment.body, '@claude')) ||
 #         (github.event_name == 'issue_comment' &&
@@ -45,7 +45,7 @@ on:
           Use '"*"' (quoted) to allow all bots. Empty string blocks all bots.
         required: false
         type: string
-        default: copilot[bot]
+        default: copilot-pull-request-reviewer[bot]
 
       timeout_minutes:
         description: Maximum minutes before the job is cancelled
