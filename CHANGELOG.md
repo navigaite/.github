@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.3](https://github.com/navigaite/.github/compare/v2.3.2...v2.3.3) (2026-04-14)
+
+
+### 🐛 Bug Fixes
+
+* use GitHub App token for rolling tag updates ([#61](https://github.com/navigaite/.github/issues/61)) ([d1ea276](https://github.com/navigaite/.github/commit/d1ea276ef6e911939548a2e4270b6b1185177af6))
+
 ## [2.3.2](https://github.com/navigaite/.github/compare/v2.3.1...v2.3.2) (2026-04-14)
 
 
