@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/navigaite/.github/compare/v2.4.0...v2.4.1) (2026-04-14)
+
+
+### 🐛 Bug Fixes
+
+* **scripts:** bootstrap handles new files and skips .github repo ([#69](https://github.com/navigaite/.github/issues/69)) ([e633310](https://github.com/navigaite/.github/commit/e633310bedf546c49bb9148507d0da7728f27bd6))
+
 ## [2.4.0](https://github.com/navigaite/.github/compare/v2.3.4...v2.4.0) (2026-04-14)
 
 
