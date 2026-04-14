@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0](https://github.com/navigaite/.github/compare/v2.2.4...v2.3.0) (2026-04-14)
+
+
+### ✨ Features
+
+* add Claude Code workflow + fix blocked auto-merge ([#54](https://github.com/navigaite/.github/issues/54)) ([5cfe470](https://github.com/navigaite/.github/commit/5cfe47046be04eb1197c333d1497b19b7f330c44))
+
 ## [2.2.4](https://github.com/navigaite/.github/compare/v2.2.3...v2.2.4) (2026-04-14)
 
 
