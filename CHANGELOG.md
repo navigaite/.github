@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/navigaite/.github/compare/v2.3.0...v2.3.1) (2026-04-14)
+
+
+### 🐛 Bug Fixes
+
+* address security review findings ([#57](https://github.com/navigaite/.github/issues/57)) ([0fe0110](https://github.com/navigaite/.github/commit/0fe01109e77c31d3c8e31e5971f9a405cf75acab))
+
 ## [2.3.0](https://github.com/navigaite/.github/compare/v2.2.4...v2.3.0) (2026-04-14)
 
 

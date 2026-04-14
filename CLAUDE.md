@@ -1,6 +1,6 @@
 # Navigaite Universal CI/CD Pipeline
 
-> Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2** (version 2.3.0). <!-- x-release-please-version -->
+> Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2** (version 2.3.1). <!-- x-release-please-version -->
 
 ## What This Repo Is
 
