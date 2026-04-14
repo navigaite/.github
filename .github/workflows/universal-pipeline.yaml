@@ -1046,3 +1046,35 @@ jobs:
             echo "| Sync to Dev | $(status_icon "$SYNC") $SYNC |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # =============================================================================
+  # CHECK GATE — single aggregator for org ruleset required status checks
+  # =============================================================================
+  check-gate:
+    name: Check Gate
+    if: always()
+    needs:
+      - setup
+      - security
+      - lint
+      - test
+      - build
+      - deploy-vercel
+      - deploy-digitalocean
+      - deploy-docker
+      - release
+      - sync-to-dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate pipeline result
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "Job results: $RESULTS"
+          # Fail if any required job failed or was cancelled (skipped is OK)
+          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
+            echo "::error::Pipeline failed — one or more jobs failed or were cancelled"
+            exit 1
+          fi
+          echo "✅ All pipeline jobs passed or were skipped"
+
