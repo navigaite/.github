@@ -27,6 +27,10 @@ set -euo pipefail
 ORG="navigaite"
 APPLY=false
 ONLY=""
+# Repos to skip: the .github repo hosts the reusable workflow + templates
+# themselves, so writing the caller-stub template into .github/workflows/
+# would overwrite the reusable workflow file.
+SKIP_REPOS=(".github")
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -69,14 +73,31 @@ render_trunk_workflow() {
   sed "s|__CRON__|$cron|" "$TRUNK_TEMPLATE"
 }
 
+is_skipped() {
+  local repo="$1" s
+  for s in "${SKIP_REPOS[@]}"; do
+    [[ "$repo" == "$s" ]] && return 0
+  done
+  return 1
+}
+
 list_repos() {
+  local all
   if [[ -n "$ONLY" ]]; then
-    IFS=',' read -ra arr <<< "$ONLY"
-    for r in "${arr[@]}"; do echo "$r"; done
-    return
+    IFS=',' read -ra all <<< "$ONLY"
+  else
+    all=()
+    while IFS= read -r r; do all+=("$r"); done < <(
+      gh repo list "$ORG" --limit 200 --no-archived --json name --jq '.[].name'
+    )
   fi
-  gh repo list "$ORG" --limit 200 --no-archived --json name,isPrivate \
-    | jq -r '.[].name'
+  for r in "${all[@]}"; do
+    if is_skipped "$r"; then
+      echo "::skip $r" >&2
+      continue
+    fi
+    echo "$r"
+  done
 }
 
 fetch_remote_file() {
@@ -130,12 +151,11 @@ apply_repo() {
   cp "$DEPENDABOT_TEMPLATE" "$workdir/.github/dependabot.yml"
   render_trunk_workflow "$repo" > "$workdir/.github/workflows/trunk-upgrade.yaml"
 
-  if git -C "$workdir" diff --quiet; then
+  git -C "$workdir" add .github/dependabot.yml .github/workflows/trunk-upgrade.yaml
+  if git -C "$workdir" diff --cached --quiet; then
     echo "  [skip] $repo — nothing changed after clone"
     return 0
   fi
-
-  git -C "$workdir" add .github/dependabot.yml .github/workflows/trunk-upgrade.yaml
   git -C "$workdir" -c user.name="navigaite-workflow-app[bot]" \
                     -c user.email="navigaite-workflow-app[bot]@users.noreply.github.com" \
                     commit -m "chore(ci): bootstrap org maintenance automation" >/dev/null
@@ -154,7 +174,8 @@ Managed by \`scripts/bootstrap-maintenance.sh\` — edits to these files will be
 }
 
 echo "Scanning $ORG repos…"
-mapfile -t REPOS < <(list_repos)
+REPOS=()
+while IFS= read -r r; do REPOS+=("$r"); done < <(list_repos)
 echo "Found ${#REPOS[@]} repos"
 echo
 
