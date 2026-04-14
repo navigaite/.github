@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/navigaite/.github/compare/v2.3.4...v2.4.0) (2026-04-14)
+
+
+### ✨ Features
+
+* **maintenance:** org-wide auto-upgrade bootstrap ([#66](https://github.com/navigaite/.github/issues/66)) ([1dd979c](https://github.com/navigaite/.github/commit/1dd979c6883ba4b5d5db567f09e3b73677b353a5))
+
 ## [2.3.4](https://github.com/navigaite/.github/compare/v2.3.3...v2.3.4) (2026-04-14)
 
 
