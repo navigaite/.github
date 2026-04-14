@@ -134,7 +134,7 @@ Two org rulesets apply to ALL `navigaite` repos:
 
 - PR required: 1 approval, dismiss stale reviews, resolve conversations
 - Merge methods: squash + merge (repo-level rulesets narrow per branch)
-- Required status checks: Check Gate, Branch Guard
+- Required status checks (ruleset contexts): `Check Gate`, `Branch Guard` — matched by GitHub against the job `name:` field; the PR UI displays them as `Navigaite Pipeline / Check Gate` and `Navigaite Pipeline / Branch Guard`
 - Signed commits, no force push, no deletion
 - Copilot code review: auto-review on push
 - Bypass: org admins + `navigaite-workflow-app` bot
@@ -231,19 +231,23 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
+        shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
-          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
-            echo "::error::Pipeline failed"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
           echo "✅ All pipeline jobs passed"
 ```
 
 **Important:**
-- The workflow name `Navigaite Pipeline` is required — the org ruleset matches `Check Gate` and `Branch Guard` by exact name. See `AGENTS.md` for the full naming convention.
+- The workflow name `Navigaite Pipeline` is required — the org ruleset matches the bare job names `Check Gate` and `Branch Guard` (not the full `Navigaite Pipeline / ...` path shown in the PR UI). See `AGENTS.md` for the full naming convention.
 - Pin to `@v2` (rolling tag, gets patches automatically). Use `@main` only for testing unreleased changes.
 - `secrets: inherit` passes all repo/org secrets to the pipeline.
 - The `permissions` block is required for releases, PR comments, and OIDC-based deployments.

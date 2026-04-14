@@ -89,13 +89,17 @@ Add after the `pipeline-summary` job (last job in the file). The job depends on 
     timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
+        shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
           # Fail if any required job failed (skipped is OK — means the stage was disabled)
-          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
-            echo "::error::Pipeline failed — one or more jobs failed or were cancelled"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
           echo "✅ All pipeline jobs passed or were skipped"
@@ -319,12 +323,16 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
+        shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
-          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
-            echo "::error::Pipeline failed — one or more jobs failed or were cancelled"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
           echo "✅ All pipeline jobs passed"
@@ -472,12 +480,16 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
+        shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
-          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
-            echo "::error::Pipeline failed"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
           echo "✅ All pipeline jobs passed"
@@ -637,12 +649,16 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
+        shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
-          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
-            echo "::error::Pipeline failed"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
           echo "✅ All pipeline jobs passed"
@@ -840,12 +856,16 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
+        shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
-          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
-            echo "::error::Pipeline failed"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
           echo "✅ All pipeline jobs passed"
@@ -977,12 +997,16 @@ jobs:
     timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
+        shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
-          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
-            echo "::error::Pipeline failed"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
           echo "✅ All pipeline jobs passed"
@@ -1138,12 +1162,16 @@ Every caller workflow MUST include a Check Gate job:
     timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
+        shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
-          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
-            echo "::error::Pipeline failed"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
           echo "✅ All pipeline jobs passed"

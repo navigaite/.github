@@ -6,12 +6,14 @@ All repos in the `navigaite` org MUST follow this naming convention for GitHub A
 
 ### Required Check Names (Org Ruleset)
 
-The org-level ruleset "Protected branches" requires exactly two status checks:
+The org-level ruleset "Protected branches" requires exactly two status checks, matched by GitHub on the job `name:` field (the bare `check_run.name`, NOT the workflow-prefixed path shown in the PR UI):
 
-| Check Name     | Purpose                                                |
-| -------------- | ------------------------------------------------------ |
-| `Check Gate`   | Aggregator — passes only when all pipeline stages pass |
-| `Branch Guard` | Enforces branch targeting rules (dev/main flow)        |
+| Ruleset context | Job `name:` | Purpose                                                |
+| --------------- | ----------- | ------------------------------------------------------ |
+| `Check Gate`    | `Check Gate`   | Aggregator — passes only when all pipeline stages pass |
+| `Branch Guard`  | `Branch Guard` | Enforces branch targeting rules (dev/main flow)        |
+
+GitHub's PR UI displays these as `Navigaite Pipeline / Check Gate` and `Navigaite Pipeline / Branch Guard` (the workflow name is a visual grouping prefix), but the ruleset `context` field matches the bare job name. Do not include the `Navigaite Pipeline /` prefix in ruleset configuration — it will fail to match.
 
 ### Caller Workflow Convention
 
@@ -45,12 +47,16 @@ Every caller workflow MUST include a Check Gate job:
     timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
+        shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
-          if echo "$RESULTS" | jq -e 'map(select(. == "failure" or . == "cancelled")) | length > 0' > /dev/null 2>&1; then
-            echo "::error::Pipeline failed"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
           echo "✅ All pipeline jobs passed"
@@ -82,17 +88,19 @@ The branch guard enforces:
 
 See the edilio or maimaldrei-mietkatalog `ci.yaml` files for the full implementation.
 
-### Resulting Check Names
+### Resulting Check Names (PR UI Display)
 
-For a consumer repo calling the universal pipeline, GitHub produces these check names:
+For a consumer repo calling the universal pipeline, GitHub's PR UI displays these check paths:
 
-- `Navigaite Pipeline / Check Gate` — **required by org ruleset**
-- `Navigaite Pipeline / Branch Guard` — **required by org ruleset**
+- `Navigaite Pipeline / Check Gate` — **required** (ruleset context: `Check Gate`)
+- `Navigaite Pipeline / Branch Guard` — **required** (ruleset context: `Branch Guard`)
 - `Navigaite Pipeline / pipeline / 🧹 Lint` — informational
 - `Navigaite Pipeline / pipeline / 🧪 Test` — informational
 - `Navigaite Pipeline / pipeline / 🏗️ Build` — informational
 - `Navigaite Pipeline / pipeline / 🔧 Setup & Configuration` — informational
 - (other pipeline stages as configured)
+
+The `Navigaite Pipeline /` prefix is GitHub's UI grouping, not part of the ruleset context. The ruleset matches the bare job `name:` field.
 
 ### Why This Convention
 
