@@ -23,6 +23,7 @@ Consuming repos integrate by adding a thin workflow caller + a `.github/pipeline
     release.yaml               # This repo's own release process
     create-release-pr.yaml     # Reusable: generate release PRs with changelog
     build-executables.yaml     # Reusable: PyInstaller cross-platform builds
+    claude-code.yaml           # Reusable: Claude Code AI for PR reviews + @claude mentions
     nightly-maintenance.yaml   # Scheduled: cache cleanup, security audits, dep checks
     test-actions.yaml          # CI: validates the composite actions themselves
   actions/
