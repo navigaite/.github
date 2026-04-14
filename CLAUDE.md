@@ -134,7 +134,7 @@ Two org rulesets apply to ALL `navigaite` repos:
 
 - PR required: 1 approval, dismiss stale reviews, resolve conversations
 - Merge methods: squash + merge (repo-level rulesets narrow per branch)
-- Required status checks: Lint, Test, Build, Branch Guard
+- Required status checks (ruleset contexts): `Check Gate`, `Branch Guard` — matched by GitHub against the job `name:` field; the PR UI displays them as `Navigaite Pipeline / Check Gate` and `Navigaite Pipeline / Branch Guard`
 - Signed commits, no force push, no deletion
 - Copilot code review: auto-review on push
 - Bypass: org admins + `navigaite-workflow-app` bot
@@ -186,10 +186,10 @@ protected regardless of which is the default.
 
 ### Step 1: Create the caller workflow
 
-Create `.github/workflows/ci.yaml`. The workflow name **should** follow the convention `CI/CD Pipeline` for consistency across the org. The calling job should be named `pipeline`:
+Create `.github/workflows/ci.yaml`. The workflow name **must** be `Navigaite Pipeline` (exact match required by org ruleset). The calling job **must** use the key `pipeline` with no explicit `name:` field. Every workflow must include `Branch Guard` and `Check Gate` jobs:
 
 ```yaml
-name: CI/CD Pipeline
+name: Navigaite Pipeline
 
 on:
   push:
@@ -209,17 +209,49 @@ permissions:
   security-events: write   # security scan SARIF uploads
 
 jobs:
+  branch-guard:
+    name: Branch Guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "✅ Single-branch repo — all PRs target main directly"
+
   pipeline:
     uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
     with:
       config-file: .github/pipeline.yaml
     secrets: inherit
+
+  check-gate:
+    name: Check Gate
+    if: always()
+    needs: [pipeline]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate pipeline result
+        shell: bash
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
+          echo "Job results: $RESULTS"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
+            exit 1
+          fi
+          echo "✅ All pipeline jobs passed"
 ```
 
 **Important:**
+- The workflow name `Navigaite Pipeline` is required — the org ruleset matches the bare job names `Check Gate` and `Branch Guard` (not the full `Navigaite Pipeline / ...` path shown in the PR UI). See `AGENTS.md` for the full naming convention.
 - Pin to `@v2` (rolling tag, gets patches automatically). Use `@main` only for testing unreleased changes.
 - `secrets: inherit` passes all repo/org secrets to the pipeline.
 - The `permissions` block is required for releases, PR comments, and OIDC-based deployments.
+- For large repos (dev + main), use the full branch guard implementation — see edilio's `ci.yaml` for reference.
 
 ### Step 2: Create the pipeline config
 
@@ -294,7 +326,7 @@ jobs:
 ### Naming conventions
 
 - **Workflow file:** `.github/workflows/ci.yaml`
-- **Workflow name:** `CI/CD Pipeline`
+- **Workflow name:** `Navigaite Pipeline`
 - **Config file:** `.github/pipeline.yaml`
 - **Commit style:** conventional commits (`feat:`, `fix:`, `chore:`, etc.)
 - **Branch strategy:** `main` (production) + `dev` (staging) + feature branches
