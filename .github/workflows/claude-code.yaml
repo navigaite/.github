@@ -1,0 +1,100 @@
+---
+name: 🤖 Claude Code
+
+# Reusable workflow that runs Claude Code Action on PRs and comments.
+# Consumer repos call this from their own workflow with the appropriate triggers.
+#
+# Example consumer workflow:
+#
+#   on:
+#     pull_request_review:
+#       types: [submitted]
+#     pull_request_review_comment:
+#       types: [created]
+#     issue_comment:
+#       types: [created]
+#
+#   jobs:
+#     claude:
+#       if: >-
+#         (github.event_name == 'pull_request_review' &&
+#           github.event.review.user.login == 'copilot[bot]') ||
+#         (github.event_name == 'pull_request_review_comment' &&
+#           contains(github.event.comment.body, '@claude')) ||
+#         (github.event_name == 'issue_comment' &&
+#           contains(github.event.comment.body, '@claude'))
+#       permissions:
+#         contents: write
+#         pull-requests: write
+#         issues: write
+#       uses: navigaite/.github/.github/workflows/claude-code.yaml@main
+#       secrets: inherit
+
+on:
+  workflow_call:
+    inputs:
+      trigger_phrase:
+        description: Phrase that activates Claude in comments (default @claude)
+        required: false
+        type: string
+        default: '@claude'
+
+      allowed_bots:
+        description: >-
+          Comma-separated bot logins whose comments trigger Claude.
+          Use '"*"' (quoted) to allow all bots. Empty string blocks all bots.
+        required: false
+        type: string
+        default: copilot[bot]
+
+      timeout_minutes:
+        description: Maximum minutes before the job is cancelled
+        required: false
+        type: number
+        default: 30
+
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: OAuth token for Claude Code authentication
+        required: true
+
+permissions: {}
+
+jobs:
+  claude:
+    name: 🤖 Claude Code
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Check author association
+        if: >-
+          github.event_name == 'issue_comment' &&
+          !contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)
+        shell: bash
+        run: |
+          echo "::notice::Ignoring comment from non-member (association: ${{ github.event.comment.author_association }})"
+          exit 1
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: >-
+            ${{
+              (github.event_name == 'pull_request_review' ||
+               github.event_name == 'pull_request_review_comment')
+              && github.event.pull_request.head.sha
+              || (github.event_name == 'issue_comment' && github.event.issue.pull_request
+                  && format('refs/pull/{0}/head', github.event.issue.number))
+              || github.sha
+            }}
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1
+        with:
+          trigger_phrase: ${{ inputs.trigger_phrase }}
+          allowed_bots: ${{ inputs.allowed_bots }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

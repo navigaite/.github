@@ -1,0 +1,194 @@
+---
+name: Navigaite CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions: {}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Branch guard — this repo has no dev branch, so all PRs to main are allowed.
+  # The job exists to satisfy the org ruleset's required "Branch Guard" check.
+  # ---------------------------------------------------------------------------
+  branch-guard:
+    name: Branch Guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check PR target
+        run: echo "✅ PR targets main — allowed (no dev branch in this repo)"
+
+  # ---------------------------------------------------------------------------
+  # Lint — validate all workflow and action definitions with actionlint
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Navigaite CI/CD Pipeline / 🧹 Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTIONLINT_VERSION="1.7.7"
+          curl -fsSL -o /tmp/actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          tar xzf /tmp/actionlint.tar.gz -C /tmp
+          sudo mv /tmp/actionlint /usr/local/bin/
+      - name: Run actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Disable shellcheck integration — existing scripts have many
+          # info/style-level SC2086/SC2129 warnings that are not actionable
+          actionlint -shellcheck="" -color
+
+  # ---------------------------------------------------------------------------
+  # Test — validate composite actions reject invalid inputs and block traversal
+  # ---------------------------------------------------------------------------
+  test:
+    name: Navigaite CI/CD Pipeline / 🧪 Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test install-dependencies rejects invalid stack
+        id: test-install
+        continue-on-error: true
+        uses: ./.github/actions/install-dependencies
+        with:
+          stack: invalid
+          package-manager: npm
+      - name: Assert install-dependencies failure
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.test-install.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$OUTCOME" != "failure" ]]; then
+            echo "::error::Expected install-dependencies to fail with invalid input but got: $OUTCOME"
+            exit 1
+          fi
+          echo "✅ install-dependencies correctly rejected invalid input"
+
+      - name: Test run-lint rejects invalid stack
+        id: test-lint
+        continue-on-error: true
+        uses: ./.github/actions/run-lint
+        with:
+          stack: invalid
+      - name: Assert run-lint failure
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.test-lint.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$OUTCOME" != "failure" ]]; then
+            echo "::error::Expected run-lint to fail with invalid input but got: $OUTCOME"
+            exit 1
+          fi
+          echo "✅ run-lint correctly rejected invalid input"
+
+      - name: Test run-build rejects invalid stack
+        id: test-build
+        continue-on-error: true
+        uses: ./.github/actions/run-build
+        with:
+          stack: invalid
+      - name: Assert run-build failure
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.test-build.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$OUTCOME" != "failure" ]]; then
+            echo "::error::Expected run-build to fail with invalid input but got: $OUTCOME"
+            exit 1
+          fi
+          echo "✅ run-build correctly rejected invalid input"
+
+      - name: Test run-tests rejects invalid stack
+        id: test-tests
+        continue-on-error: true
+        uses: ./.github/actions/run-tests
+        with:
+          stack: invalid
+      - name: Assert run-tests failure
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.test-tests.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$OUTCOME" != "failure" ]]; then
+            echo "::error::Expected run-tests to fail with invalid input but got: $OUTCOME"
+            exit 1
+          fi
+          echo "✅ run-tests correctly rejected invalid input"
+
+      - name: Test path traversal is rejected
+        id: test-traversal
+        continue-on-error: true
+        uses: ./.github/actions/run-build
+        with:
+          stack: nodejs
+          working-directory: "../../etc"
+      - name: Assert path traversal failure
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.test-traversal.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$OUTCOME" != "failure" ]]; then
+            echo "::error::Expected path traversal to be rejected"
+            exit 1
+          fi
+          echo "✅ Path traversal correctly rejected"
+
+  # ---------------------------------------------------------------------------
+  # Build — no application to build; pass-through to satisfy the org ruleset
+  # ---------------------------------------------------------------------------
+  build:
+    name: Navigaite CI/CD Pipeline / 🏗️ Build
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "✅ No application build — this repo contains only GitHub Actions"
+
+  # ---------------------------------------------------------------------------
+  # Auto-merge — enable auto-merge for dependabot PRs so they merge once all
+  # required checks pass. Uses GITHUB_TOKEN (sufficient for same-repo PRs).
+  # ---------------------------------------------------------------------------
+  auto-merge:
+    name: 🤖 Auto-merge
+    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if ! gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash --auto; then
+            echo "::warning::Failed to enable auto-merge for PR #$PR_NUMBER; continuing because this is best-effort automation."
+          fi
