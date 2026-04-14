@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.4](https://github.com/navigaite/.github/compare/v2.3.3...v2.3.4) (2026-04-14)
+
+
+### 🐛 Bug Fixes
+
+* **claude-code:** use correct Copilot reviewer bot login ([#64](https://github.com/navigaite/.github/issues/64)) ([7242685](https://github.com/navigaite/.github/commit/7242685dc219d6937c5c9ac6387b729d05bdd23a))
+
 ## [2.3.3](https://github.com/navigaite/.github/compare/v2.3.2...v2.3.3) (2026-04-14)
 
 
