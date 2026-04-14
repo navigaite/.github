@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.2](https://github.com/navigaite/.github/compare/v2.3.1...v2.3.2) (2026-04-14)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** rename workflow to match org ruleset and remove unused workflow ([#59](https://github.com/navigaite/.github/issues/59)) ([9673881](https://github.com/navigaite/.github/commit/9673881f2af5bcffda73e1564b8fb4452d3ff99b))
+
 ## [2.3.1](https://github.com/navigaite/.github/compare/v2.3.0...v2.3.1) (2026-04-14)
 
 
