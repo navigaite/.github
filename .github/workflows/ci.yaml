@@ -1,5 +1,5 @@
 ---
-name: Navigaite CI/CD Pipeline
+name: Navigaite Pipeline
 
 on:
   pull_request:
@@ -32,7 +32,7 @@ jobs:
   # Lint — validate all workflow and action definitions with actionlint
   # ---------------------------------------------------------------------------
   lint:
-    name: Navigaite CI/CD Pipeline / 🧹 Lint
+    name: 🧹 Lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -60,7 +60,7 @@ jobs:
   # Test — validate composite actions reject invalid inputs and block traversal
   # ---------------------------------------------------------------------------
   test:
-    name: Navigaite CI/CD Pipeline / 🧪 Test
+    name: 🧪 Test
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -161,10 +161,10 @@ jobs:
           echo "✅ Path traversal correctly rejected"
 
   # ---------------------------------------------------------------------------
-  # Build — no application to build; pass-through to satisfy the org ruleset
+  # Build — no application to build; pass-through to satisfy pipeline stages
   # ---------------------------------------------------------------------------
   build:
-    name: Navigaite CI/CD Pipeline / 🏗️ Build
+    name: 🏗️ Build
     needs: [lint, test]
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -172,8 +172,32 @@ jobs:
       - run: echo "✅ No application build — this repo contains only GitHub Actions"
 
   # ---------------------------------------------------------------------------
-  # Auto-merge — enable auto-merge for dependabot PRs so they merge once all
-  # required checks pass. Uses GITHUB_TOKEN (sufficient for same-repo PRs).
+  # Check Gate — aggregator for org ruleset required status check
+  # ---------------------------------------------------------------------------
+  check-gate:
+    name: Check Gate
+    if: always()
+    needs: [lint, test, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate pipeline result
+        shell: bash
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
+          echo "Job results: $RESULTS"
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
+            exit 1
+          fi
+          echo "✅ All pipeline jobs passed"
+
+  # ---------------------------------------------------------------------------
+  # Auto-merge — enable auto-merge for dependabot PRs
   # ---------------------------------------------------------------------------
   auto-merge:
     name: 🤖 Auto-merge
