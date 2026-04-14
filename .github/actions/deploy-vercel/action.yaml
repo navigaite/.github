@@ -67,7 +67,9 @@ runs:
             exit 1
             ;;
         esac
-        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]]; then
+        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]] \
+          || [[ "$WORKING_DIR" == \\* ]] || [[ "$WORKING_DIR" == //* ]] \
+          || [[ "$WORKING_DIR" =~ ^[A-Za-z]:[\\/] ]]; then
           echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"; exit 1
         fi
 

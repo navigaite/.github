@@ -65,7 +65,9 @@ runs:
         WORKING_DIR: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
-        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]]; then
+        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]] \
+          || [[ "$WORKING_DIR" == \\* ]] || [[ "$WORKING_DIR" == //* ]] \
+          || [[ "$WORKING_DIR" =~ ^[A-Za-z]:[\\/] ]]; then
           echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"; exit 1
         fi
 
