@@ -188,4 +188,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash --auto
+        run: |
+          if ! gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash --auto; then
+            echo "::warning::Failed to enable auto-merge for PR #$PR_NUMBER; continuing because this is best-effort automation."
+          fi
