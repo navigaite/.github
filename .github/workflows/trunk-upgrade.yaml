@@ -1,186 +1,24 @@
+# Managed by navigaite/.github bootstrap. Do not edit manually —
+# changes will be overwritten the next time bootstrap-maintenance.sh runs.
+#
+# The cron minute/hour is staggered per repo to avoid a PR storm across
+# all Navigaite repos. Bootstrap script substitutes 0 5 * * 2 at install time.
 ---
-name: 🌲 Trunk Upgrade
-
-# Reusable workflow that runs `trunk upgrade` in the calling repo,
-# opens a PR with any resulting changes, and enables auto-merge via the
-# Navigaite workflow GitHub App. Consumer repos call this weekly.
-#
-# Example consumer workflow (.github/workflows/trunk-upgrade.yaml):
-#
-#   name: Trunk Upgrade
-#   on:
-#     schedule:
-#       - cron: '0 6 * * 1'   # bootstrap script staggers this per repo
-#     workflow_dispatch: {}
-#   permissions: {}
-#   jobs:
-#     upgrade:
-#       uses: navigaite/.github/.github/workflows/trunk-upgrade.yaml@v2
-#       secrets: inherit
+name: Trunk Upgrade
 
 on:
-  workflow_call:
-    inputs:
-      pr_branch:
-        description: Branch name used for the upgrade PR
-        required: false
-        type: string
-        default: chore/trunk-upgrade
-      pr_title:
-        description: Title for the upgrade PR
-        required: false
-        type: string
-        default: 'chore(deps): trunk upgrade'
-      base_branch:
-        description: Base branch to target. Defaults to the repo's default branch.
-        required: false
-        type: string
-        default: ''
-    secrets:
-      WORKFLOW_APP_ID:
-        description: Navigaite workflow App ID (optional, falls back to GITHUB_TOKEN)
-        required: false
-      WORKFLOW_APP_PRIVATE_KEY:
-        description: Navigaite workflow App private key (optional)
-        required: false
+  schedule:
+    - cron: '0 5 * * 2'
+  workflow_dispatch: {}
 
-permissions: {}
+# Caller-level permissions cap the reusable workflow's job permissions.
+# The called workflow needs contents+pull-requests write to push a branch
+# and open a PR with the upgrade diff.
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   upgrade:
-    name: 🌲 Trunk Upgrade
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Generate App token
-        id: app-token
-        if: env.HAS_APP == 'true'
-        uses: actions/create-github-app-token@a8d616148505b5069dccd32f177bb87d7f39123b # v2.1.4
-        with:
-          app-id: ${{ secrets.WORKFLOW_APP_ID }}
-          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
-        env:
-          HAS_APP: ${{ secrets.WORKFLOW_APP_ID != '' && secrets.WORKFLOW_APP_PRIVATE_KEY != '' }}
-
-      - name: Resolve token
-        id: token
-        shell: bash
-        env:
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
-          FALLBACK: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          if [[ -n "$APP_TOKEN" ]]; then
-            echo "value=$APP_TOKEN" >> "$GITHUB_OUTPUT"
-            echo "using=app" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=$FALLBACK" >> "$GITHUB_OUTPUT"
-            echo "using=github-token" >> "$GITHUB_OUTPUT"
-            echo "::notice::WORKFLOW_APP_ID not set; using GITHUB_TOKEN. PRs will not auto-merge."
-          fi
-
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          token: ${{ steps.token.outputs.value }}
-          fetch-depth: 0
-
-      - name: Resolve base branch
-        id: base
-        shell: bash
-        env:
-          INPUT_BASE: ${{ inputs.base_branch }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          set -euo pipefail
-          if [[ -n "$INPUT_BASE" ]]; then
-            echo "name=$INPUT_BASE" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Skip if PR already open
-        id: guard
-        shell: bash
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.value }}
-          BRANCH: ${{ inputs.pr_branch }}
-        run: |
-          set -euo pipefail
-          OPEN=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
-          if [[ "$OPEN" != "0" ]]; then
-            echo "::notice::An open PR already exists on $BRANCH; skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Skip if no .trunk/trunk.yaml
-        if: steps.guard.outputs.skip == 'false'
-        id: trunk-present
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ ! -f ".trunk/trunk.yaml" ]]; then
-            echo "::notice::No .trunk/trunk.yaml; nothing to upgrade."
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install Trunk
-        if: steps.guard.outputs.skip == 'false' && steps.trunk-present.outputs.present == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsSL https://trunk.io/releases/trunk -o /usr/local/bin/trunk
-          chmod +x /usr/local/bin/trunk
-          trunk --version
-
-      - name: Run trunk upgrade
-        if: steps.guard.outputs.skip == 'false' && steps.trunk-present.outputs.present == 'true'
-        id: upgrade
-        shell: bash
-        run: |
-          set -euo pipefail
-          trunk upgrade --ci
-          if git diff --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Trunk is already up to date."
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "::group::Trunk upgrade diff"
-            git diff --stat
-            echo "::endgroup::"
-          fi
-
-      - name: Create Pull Request
-        if: steps.upgrade.outputs.changed == 'true'
-        id: cpr
-        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
-        with:
-          token: ${{ steps.token.outputs.value }}
-          branch: ${{ inputs.pr_branch }}
-          base: ${{ steps.base.outputs.name }}
-          commit-message: ${{ inputs.pr_title }}
-          title: ${{ inputs.pr_title }}
-          body: |
-            Automated `trunk upgrade` run.
-
-            Produced by [`navigaite/.github` trunk-upgrade workflow](https://github.com/navigaite/.github/blob/main/.github/workflows/trunk-upgrade.yaml).
-            Auto-merges after `Check Gate` passes.
-          delete-branch: true
-          signoff: true
-
-      - name: Enable auto-merge
-        if: steps.cpr.outputs.pull-request-number != '' && steps.token.outputs.using == 'app'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.value }}
-          PR: ${{ steps.cpr.outputs.pull-request-number }}
-        run: |
-          set -euo pipefail
-          gh pr merge "$PR" --squash --auto
-          echo "::notice::Auto-merge enabled on PR #$PR"
+    uses: navigaite/.github/.github/workflows/trunk-upgrade.yaml@v2
+    secrets: inherit
