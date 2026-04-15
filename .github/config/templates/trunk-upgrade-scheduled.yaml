@@ -11,14 +11,15 @@ on:
     - cron: '__CRON__'
   workflow_dispatch: {}
 
-# Caller-level permissions cap the reusable workflow's job permissions.
-# The called workflow needs contents+pull-requests write to push a branch
-# and open a PR with the upgrade diff.
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   upgrade:
+    # Job-level permissions cap the reusable workflow's job permissions.
+    # The called workflow needs contents+pull-requests write to push a
+    # branch and open a PR with the upgrade diff.
+    permissions:
+      contents: write
+      pull-requests: write
     uses: navigaite/.github/.github/workflows/trunk-upgrade.yaml@v2
     secrets: inherit
