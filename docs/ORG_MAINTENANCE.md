@@ -1,9 +1,10 @@
 # Org-wide Maintenance Automation
 
-This repo bootstraps two kinds of automatic upkeep into every `navigaite` org repo:
+This repo bootstraps three kinds of automatic upkeep into every `navigaite` org repo:
 
 1. **Dependabot** for the `github-actions` ecosystem (third-party action version bumps).
 2. **`trunk upgrade`** on a weekly schedule, staggered per repo, auto-merging after CI.
+3. **Claude Code caller** — a thin 20-line workflow that delegates to the reusable `claude-code.yaml` here in `navigaite/.github`. Replaces any inline copy; future filter/diagnostic changes land via `v2` retag, not a per-repo edit.
 
 It does **not** manage bumps of the reusable pipeline itself — consumers pin `navigaite/.github/...@v2`, and `release.yaml` retargets `v2` on every release. That gives zero-maintenance patch updates without producing a PR on every change.
 
@@ -14,7 +15,9 @@ It does **not** manage bumps of the reusable pipeline itself — consumers pin `
 | Reusable `trunk-upgrade.yaml`                  | `.github/workflows/trunk-upgrade.yaml` (this repo)           | Runs `trunk upgrade`, opens a PR, enables auto-merge via the workflow App. |
 | Consumer caller                                | `.github/workflows/trunk-upgrade.yaml` (each consumer repo)  | 10-line workflow with a staggered cron; calls the reusable workflow.       |
 | Dependabot config                              | `.github/dependabot.yml` (each consumer repo)                | Weekly grouped github-actions updates. Ignores `navigaite/.github/*`.      |
-| Bootstrap script                               | `scripts/bootstrap-maintenance.sh` (this repo)               | Pushes the two files above into every org repo via PRs. Idempotent.        |
+| Reusable `claude-code.yaml`                    | `.github/workflows/claude-code.yaml` (this repo)             | Runs the `claude-code-action` with diagnostics + permissive bot filter.    |
+| Claude Code caller                             | `.github/workflows/claude-code.yaml` (each consumer repo)    | Thin caller template — `uses: navigaite/.github/...@v2`, nothing else.     |
+| Bootstrap script                               | `scripts/bootstrap-maintenance.sh` (this repo)               | Pushes all three files into every org repo via PRs. Idempotent.            |
 
 ## Why this shape
 
