@@ -16,8 +16,8 @@ It does **not** manage bumps of the reusable pipeline itself — consumers pin `
 | Consumer caller                                | `.github/workflows/trunk-upgrade.yaml` (each consumer repo)  | 10-line workflow with a staggered cron; calls the reusable workflow.       |
 | Dependabot config                              | `.github/dependabot.yml` (each consumer repo)                | Weekly grouped github-actions updates. Ignores `navigaite/.github/*`.      |
 | Reusable `claude-code.yaml`                    | `.github/workflows/claude-code.yaml` (this repo)             | Runs the `claude-code-action` with diagnostics + permissive bot filter.    |
-| Claude Code caller                             | `.github/workflows/claude-code.yaml` (each consumer repo)    | Thin caller template — `uses: navigaite/.github/...@v2`, nothing else.     |
-| Bootstrap script                               | `scripts/bootstrap-maintenance.sh` (this repo)               | Pushes all three files into every org repo via PRs. Idempotent.            |
+| Claude Code caller                             | `.github/workflows/claude-code-fix.yaml` (every repo)        | Thin caller — `uses: navigaite/.github/...@v2`. Distinct filename so the caller can coexist with the reusable inside this repo too. |
+| Bootstrap script                               | `scripts/bootstrap-maintenance.sh` (this repo)               | Pushes all three files into every org repo via PRs. Deletes legacy inline `claude-code.yaml` callers. Idempotent. |
 
 ## Why this shape
 
