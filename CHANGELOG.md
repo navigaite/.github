@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.2](https://github.com/navigaite/.github/compare/v2.6.1...v2.6.2) (2026-04-15)
+
+
+### 🐛 Bug Fixes
+
+* **claude-code:** mint app token for bot-triggered runs ([#92](https://github.com/navigaite/.github/issues/92)) ([5c14eab](https://github.com/navigaite/.github/commit/5c14eabdc2fdf32f6862c73dc9787d71fb639c45))
+
 ## [2.6.1](https://github.com/navigaite/.github/compare/v2.6.0...v2.6.1) (2026-04-15)
 
 
