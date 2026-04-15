@@ -2,7 +2,7 @@
 
 > Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2** (version 2.4.2). <!-- x-release-please-version -->
 
-All project-specific guidance for coding agents lives in **@AGENTS.md** at the repository root. That file is the single source of truth for:
+All project-specific guidance for coding agents lives in [AGENTS.md](./AGENTS.md) at the repository root (agent-include directive: `@AGENTS.md`). That file is the single source of truth for:
 
 - What this repo is and how its pipeline is structured
 - The **setup Q&A flow** for adding the pipeline to a consumer repo
@@ -13,4 +13,4 @@ All project-specific guidance for coding agents lives in **@AGENTS.md** at the r
 - Commit / versioning / release conventions
 - Key design decisions and common tasks
 
-Before taking any action in this repo — or when asked to set up this pipeline elsewhere — read **@AGENTS.md** first.
+Before taking any action in this repo — or when asked to set up this pipeline elsewhere — read [AGENTS.md](./AGENTS.md) first.
