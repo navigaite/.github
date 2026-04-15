@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.3](https://github.com/navigaite/.github/compare/v2.5.2...v2.5.3) (2026-04-15)
+
+
+### 🐛 Bug Fixes
+
+* **claude-code:** grant id-token: write for OIDC ([#87](https://github.com/navigaite/.github/issues/87)) ([faef765](https://github.com/navigaite/.github/commit/faef765d02e409ff91262b70990dd8f7ab8172ee))
+
 ## [2.5.2](https://github.com/navigaite/.github/compare/v2.5.1...v2.5.2) (2026-04-15)
 
 
