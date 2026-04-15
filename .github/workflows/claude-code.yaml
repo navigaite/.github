@@ -202,3 +202,17 @@ jobs:
               && (steps.app-token.outputs.token || secrets.GITHUB_TOKEN)
               || ''
             }}
+          # claude-code-action's checkWritePermissions auto-allows actors
+          # whose login ends with `[bot]`, but Copilot PR reviews run as
+          # `github.actor == 'Copilot'` (no suffix) and the subsequent
+          # `getCollaboratorPermissionLevel` call 404s with "Copilot is not
+          # a user". Whitelist Copilot for bot-triggered runs only; human
+          # triggers keep the default (empty) so the normal write-permission
+          # check still applies. Requires `github_token` to be set — see
+          # claude-code-action src/github/validation/permissions.ts.
+          allowed_non_write_users: >-
+            ${{
+              github.event.review.user.type == 'Bot'
+              && 'Copilot'
+              || ''
+            }}
