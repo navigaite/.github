@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.1](https://github.com/navigaite/.github/compare/v2.6.0...v2.6.1) (2026-04-15)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** align reusable pipeline contract ([#90](https://github.com/navigaite/.github/issues/90)) ([92dec7a](https://github.com/navigaite/.github/commit/92dec7a67b8ed7958bc2d6ed8becd77eb2399d20))
+
 ## [2.6.0](https://github.com/navigaite/.github/compare/v2.5.3...v2.6.0) (2026-04-15)
 
 
