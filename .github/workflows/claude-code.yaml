@@ -84,6 +84,17 @@ on:
       CLAUDE_CODE_OAUTH_TOKEN:
         description: OAuth token for Claude Code authentication
         required: true
+      WORKFLOW_APP_ID:
+        description: >-
+          GitHub App ID used to mint an installation token when the
+          workflow is triggered by a bot (e.g. Copilot PR reviews). The
+          default Claude OIDC token-exchange path fails with 401 for bot
+          actors because the backend checks the triggering actor's repo
+          write access. Optional; falls back to GITHUB_TOKEN if unset.
+        required: false
+      WORKFLOW_APP_PRIVATE_KEY:
+        description: Private key paired with WORKFLOW_APP_ID. Optional.
+        required: false
 
 permissions: {}
 
@@ -146,9 +157,48 @@ jobs:
             }}
           fetch-depth: 1
 
+      # claude-code-action's default auth path exchanges an OIDC token with
+      # Anthropic's backend for a Claude App installation token. That exchange
+      # verifies `github.triggering_actor` has write access to the repo, which
+      # fails with 401 for bot actors (e.g. Copilot PR reviews) because bots
+      # are not collaborators. When the trigger is a bot, mint a GitHub App
+      # token from the Navigaite workflow App instead and pass it via
+      # `github_token` to bypass the OIDC exchange entirely.
+      - name: 🔍 Check for GitHub App secrets
+        id: check-app
+        if: github.event.review.user.type == 'Bot'
+        shell: bash
+        env:
+          APP_ID: ${{ secrets.WORKFLOW_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+        run: |
+          if [[ -n "$APP_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::WORKFLOW_APP_ID/WORKFLOW_APP_PRIVATE_KEY not set — falling back to GITHUB_TOKEN for bot-triggered run."
+          fi
+
+      - name: 🔑 Mint app token (bypass OIDC for bot-triggered runs)
+        id: app-token
+        if: steps.check-app.outputs.available == 'true'
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1
         with:
           trigger_phrase: ${{ inputs.trigger_phrase }}
           allowed_bots: ${{ inputs.allowed_bots }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Only override github_token for bot-triggered runs. Human triggers
+          # continue through the default OIDC exchange so commits carry the
+          # `claude[bot]` identity.
+          github_token: >-
+            ${{
+              github.event.review.user.type == 'Bot'
+              && (steps.app-token.outputs.token || secrets.GITHUB_TOKEN)
+              || ''
+            }}
