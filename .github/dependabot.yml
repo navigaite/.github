@@ -1,51 +1,31 @@
----
+# Managed by navigaite/.github bootstrap. Do not edit manually —
+# changes will be overwritten the next time bootstrap-maintenance.sh runs.
+#
+# Rationale:
+# - github-actions ecosystem catches third-party action bumps.
+# - The reusable `navigaite/.github` pipeline is pinned via rolling `@v2` tag,
+#   which release-please retargets on every release. Do NOT let Dependabot
+#   SHA-pin it — that would cause noise PRs on every pipeline patch.
+# - Native package ecosystems (npm, pip, docker, etc.) add themselves via
+#   repo-specific overrides; the bootstrap script appends them based on
+#   files detected in the repo.
+
 version: 2
 updates:
-  # GitHub Actions dependencies
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
       time: '06:00'
+      timezone: Europe/Berlin
     open-pull-requests-limit: 5
-    labels:
-      - dependencies
-      - github-actions
-    commit-message:
-      prefix: 'chore(deps):'
-      include: scope
-    reviewers:
-      - navigaite/engineering
-
-  # Node.js dependencies
-  - package-ecosystem: npm
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: '06:00'
-    open-pull-requests-limit: 10
-    labels:
-      - dependencies
-      - javascript
-    commit-message:
-      prefix: 'chore(deps):'
-      include: scope
     groups:
-      # Group minor and patch updates
-      production-dependencies:
-        dependency-type: production
-        update-types:
-          - minor
-          - patch
-      development-dependencies:
-        dependency-type: development
-        update-types:
-          - minor
-          - patch
+      github-actions:
+        patterns: ['*']
     ignore:
-      # Ignore major version updates for stability
-      - dependency-name: '*'
-        update-types:
-          - version-update:semver-major
+      # Rolling major tag — never pin. Updates come from retagging in navigaite/.github.
+      - dependency-name: navigaite/.github/*
+    commit-message:
+      prefix: chore
+      include: scope
