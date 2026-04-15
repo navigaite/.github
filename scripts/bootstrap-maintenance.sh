@@ -3,14 +3,18 @@
 #
 # What it does, per repo:
 #   1. Writes .github/dependabot.yml from templates/dependabot.yml
-#   2. Writes .github/workflows/trunk-upgrade.yaml from templates/trunk-upgrade.yaml
-#      with a staggered cron (hashed by repo name, Mon–Fri, 04:00–10:00 UTC)
+#   2. Writes .github/workflows/trunk-upgrade-scheduled.yaml from
+#      templates/trunk-upgrade-scheduled.yaml with a staggered cron
+#      (hashed by repo name, Mon–Fri, 04:00–10:00 UTC). Distinct filename
+#      so it can coexist with the reusable `trunk-upgrade.yaml` inside
+#      navigaite/.github itself.
 #   3. Writes .github/workflows/claude-code-fix.yaml from
 #      templates/claude-code-fix.yaml (thin caller that delegates to the
 #      reusable claude-code workflow in navigaite/.github).
-#   4. Removes any legacy caller-style .github/workflows/claude-code.yaml
-#      (files that are NOT the reusable workflow itself — i.e. don't
-#      contain `workflow_call:`). Superseded by claude-code-fix.yaml.
+#   4. Removes any legacy caller-style workflows at
+#      .github/workflows/claude-code.yaml and
+#      .github/workflows/trunk-upgrade.yaml (files that are NOT reusable
+#      workflow definitions — i.e. don't contain `workflow_call:`).
 #   5. Opens a PR titled "chore(ci): bootstrap org maintenance automation"
 #      targeting the repo's default branch.
 #
@@ -33,9 +37,10 @@ set -euo pipefail
 ORG="navigaite"
 APPLY=false
 ONLY=""
-# No repos are skipped — the caller now uses a distinct filename
-# (`claude-code-fix.yaml`), so it no longer collides with the reusable
-# workflow's path inside navigaite/.github itself.
+# No repos are skipped — every caller-template now uses a distinct
+# filename (`claude-code-fix.yaml`, `trunk-upgrade-scheduled.yaml`),
+# so they no longer collide with the reusable workflows' paths inside
+# navigaite/.github itself.
 SKIP_REPOS=()
 
 while [[ $# -gt 0 ]]; do
@@ -56,7 +61,7 @@ command -v jq >/dev/null || { echo "jq required" >&2; exit 1; }
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEPENDABOT_TEMPLATE="$REPO_ROOT/.github/config/templates/dependabot.yml"
-TRUNK_TEMPLATE="$REPO_ROOT/.github/config/templates/trunk-upgrade.yaml"
+TRUNK_TEMPLATE="$REPO_ROOT/.github/config/templates/trunk-upgrade-scheduled.yaml"
 CLAUDE_TEMPLATE="$REPO_ROOT/.github/config/templates/claude-code-fix.yaml"
 
 [[ -f "$DEPENDABOT_TEMPLATE" ]] || { echo "Missing $DEPENDABOT_TEMPLATE" >&2; exit 1; }
@@ -115,7 +120,7 @@ fetch_remote_file() {
     | base64 -d 2>/dev/null || true
 }
 
-is_legacy_claude_caller() {
+is_legacy_caller() {
   # Returns 0 (true) if the file exists and is a caller-style workflow
   # (no `workflow_call:` trigger) — i.e. safe to delete. Returns 1 otherwise.
   local content="$1"
@@ -129,7 +134,8 @@ is_legacy_claude_caller() {
 plan_repo() {
   local repo="$1"
   local desired_dependabot desired_trunk desired_claude
-  local current_dependabot current_trunk current_claude current_claude_legacy
+  local current_dependabot current_trunk current_claude
+  local current_trunk_legacy current_claude_legacy
   local changes=()
 
   desired_dependabot="$(cat "$DEPENDABOT_TEMPLATE")"
@@ -137,14 +143,18 @@ plan_repo() {
   desired_claude="$(cat "$CLAUDE_TEMPLATE")"
 
   current_dependabot="$(fetch_remote_file "$repo" ".github/dependabot.yml")"
-  current_trunk="$(fetch_remote_file "$repo" ".github/workflows/trunk-upgrade.yaml")"
+  current_trunk="$(fetch_remote_file "$repo" ".github/workflows/trunk-upgrade-scheduled.yaml")"
   current_claude="$(fetch_remote_file "$repo" ".github/workflows/claude-code-fix.yaml")"
+  current_trunk_legacy="$(fetch_remote_file "$repo" ".github/workflows/trunk-upgrade.yaml")"
   current_claude_legacy="$(fetch_remote_file "$repo" ".github/workflows/claude-code.yaml")"
 
   [[ "$current_dependabot" != "$desired_dependabot" ]] && changes+=("dependabot.yml")
-  [[ "$current_trunk" != "$desired_trunk" ]] && changes+=("trunk-upgrade.yaml")
+  [[ "$current_trunk" != "$desired_trunk" ]] && changes+=("trunk-upgrade-scheduled.yaml")
   [[ "$current_claude" != "$desired_claude" ]] && changes+=("claude-code-fix.yaml")
-  if is_legacy_claude_caller "$current_claude_legacy"; then
+  if is_legacy_caller "$current_trunk_legacy"; then
+    changes+=("delete:trunk-upgrade.yaml (legacy caller)")
+  fi
+  if is_legacy_caller "$current_claude_legacy"; then
     changes+=("delete:claude-code.yaml (legacy caller)")
   fi
 
@@ -178,19 +188,25 @@ apply_repo() {
 
   mkdir -p "$workdir/.github/workflows"
   cp "$DEPENDABOT_TEMPLATE" "$workdir/.github/dependabot.yml"
-  render_trunk_workflow "$repo" > "$workdir/.github/workflows/trunk-upgrade.yaml"
+  render_trunk_workflow "$repo" > "$workdir/.github/workflows/trunk-upgrade-scheduled.yaml"
   cp "$CLAUDE_TEMPLATE" "$workdir/.github/workflows/claude-code-fix.yaml"
 
-  # Remove any legacy caller-style claude-code.yaml, but preserve the
-  # reusable workflow definition (which starts with `on: workflow_call:`).
-  local legacy="$workdir/.github/workflows/claude-code.yaml"
-  if [[ -f "$legacy" ]] && ! grep -qE '^\s*workflow_call\s*:' "$legacy"; then
-    git -C "$workdir" rm -q -- .github/workflows/claude-code.yaml
-  fi
+  # Remove legacy caller-style workflows at the shared paths, but preserve
+  # any reusable workflow definitions (files starting with
+  # `on:\n  workflow_call:`).
+  local legacy_path
+  for legacy_path in \
+    .github/workflows/trunk-upgrade.yaml \
+    .github/workflows/claude-code.yaml; do
+    local legacy_file="$workdir/$legacy_path"
+    if [[ -f "$legacy_file" ]] && ! grep -qE '^\s*workflow_call\s*:' "$legacy_file"; then
+      git -C "$workdir" rm -q -- "$legacy_path"
+    fi
+  done
 
   git -C "$workdir" add \
     .github/dependabot.yml \
-    .github/workflows/trunk-upgrade.yaml \
+    .github/workflows/trunk-upgrade-scheduled.yaml \
     .github/workflows/claude-code-fix.yaml
   if git -C "$workdir" diff --cached --quiet; then
     echo "  [skip] $repo — nothing changed after clone"
@@ -209,8 +225,10 @@ apply_repo() {
     --body "Automated bootstrap from \`navigaite/.github\`. Installs:
 
 - Weekly Dependabot updates (github-actions ecosystem).
-- Staggered \`trunk upgrade\` workflow that auto-merges after CI.
-- Thin \`Claude Code Fix\` caller at \`.github/workflows/claude-code-fix.yaml\` that delegates to the reusable workflow in \`navigaite/.github\`. Removes any legacy inline \`.github/workflows/claude-code.yaml\`.
+- Staggered \`Trunk Upgrade Scheduled\` caller at \`.github/workflows/trunk-upgrade-scheduled.yaml\` that delegates to the reusable \`trunk-upgrade\` workflow in \`navigaite/.github\`. Auto-merges after CI.
+- Thin \`Claude Code Fix\` caller at \`.github/workflows/claude-code-fix.yaml\` that delegates to the reusable \`claude-code\` workflow in \`navigaite/.github\`.
+
+If this repo previously had caller-style \`trunk-upgrade.yaml\` or \`claude-code.yaml\` at those shared paths, they are removed here in favor of the new \`-fix\` / \`-scheduled\` naming. Reusable-workflow definitions (files with \`on: workflow_call\`) are preserved.
 
 Managed by \`scripts/bootstrap-maintenance.sh\` — edits to these files will be overwritten on the next bootstrap run." >/dev/null
 
