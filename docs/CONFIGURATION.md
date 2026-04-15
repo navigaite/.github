@@ -22,7 +22,6 @@ runtime:
 
 # Pipeline behavior
 pipeline:
-  fail_fast: false # Stop all jobs on first failure
   enable_caching: true # Enable dependency caching
 
 # Security scanning
@@ -52,6 +51,8 @@ build:
   upload_artifacts: false
   artifact_name: 'build-output'
   artifact_path: '' # Auto-detected if empty
+  attest_artifacts: false
+  artifact_retention_days: '7'
 
 # Deployment
 deployment:
@@ -70,12 +71,14 @@ deployment:
 
   # Docker configuration
   docker:
-    dockerfile: 'Dockerfile'
-    image_name: '' # Image name (required)
-    registry: ghcr # Options: dockerhub, ghcr, gcr, ecr, custom
-    registry_url: '' # Custom registry URL
-    platforms: 'linux/amd64'
-    push: true
+    images:
+      - name: app
+        dockerfile: Dockerfile
+        context: .
+        registry: ghcr
+        platforms: 'linux/amd64,linux/arm64'
+        build_args: |
+          NODE_ENV=production
 
   # Deployment environments
   environments:
@@ -100,8 +103,11 @@ deployment:
 release:
   enable: true
   type: simple # Options: node, python, simple
-  package_name: '' # Package name (optional)
-  bump_minor_pre_major: true
+  strategy: release-please
+  force_patch_on_no_release: false
+  prerelease_branches:
+    - branch: dev
+      label: beta
 ```
 
 ## 📚 Field Reference
@@ -182,17 +188,6 @@ Flutter version or channel for `flutter` stack.
 **Type:** `object`
 
 Pipeline behavior configuration.
-
-#### `pipeline.fail_fast`
-
-**Type:** `boolean` **Default:** `false`
-
-Stop all jobs immediately on first failure.
-
-- `true`: Fast failure, saves CI minutes
-- `false`: Complete all jobs, see all results
-
-**Recommendation:** `false` for better visibility
 
 #### `pipeline.enable_caching`
 
@@ -427,6 +422,18 @@ Path to build output directory.
 - **python**: `dist` or `build`
 - **flutter**: `build/web` or `build`
 
+#### `build.attest_artifacts`
+
+**Type:** `boolean` **Default:** `false`
+
+Generate SLSA build provenance attestations for uploaded artifacts.
+
+#### `build.artifact_retention_days`
+
+**Type:** `string` **Default:** `"7"`
+
+Retention period for uploaded artifacts in days.
+
 ---
 
 ### `deployment` (optional)
@@ -495,47 +502,34 @@ Print build and deploy logs in GitHub Actions.
 
 Docker deployment configuration.
 
-#### `deployment.docker.dockerfile`
+#### `deployment.docker.images`
 
-**Type:** `string` **Default:** `"Dockerfile"`
+**Type:** `array`
 
-Path to Dockerfile.
+Optional multi-image Docker configuration. If omitted, the workflow falls back to a single default image using `Dockerfile`.
 
-#### `deployment.docker.image_name`
+#### Docker Image Object
 
-**Type:** `string` **Required:** Yes (for Docker) **Example:** `"my-app"`, `"myorg/myapp"`
+```yaml
+- name: api
+  image_name: ghcr.io/acme/api
+  dockerfile: Dockerfile.api
+  context: .
+  registry: ghcr
+  platforms: linux/amd64,linux/arm64
+  build_args: |
+    APP_ENV=production
+```
 
-Docker image name (without registry prefix).
+Supported keys:
 
-#### `deployment.docker.registry`
-
-**Type:** `string` **Options:** `dockerhub`, `ghcr`, `gcr`, `ecr`, `custom` **Default:** `ghcr`
-
-Container registry type.
-
-- `dockerhub`: Docker Hub
-- `ghcr`: GitHub Container Registry
-- `gcr`: Google Container Registry
-- `ecr`: AWS Elastic Container Registry
-- `custom`: Custom registry (specify `registry_url`)
-
-#### `deployment.docker.registry_url`
-
-**Type:** `string` **Example:** `"registry.example.com"`
-
-Custom registry URL (for `custom` registry type).
-
-#### `deployment.docker.platforms`
-
-**Type:** `string` **Default:** `"linux/amd64"` **Example:** `"linux/amd64,linux/arm64"`
-
-Target platforms for multi-platform builds.
-
-#### `deployment.docker.push`
-
-**Type:** `boolean` **Default:** `true`
-
-Push image to registry after build.
+- `name`: logical image name or repo suffix
+- `image_name`: explicit image name override
+- `dockerfile`: Dockerfile path
+- `context`: build context
+- `registry`: `dockerhub`, `ghcr`, `gcr`, `ecr`, or `custom`
+- `platforms`: target platforms
+- `build_args`: multiline Docker build args
 
 ---
 
@@ -612,20 +606,53 @@ Release type based on project type.
 - `python`: Python projects (updates `pyproject.toml` or `setup.py`)
 - `simple`: Language-agnostic (updates `version.txt`)
 
-#### `release.package_name`
+#### `release.strategy`
 
-**Type:** `string` **Example:** `"my-app"`
+**Type:** `string` **Options:** `release-please`, `semantic-release` **Default:** `release-please`
 
-Package name for releases. Optional, defaults to repository name.
+Release automation engine.
 
-#### `release.bump_minor_pre_major`
+#### `release.force_patch_on_no_release`
 
-**Type:** `boolean` **Default:** `true`
+**Type:** `boolean` **Default:** `false`
 
-Bump minor version for breaking changes before reaching 1.0.0.
+When using `semantic-release`, publish a patch release if no releasable commits are found.
 
-- `true`: `0.1.0` → `0.2.0` (for breaking changes)
-- `false`: `0.1.0` → `1.0.0` (for breaking changes)
+#### `release.extra_plugins`
+
+**Type:** `array[string]`
+
+Extra semantic-release plugins to install.
+
+#### `release.config_file`
+
+**Type:** `string`
+
+Optional `release-please` config file path.
+
+#### `release.config_file_stable`
+
+**Type:** `string`
+
+Optional stable-branch `release-please` config file path for Profile B repos.
+
+#### `release.manifest_file`
+
+**Type:** `string`
+
+Optional `release-please` manifest file path.
+
+#### `release.prerelease_branches`
+
+**Type:** `array`
+
+Branch-to-label mapping for prerelease publishing.
+
+```yaml
+prerelease_branches:
+  - branch: dev
+    label: beta
+```
 
 ---
 
@@ -671,8 +698,9 @@ version: '2.0'
 deployment:
   provider: docker
   docker:
-    image_name: myapp
-    registry: ghcr
+    images:
+      - name: app
+        registry: ghcr
   environments:
     - name: production
       trigger:

@@ -13,7 +13,7 @@ This is **not an application** — it is a shared CI/CD infrastructure repo. It 
 - A **reusable workflow** (`universal-pipeline.yaml`) that any repo in the `navigaite` org calls.
 - **14 composite actions** for security, lint, test, build, deploy, and release.
 - **Auto-detection** of tech stacks (Node.js, Python, Flutter).
-- **Multi-provider deployment** (Vercel, DigitalOcean, Docker/GHCR, Coolify, Render).
+- **Reusable deployment providers** in the universal pipeline (Vercel, DigitalOcean, Docker/GHCR), plus standalone Coolify and Render composite actions for custom jobs.
 - **Release automation** via release-please or semantic-release.
 
 Consumer repos integrate by adding a thin caller workflow + a `.github/pipeline.yaml` config.
@@ -31,7 +31,7 @@ Consumer repos integrate by adding a thin caller workflow + a `.github/pipeline.
     build-executables.yaml     # Reusable: PyInstaller cross-platform builds
     claude-code.yaml           # Reusable: Claude Code AI for PR reviews + @claude
     nightly-maintenance.yaml   # Scheduled: cache cleanup, security audits
-    test-actions.yaml          # CI: validates the composite actions themselves
+    ci.yaml                    # CI: validates the composite actions and required check names
   actions/
     setup-environment/         # Stack auto-detection + runtime setup
     install-dependencies/      # Multi-stack dependency installation
@@ -81,9 +81,10 @@ Each stage is independently toggleable via the consumer's `.github/pipeline.yaml
 
 ### Q2 — Deployment provider (required)
 
-> Which deploy provider: `vercel`, `digitalocean`, `docker` (GHCR), `coolify`, `render`, or `none`?
+> Which deploy provider: `vercel`, `digitalocean`, `docker` (GHCR), or `none`?
 
 - Choose `none` if the user deploys via a custom job/webhook — you will add that job next to the `pipeline` job.
+- `deploy-coolify` and `deploy-render` exist as standalone composite actions, but are not wired into `universal-pipeline.yaml`.
 - Provider determines which secrets the user must configure (see §6).
 
 ### Q3 — Release automation (required)
@@ -264,7 +265,7 @@ Minimal Profile A config:
 version: '2.0'
 
 deployment:
-  provider: vercel              # [MANDATORY if deploying] vercel|digitalocean|docker|coolify|render|none
+  provider: vercel              # [MANDATORY if deploying] vercel|digitalocean|docker|none
   environments:                 # [MANDATORY if deploying]
     - name: preview
       trigger:
@@ -442,7 +443,7 @@ Use conventional commits. Bumps driven by release-please:
 ## 11. Key Design Decisions
 
 1. **Third-party actions are SHA-pinned** — never `@v4` style tags for external actions. Always pin to exact commit SHA with a version comment.
-2. **Path traversal protection** — all actions validate `working-directory` inputs to prevent `../` attacks. `test-actions.yaml` tests this.
+2. **Path traversal protection** — all actions validate `working-directory` inputs to prevent `../` attacks. `ci.yaml` tests this.
 3. **Stack auto-detection order**: `package.json` → Node.js, `requirements.txt|pyproject.toml|setup.py|Pipfile` → Python, `pubspec.yaml` → Flutter.
 4. **Environment filtering** — the setup job filters deployment environments by matching the current event + branch against each environment's trigger config. Only matching environments proceed to deploy jobs.
 5. **Infisical integration** — optional, per-consumer secret injection at build time.
@@ -452,7 +453,7 @@ Use conventional commits. Bumps driven by release-please:
 
 ## 12. Testing Changes
 
-Run `test-actions.yaml` locally via `act` or on a feature branch. It validates:
+Run `ci.yaml` locally via `act` or on a feature branch. It validates:
 
 - `actionlint` on all workflow definitions.
 - Invalid stack rejection for each action.
