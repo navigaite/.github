@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0](https://github.com/navigaite/.github/compare/v2.5.3...v2.6.0) (2026-04-15)
+
+
+### ✨ Features
+
+* **bootstrap:** pipeline compliance audit in bootstrap PRs ([#86](https://github.com/navigaite/.github/issues/86)) ([9d45329](https://github.com/navigaite/.github/commit/9d45329f327d356212f6e6032bd3134708c12184))
+
 ## [2.5.3](https://github.com/navigaite/.github/compare/v2.5.2...v2.5.3) (2026-04-15)
 
 
