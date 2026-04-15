@@ -216,3 +216,19 @@ jobs:
               && 'Copilot'
               || ''
             }}
+          # Without a `prompt`, claude-code-action only runs when someone
+          # mentions the trigger phrase (`@claude`) in a comment. Bot PR
+          # reviews don't include mentions, so the action would log "No
+          # trigger was met for @claude" and exit. Provide an explicit
+          # prompt on bot-triggered runs so Claude addresses the review
+          # automatically. Human triggers keep prompt empty and continue
+          # using the normal `@claude` mention flow.
+          prompt: >-
+            ${{
+              github.event.review.user.type == 'Bot'
+              && format(
+                'A bot reviewer ({0}) submitted a review on this pull request. Read the full review and every inline comment, then for each actionable piece of feedback either (a) apply the fix as a commit on the PR branch or (b) reply to the thread explaining why you are not applying it. Resolve the review threads you have addressed. When you are done, post a single summary comment listing what you changed and what you left.',
+                github.event.review.user.login
+              )
+              || ''
+            }}
