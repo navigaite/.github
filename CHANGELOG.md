@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/navigaite/.github/compare/v2.5.0...v2.5.1) (2026-04-15)
+
+
+### 🐛 Bug Fixes
+
+* **bootstrap:** trunk caller uses distinct path to avoid collision ([#79](https://github.com/navigaite/.github/issues/79)) ([225892e](https://github.com/navigaite/.github/commit/225892e7a76fd37026ad82cd1f0ad8e1aedce470))
+
 ## [2.5.0](https://github.com/navigaite/.github/compare/v2.4.3...v2.5.0) (2026-04-15)
 
 
