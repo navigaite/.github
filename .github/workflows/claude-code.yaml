@@ -16,9 +16,11 @@ name: 🤖 Claude Code
 #
 #   jobs:
 #     claude:
+#       # Permissive filter — exact-match on 'copilot-pull-request-reviewer[bot]'
+#       # was observed to silently skip in production (2026-04); use contains().
 #       if: >-
 #         (github.event_name == 'pull_request_review' &&
-#           github.event.review.user.login == 'copilot-pull-request-reviewer[bot]') ||
+#           contains(github.event.review.user.login, 'copilot')) ||
 #         (github.event_name == 'pull_request_review_comment' &&
 #           contains(github.event.comment.body, '@claude')) ||
 #         (github.event_name == 'issue_comment' &&
@@ -43,9 +45,13 @@ on:
         description: >-
           Comma-separated bot logins whose comments trigger Claude.
           Use '"*"' (quoted) to allow all bots. Empty string blocks all bots.
+          Default is '"*"' because exact-match on
+          'copilot-pull-request-reviewer[bot]' was observed to silently skip
+          in production (2026-04) — the workflow-level `if:` already guards
+          against non-Copilot bots with contains(..., 'copilot').
         required: false
         type: string
-        default: copilot-pull-request-reviewer[bot]
+        default: '*'
 
       timeout_minutes:
         description: Maximum minutes before the job is cancelled
@@ -70,6 +76,30 @@ jobs:
       pull-requests: write
       issues: write
     steps:
+      - name: Diagnose trigger
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REVIEW_USER: ${{ github.event.review.user.login }}
+          REVIEW_STATE: ${{ github.event.review.state }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Claude Code trigger"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| event_name | \`${EVENT_NAME}\` |"
+            echo "| review.user.login | \`${REVIEW_USER}\` |"
+            echo "| review.state | \`${REVIEW_STATE}\` |"
+            echo "| comment.user.login | \`${COMMENT_USER}\` |"
+            echo "| actor | \`${ACTOR}\` |"
+            echo "| triggering_actor | \`${TRIGGERING_ACTOR}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Check author association
         if: >-
           github.event_name == 'issue_comment' &&
