@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.0](https://github.com/navigaite/.github/compare/v2.4.3...v2.5.0) (2026-04-15)
+
+
+### ✨ Features
+
+* **bootstrap:** manage claude-code caller workflow per repo ([#74](https://github.com/navigaite/.github/issues/74)) ([7d7c4dd](https://github.com/navigaite/.github/commit/7d7c4dd40c00ff22d6cec821ceb91f2d2068d373))
+
+
+### 📚 Documentation
+
+* unify agent guidance into AGENTS.md, link from CLAUDE.md ([#75](https://github.com/navigaite/.github/issues/75)) ([0799f83](https://github.com/navigaite/.github/commit/0799f830d7d43bfc0d9256c3574959eed78c076c))
+
 ## [2.4.3](https://github.com/navigaite/.github/compare/v2.4.2...v2.4.3) (2026-04-15)
 
 
