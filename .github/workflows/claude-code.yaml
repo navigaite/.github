@@ -44,6 +44,7 @@ name: 🤖 Claude Code
 #         contents: write
 #         pull-requests: write
 #         issues: write
+#         id-token: write          # required for claude-code-action OIDC
 #       uses: navigaite/.github/.github/workflows/claude-code.yaml@main
 #       secrets: inherit
 
@@ -95,6 +96,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      id-token: write          # required: claude-code-action fetches an OIDC token
     steps:
       - name: Diagnose trigger
         shell: bash
