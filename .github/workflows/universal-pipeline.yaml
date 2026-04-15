@@ -132,12 +132,27 @@ jobs:
       stack: ${{ steps.setup-env.outputs.detected-stack }}
       runtime-version: ${{ steps.setup-env.outputs.runtime-version }}
       package-manager: ${{ steps.setup-env.outputs.package-manager }}
+      enable-caching: ${{ steps.parse-config.outputs.enable-caching }}
 
       # Pipeline configuration
       enable-security: ${{ steps.parse-config.outputs.enable-security }}
+      enable-trufflehog: ${{ steps.parse-config.outputs.enable-trufflehog }}
+      enable-dependency-review: ${{ steps.parse-config.outputs.enable-dependency-review }}
+      security-fail-on-secrets: ${{ steps.parse-config.outputs.security-fail-on-secrets }}
+      security-fail-on-vulnerabilities: ${{ steps.parse-config.outputs.security-fail-on-vulnerabilities }}
       enable-lint: ${{ steps.parse-config.outputs.enable-lint }}
+      lint-command: ${{ steps.parse-config.outputs.lint-command }}
+      lint-fail-on-error: ${{ steps.parse-config.outputs.lint-fail-on-error }}
       enable-test: ${{ steps.parse-config.outputs.enable-test }}
+      test-command: ${{ steps.parse-config.outputs.test-command }}
+      test-coverage: ${{ steps.parse-config.outputs.test-coverage }}
       enable-build: ${{ steps.parse-config.outputs.enable-build }}
+      build-command: ${{ steps.parse-config.outputs.build-command }}
+      build-upload-artifacts: ${{ steps.parse-config.outputs.build-upload-artifacts }}
+      build-artifact-name: ${{ steps.parse-config.outputs.build-artifact-name }}
+      build-artifact-path: ${{ steps.parse-config.outputs.build-artifact-path }}
+      build-attest-artifacts: ${{ steps.parse-config.outputs.build-attest-artifacts }}
+      build-artifact-retention-days: ${{ steps.parse-config.outputs.build-artifact-retention-days }}
       enable-deploy: ${{ steps.parse-config.outputs.enable-deploy }}
       enable-release: ${{ steps.parse-config.outputs.enable-release }}
 
@@ -145,11 +160,18 @@ jobs:
       deploy-provider: ${{ steps.parse-config.outputs.deploy-provider }}
       deploy-environments: ${{ steps.parse-config.outputs.deploy-environments }}
       docker-images: ${{ steps.parse-config.outputs.docker-images }}
+      vercel-scope: ${{ steps.parse-config.outputs.vercel-scope }}
+      vercel-build-command: ${{ steps.parse-config.outputs.vercel-build-command }}
+      digitalocean-app-name: ${{ steps.parse-config.outputs.digitalocean-app-name }}
+      digitalocean-app-spec: ${{ steps.parse-config.outputs.digitalocean-app-spec }}
+      digitalocean-print-build-logs: ${{ steps.parse-config.outputs.digitalocean-print-build-logs }}
+      digitalocean-print-deploy-logs: ${{ steps.parse-config.outputs.digitalocean-print-deploy-logs }}
 
       # Release configuration
       enable-sync: ${{ steps.parse-config.outputs.enable-sync }}
       sync-target-branch: ${{ steps.parse-config.outputs.sync-target-branch }}
       release-strategy: ${{ steps.parse-config.outputs.release-strategy }}
+      release-type: ${{ steps.parse-config.outputs.release-type }}
       release-force-patch-on-no-release: ${{ steps.parse-config.outputs.release-force-patch-on-no-release }}
       release-extra-plugins: ${{ steps.parse-config.outputs.release-extra-plugins }}
       prerelease-branches: ${{ steps.parse-config.outputs.prerelease-branches }}
@@ -160,14 +182,6 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: 🔍 Setup Environment
-        id: setup-env
-        uses: navigaite/.github/.github/actions/setup-environment@main
-        with:
-          stack: ${{ inputs.stack || 'auto' }}
-          write-summary: 'false'
-          enable-caching: 'false'
 
       - name: 📋 Parse Configuration
         id: parse-config
@@ -188,36 +202,88 @@ jobs:
             echo "::warning::Configuration file not found at $CONFIG_FILE, using defaults"
 
             # Set sensible defaults
-            echo "enable-security=true" >> $GITHUB_OUTPUT
-            echo "enable-lint=true" >> $GITHUB_OUTPUT
-            echo "enable-test=true" >> $GITHUB_OUTPUT
-            echo "enable-build=true" >> $GITHUB_OUTPUT
-            echo "enable-deploy=false" >> $GITHUB_OUTPUT
-            echo "enable-release=false" >> $GITHUB_OUTPUT
-            echo "deploy-provider=none" >> $GITHUB_OUTPUT
-            echo "deploy-environments=[]" >> $GITHUB_OUTPUT
-            echo "docker-images=[]" >> $GITHUB_OUTPUT
-            echo "enable-sync=true" >> $GITHUB_OUTPUT
-            echo "sync-target-branch=dev" >> $GITHUB_OUTPUT
-            echo "release-strategy=release-please" >> $GITHUB_OUTPUT
-            echo "release-force-patch-on-no-release=false" >> $GITHUB_OUTPUT
-            echo "release-extra-plugins=" >> $GITHUB_OUTPUT
-            echo "prerelease-branches=[]" >> $GITHUB_OUTPUT
-            echo "release-config-file=" >> $GITHUB_OUTPUT
-            echo "release-config-file-stable=" >> $GITHUB_OUTPUT
-            echo "release-manifest-file=" >> $GITHUB_OUTPUT
+            CONFIGURED_STACK="auto"
+            ENABLE_CACHING="true"
+            RUNTIME_NODE_VERSION=""
+            RUNTIME_PYTHON_VERSION=""
+            RUNTIME_FLUTTER_VERSION=""
+            ENABLE_SECURITY="true"
+            ENABLE_TRUFFLEHOG="true"
+            ENABLE_DEPENDENCY_REVIEW="true"
+            SECURITY_FAIL_ON_SECRETS="true"
+            SECURITY_FAIL_ON_VULNERABILITIES="false"
+            ENABLE_LINT="true"
+            LINT_COMMAND=""
+            LINT_FAIL_ON_ERROR="true"
+            ENABLE_TEST="true"
+            TEST_COMMAND=""
+            TEST_COVERAGE="false"
+            ENABLE_BUILD="true"
+            BUILD_COMMAND=""
+            BUILD_UPLOAD_ARTIFACTS="false"
+            BUILD_ARTIFACT_NAME="build-output"
+            BUILD_ARTIFACT_PATH=""
+            BUILD_ATTEST_ARTIFACTS="false"
+            BUILD_ARTIFACT_RETENTION_DAYS="7"
+            DEPLOY_PROVIDER="none"
+            ENABLE_DEPLOY="false"
+            DEPLOY_ENVS="[]"
+            DOCKER_IMAGES="[]"
+            VERCEL_SCOPE=""
+            VERCEL_BUILD_COMMAND=""
+            DIGITALOCEAN_APP_NAME=""
+            DIGITALOCEAN_APP_SPEC=".do/app.yaml"
+            DIGITALOCEAN_PRINT_BUILD_LOGS="true"
+            DIGITALOCEAN_PRINT_DEPLOY_LOGS="true"
+            ENABLE_RELEASE="false"
+            ENABLE_SYNC="true"
+            SYNC_TARGET="dev"
+            RELEASE_STRATEGY="release-please"
+            RELEASE_TYPE=""
+            RELEASE_FORCE_PATCH_NO_RELEASE="false"
+            RELEASE_EXTRA_PLUGINS=""
+            PRERELEASE_BRANCHES="[]"
+            RP_CONFIG_FILE=""
+            RP_CONFIG_FILE_STABLE=""
+            RP_MANIFEST_FILE=""
           else
             echo "✓ Found configuration file: $CONFIG_FILE"
 
             # Parse configuration using yq
+            CONFIGURED_STACK=$(yq -r '.stack // "auto"' "$CONFIG_FILE")
+            ENABLE_CACHING=$(yq '.pipeline.enable_caching // true' "$CONFIG_FILE")
+            RUNTIME_NODE_VERSION=$(yq -r '.runtime.node_version // ""' "$CONFIG_FILE")
+            RUNTIME_PYTHON_VERSION=$(yq -r '.runtime.python_version // ""' "$CONFIG_FILE")
+            RUNTIME_FLUTTER_VERSION=$(yq -r '.runtime.flutter_version // ""' "$CONFIG_FILE")
             ENABLE_SECURITY=$(yq '.security.enable // true' "$CONFIG_FILE")
+            ENABLE_TRUFFLEHOG=$(yq '.security.trufflehog // true' "$CONFIG_FILE")
+            ENABLE_DEPENDENCY_REVIEW=$(yq '.security.dependency_review // true' "$CONFIG_FILE")
+            SECURITY_FAIL_ON_SECRETS=$(yq '.security.fail_on_secrets // true' "$CONFIG_FILE")
+            SECURITY_FAIL_ON_VULNERABILITIES=$(yq '.security.fail_on_vulnerabilities // false' "$CONFIG_FILE")
             ENABLE_LINT=$(yq '.lint.enable // true' "$CONFIG_FILE")
+            LINT_COMMAND=$(yq -r '.lint.command // ""' "$CONFIG_FILE")
+            LINT_FAIL_ON_ERROR=$(yq '.lint.fail_on_error // true' "$CONFIG_FILE")
             ENABLE_TEST=$(yq '.test.enable // true' "$CONFIG_FILE")
+            TEST_COMMAND=$(yq -r '.test.command // ""' "$CONFIG_FILE")
+            TEST_COVERAGE=$(yq '.test.coverage // false' "$CONFIG_FILE")
             ENABLE_BUILD=$(yq '.build.enable // true' "$CONFIG_FILE")
+            BUILD_COMMAND=$(yq -r '.build.command // ""' "$CONFIG_FILE")
+            BUILD_UPLOAD_ARTIFACTS=$(yq '.build.upload_artifacts // false' "$CONFIG_FILE")
+            BUILD_ARTIFACT_NAME=$(yq -r '.build.artifact_name // "build-output"' "$CONFIG_FILE")
+            BUILD_ARTIFACT_PATH=$(yq -r '.build.artifact_path // ""' "$CONFIG_FILE")
+            BUILD_ATTEST_ARTIFACTS=$(yq '.build.attest_artifacts // false' "$CONFIG_FILE")
+            BUILD_ARTIFACT_RETENTION_DAYS=$(yq -r '.build.artifact_retention_days // "7"' "$CONFIG_FILE")
             DEPLOY_PROVIDER=$(yq '.deployment.provider // "none"' "$CONFIG_FILE")
             ENABLE_DEPLOY=$([ "$DEPLOY_PROVIDER" != "none" ] && echo "true" || echo "false")
+            VERCEL_SCOPE=$(yq -r '.deployment.vercel.scope // ""' "$CONFIG_FILE")
+            VERCEL_BUILD_COMMAND=$(yq -r '.deployment.vercel.build_command // ""' "$CONFIG_FILE")
+            DIGITALOCEAN_APP_NAME=$(yq -r '.deployment.digitalocean.app_name // ""' "$CONFIG_FILE")
+            DIGITALOCEAN_APP_SPEC=$(yq -r '.deployment.digitalocean.app_spec // ".do/app.yaml"' "$CONFIG_FILE")
+            DIGITALOCEAN_PRINT_BUILD_LOGS=$(yq '.deployment.digitalocean.print_logs // true' "$CONFIG_FILE")
+            DIGITALOCEAN_PRINT_DEPLOY_LOGS="$DIGITALOCEAN_PRINT_BUILD_LOGS"
             ENABLE_RELEASE=$(yq '.release.enable // false' "$CONFIG_FILE")
             RELEASE_STRATEGY=$(yq '.release.strategy // "release-please"' "$CONFIG_FILE")
+            RELEASE_TYPE=$(yq -r '.release.type // ""' "$CONFIG_FILE")
             RELEASE_FORCE_PATCH_NO_RELEASE=$(yq '.release.force_patch_on_no_release // ""' "$CONFIG_FILE")
             if [[ -z "$RELEASE_FORCE_PATCH_NO_RELEASE" || "$RELEASE_FORCE_PATCH_NO_RELEASE" == "null" ]]; then
               if [[ "$RELEASE_STRATEGY" == "semantic-release" ]]; then
@@ -248,6 +314,12 @@ jobs:
               RELEASE_STRATEGY="release-please"
             fi
 
+            if [[ "$DEPLOY_PROVIDER" != "vercel" && "$DEPLOY_PROVIDER" != "digitalocean" && "$DEPLOY_PROVIDER" != "docker" && "$DEPLOY_PROVIDER" != "none" ]]; then
+              echo "::warning::Unsupported deployment.provider '$DEPLOY_PROVIDER'. Falling back to 'none'"
+              DEPLOY_PROVIDER="none"
+              ENABLE_DEPLOY="false"
+            fi
+
             # Extract deployment environments
             DEPLOY_ENVS=$(yq -o=json '.deployment.environments // []' "$CONFIG_FILE")
 
@@ -258,10 +330,12 @@ jobs:
               --arg event "$GITHUB_EVENT_NAME" \
               --arg branch "$CURRENT_BRANCH" \
               '[.[] | select(
-                .trigger == null or (
+                (.auto_deploy // true) == true and
+                (.trigger == null or (
                   .trigger.event == $event and
-                  (if .trigger.branch then .trigger.branch == $branch else true end)
-                )
+                  (if .trigger.branch then .trigger.branch == $branch else true end) and
+                  (if .trigger.branches then (.trigger.branches | index($branch)) != null else true end)
+                ))
               )]')
 
             # Extract Docker image definitions for multi-image builds
@@ -271,48 +345,97 @@ jobs:
               DOCKER_IMAGES='[{"name":"default","dockerfile":"Dockerfile"}]'
             fi
 
-            # Apply input overrides
-            [[ "$SKIP_SECURITY" == "true" ]] && ENABLE_SECURITY="false"
-            [[ "$SKIP_LINT" == "true" ]] && ENABLE_LINT="false"
-            [[ "$SKIP_TEST" == "true" ]] && ENABLE_TEST="false"
-            [[ "$SKIP_BUILD" == "true" ]] && ENABLE_BUILD="false"
-            [[ "$SKIP_DEPLOY" == "true" ]] && ENABLE_DEPLOY="false"
-
-            # Output configuration
-            echo "enable-security=$ENABLE_SECURITY" >> $GITHUB_OUTPUT
-            echo "enable-lint=$ENABLE_LINT" >> $GITHUB_OUTPUT
-            echo "enable-test=$ENABLE_TEST" >> $GITHUB_OUTPUT
-            echo "enable-build=$ENABLE_BUILD" >> $GITHUB_OUTPUT
-            echo "enable-deploy=$ENABLE_DEPLOY" >> $GITHUB_OUTPUT
-            echo "enable-release=$ENABLE_RELEASE" >> $GITHUB_OUTPUT
-            echo "deploy-provider=$DEPLOY_PROVIDER" >> $GITHUB_OUTPUT
-            echo "deploy-environments=$DEPLOY_ENVS" >> $GITHUB_OUTPUT
-            echo "docker-images=$DOCKER_IMAGES" >> $GITHUB_OUTPUT
-            echo "enable-sync=$ENABLE_SYNC" >> $GITHUB_OUTPUT
-            echo "sync-target-branch=$SYNC_TARGET" >> $GITHUB_OUTPUT
-            echo "release-strategy=$RELEASE_STRATEGY" >> $GITHUB_OUTPUT
-            echo "release-force-patch-on-no-release=$RELEASE_FORCE_PATCH_NO_RELEASE" >> $GITHUB_OUTPUT
-            echo "release-extra-plugins<<PLUGINS_EOF" >> $GITHUB_OUTPUT
-            echo "$RELEASE_EXTRA_PLUGINS" >> $GITHUB_OUTPUT
-            echo "PLUGINS_EOF" >> $GITHUB_OUTPUT
-            echo "prerelease-branches=$PRERELEASE_BRANCHES" >> $GITHUB_OUTPUT
-            echo "release-config-file=$RP_CONFIG_FILE" >> $GITHUB_OUTPUT
-            echo "release-config-file-stable=$RP_CONFIG_FILE_STABLE" >> $GITHUB_OUTPUT
-            echo "release-manifest-file=$RP_MANIFEST_FILE" >> $GITHUB_OUTPUT
-
-            echo ""
-            echo "📦 Configuration Summary:"
-            echo "  Security: $ENABLE_SECURITY"
-            echo "  Lint: $ENABLE_LINT"
-            echo "  Test: $ENABLE_TEST"
-            echo "  Build: $ENABLE_BUILD"
-            echo "  Deploy: $ENABLE_DEPLOY (Provider: $DEPLOY_PROVIDER)"
-            echo "  Release: $ENABLE_RELEASE"
-            echo "  Release Strategy: $RELEASE_STRATEGY"
-            echo "  Release Fallback Patch: $RELEASE_FORCE_PATCH_NO_RELEASE"
           fi
 
+          # Apply input overrides
+          [[ "$SKIP_SECURITY" == "true" ]] && ENABLE_SECURITY="false"
+          [[ "$SKIP_LINT" == "true" ]] && ENABLE_LINT="false"
+          [[ "$SKIP_TEST" == "true" ]] && ENABLE_TEST="false"
+          [[ "$SKIP_BUILD" == "true" ]] && ENABLE_BUILD="false"
+          [[ "$SKIP_DEPLOY" == "true" ]] && ENABLE_DEPLOY="false"
+
+          # Output configuration
+          echo "configured-stack=$CONFIGURED_STACK" >> $GITHUB_OUTPUT
+          echo "enable-caching=$ENABLE_CACHING" >> $GITHUB_OUTPUT
+          echo "runtime-node-version=$RUNTIME_NODE_VERSION" >> $GITHUB_OUTPUT
+          echo "runtime-python-version=$RUNTIME_PYTHON_VERSION" >> $GITHUB_OUTPUT
+          echo "runtime-flutter-version=$RUNTIME_FLUTTER_VERSION" >> $GITHUB_OUTPUT
+          echo "enable-security=$ENABLE_SECURITY" >> $GITHUB_OUTPUT
+          echo "enable-trufflehog=$ENABLE_TRUFFLEHOG" >> $GITHUB_OUTPUT
+          echo "enable-dependency-review=$ENABLE_DEPENDENCY_REVIEW" >> $GITHUB_OUTPUT
+          echo "security-fail-on-secrets=$SECURITY_FAIL_ON_SECRETS" >> $GITHUB_OUTPUT
+          echo "security-fail-on-vulnerabilities=$SECURITY_FAIL_ON_VULNERABILITIES" >> $GITHUB_OUTPUT
+          echo "enable-lint=$ENABLE_LINT" >> $GITHUB_OUTPUT
+          echo "lint-command<<LINT_EOF" >> $GITHUB_OUTPUT
+          echo "$LINT_COMMAND" >> $GITHUB_OUTPUT
+          echo "LINT_EOF" >> $GITHUB_OUTPUT
+          echo "lint-fail-on-error=$LINT_FAIL_ON_ERROR" >> $GITHUB_OUTPUT
+          echo "enable-test=$ENABLE_TEST" >> $GITHUB_OUTPUT
+          echo "test-command<<TEST_EOF" >> $GITHUB_OUTPUT
+          echo "$TEST_COMMAND" >> $GITHUB_OUTPUT
+          echo "TEST_EOF" >> $GITHUB_OUTPUT
+          echo "test-coverage=$TEST_COVERAGE" >> $GITHUB_OUTPUT
+          echo "enable-build=$ENABLE_BUILD" >> $GITHUB_OUTPUT
+          echo "build-command<<BUILD_EOF" >> $GITHUB_OUTPUT
+          echo "$BUILD_COMMAND" >> $GITHUB_OUTPUT
+          echo "BUILD_EOF" >> $GITHUB_OUTPUT
+          echo "build-upload-artifacts=$BUILD_UPLOAD_ARTIFACTS" >> $GITHUB_OUTPUT
+          echo "build-artifact-name=$BUILD_ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          echo "build-artifact-path=$BUILD_ARTIFACT_PATH" >> $GITHUB_OUTPUT
+          echo "build-attest-artifacts=$BUILD_ATTEST_ARTIFACTS" >> $GITHUB_OUTPUT
+          echo "build-artifact-retention-days=$BUILD_ARTIFACT_RETENTION_DAYS" >> $GITHUB_OUTPUT
+          echo "enable-deploy=$ENABLE_DEPLOY" >> $GITHUB_OUTPUT
+          echo "enable-release=$ENABLE_RELEASE" >> $GITHUB_OUTPUT
+          echo "deploy-provider=$DEPLOY_PROVIDER" >> $GITHUB_OUTPUT
+          echo "deploy-environments=$DEPLOY_ENVS" >> $GITHUB_OUTPUT
+          echo "docker-images=$DOCKER_IMAGES" >> $GITHUB_OUTPUT
+          echo "vercel-scope=$VERCEL_SCOPE" >> $GITHUB_OUTPUT
+          echo "vercel-build-command<<VERCEL_BUILD_EOF" >> $GITHUB_OUTPUT
+          echo "$VERCEL_BUILD_COMMAND" >> $GITHUB_OUTPUT
+          echo "VERCEL_BUILD_EOF" >> $GITHUB_OUTPUT
+          echo "digitalocean-app-name=$DIGITALOCEAN_APP_NAME" >> $GITHUB_OUTPUT
+          echo "digitalocean-app-spec=$DIGITALOCEAN_APP_SPEC" >> $GITHUB_OUTPUT
+          echo "digitalocean-print-build-logs=$DIGITALOCEAN_PRINT_BUILD_LOGS" >> $GITHUB_OUTPUT
+          echo "digitalocean-print-deploy-logs=$DIGITALOCEAN_PRINT_DEPLOY_LOGS" >> $GITHUB_OUTPUT
+          echo "enable-sync=$ENABLE_SYNC" >> $GITHUB_OUTPUT
+          echo "sync-target-branch=$SYNC_TARGET" >> $GITHUB_OUTPUT
+          echo "release-strategy=$RELEASE_STRATEGY" >> $GITHUB_OUTPUT
+          echo "release-type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+          echo "release-force-patch-on-no-release=$RELEASE_FORCE_PATCH_NO_RELEASE" >> $GITHUB_OUTPUT
+          echo "release-extra-plugins<<PLUGINS_EOF" >> $GITHUB_OUTPUT
+          echo "$RELEASE_EXTRA_PLUGINS" >> $GITHUB_OUTPUT
+          echo "PLUGINS_EOF" >> $GITHUB_OUTPUT
+          echo "prerelease-branches=$PRERELEASE_BRANCHES" >> $GITHUB_OUTPUT
+          echo "release-config-file=$RP_CONFIG_FILE" >> $GITHUB_OUTPUT
+          echo "release-config-file-stable=$RP_CONFIG_FILE_STABLE" >> $GITHUB_OUTPUT
+          echo "release-manifest-file=$RP_MANIFEST_FILE" >> $GITHUB_OUTPUT
+
+          echo ""
+          echo "📦 Configuration Summary:"
+          echo "  Stack: $CONFIGURED_STACK"
+          echo "  Caching: $ENABLE_CACHING"
+          echo "  Security: $ENABLE_SECURITY"
+          echo "  Lint: $ENABLE_LINT"
+          echo "  Test: $ENABLE_TEST"
+          echo "  Build: $ENABLE_BUILD"
+          echo "  Deploy: $ENABLE_DEPLOY (Provider: $DEPLOY_PROVIDER)"
+          echo "  Release: $ENABLE_RELEASE"
+          echo "  Release Strategy: $RELEASE_STRATEGY"
+          echo "  Release Fallback Patch: $RELEASE_FORCE_PATCH_NO_RELEASE"
+
           echo "::endgroup::"
+
+      - name: 🔍 Setup Environment
+        id: setup-env
+        uses: navigaite/.github/.github/actions/setup-environment@v2
+        with:
+          stack: ${{ inputs.stack != '' && inputs.stack || steps.parse-config.outputs.configured-stack }}
+          node-version: ${{ steps.parse-config.outputs.runtime-node-version }}
+          python-version: ${{ steps.parse-config.outputs.runtime-python-version }}
+          flutter-version: ${{ steps.parse-config.outputs.runtime-flutter-version }}
+          working-directory: ${{ inputs.working-directory }}
+          write-summary: 'false'
+          enable-caching: 'false'
 
       - name: 📊 Pipeline Summary
         shell: bash
@@ -381,7 +504,12 @@ jobs:
           fetch-depth: 0 # Required for TruffleHog
 
       - name: 🔍 Security Scanning
-        uses: navigaite/.github/.github/actions/security-scan@main
+        uses: navigaite/.github/.github/actions/security-scan@v2
+        with:
+          enable-trufflehog: ${{ needs.setup.outputs.enable-trufflehog }}
+          enable-dependency-review: ${{ needs.setup.outputs.enable-dependency-review }}
+          fail-on-secrets: ${{ needs.setup.outputs.security-fail-on-secrets }}
+          fail-on-vulnerabilities: ${{ needs.setup.outputs.security-fail-on-vulnerabilities }}
 
   # =============================================================================
   # LINT
@@ -400,23 +528,29 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🔧 Setup Environment
-        uses: navigaite/.github/.github/actions/setup-environment@main
+        uses: navigaite/.github/.github/actions/setup-environment@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
           node-version: ${{ needs.setup.outputs.runtime-version }}
+          python-version: ${{ needs.setup.outputs.runtime-version }}
+          flutter-version: ${{ needs.setup.outputs.runtime-version }}
+          working-directory: ${{ inputs.working-directory }}
           write-summary: 'false'
+          enable-caching: ${{ needs.setup.outputs.enable-caching }}
 
       - name: 📦 Install Dependencies
-        uses: navigaite/.github/.github/actions/install-dependencies@main
+        uses: navigaite/.github/.github/actions/install-dependencies@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
+          working-directory: ${{ inputs.working-directory }}
           write-summary: 'false'
 
       - name: 🔍 Detect React Project
         id: detect-react
         if: needs.setup.outputs.stack == 'nodejs'
         shell: bash
+        working-directory: ${{ inputs.working-directory }}
         run: |
           set -euo pipefail
           if [[ ! -f package.json ]]; then
@@ -455,6 +589,7 @@ jobs:
       - name: 🔍 Detect Trunk Configuration
         id: detect-trunk
         shell: bash
+        working-directory: ${{ inputs.working-directory }}
         run: |
           set -euo pipefail
           if [[ -f ".trunk/trunk.yaml" ]]; then
@@ -514,9 +649,12 @@ jobs:
       - name: 🧹 Run Lint
         id: fallback-lint
         if: steps.detect-trunk.outputs.enabled != 'true'
-        uses: navigaite/.github/.github/actions/run-lint@main
+        uses: navigaite/.github/.github/actions/run-lint@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
+          lint-command: ${{ needs.setup.outputs.lint-command }}
+          working-directory: ${{ inputs.working-directory }}
+          fail-on-error: ${{ needs.setup.outputs.lint-fail-on-error }}
 
       - name: 📋 Lint Summary
         if: always()
@@ -590,24 +728,31 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🔧 Setup Environment
-        uses: navigaite/.github/.github/actions/setup-environment@main
+        uses: navigaite/.github/.github/actions/setup-environment@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
           node-version: ${{ needs.setup.outputs.runtime-version }}
+          python-version: ${{ needs.setup.outputs.runtime-version }}
+          flutter-version: ${{ needs.setup.outputs.runtime-version }}
+          working-directory: ${{ inputs.working-directory }}
           write-summary: 'false'
+          enable-caching: ${{ needs.setup.outputs.enable-caching }}
 
       - name: 📦 Install Dependencies
-        uses: navigaite/.github/.github/actions/install-dependencies@main
+        uses: navigaite/.github/.github/actions/install-dependencies@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
+          working-directory: ${{ inputs.working-directory }}
           write-summary: 'false'
 
       - name: 🧪 Run Tests
-        uses: navigaite/.github/.github/actions/run-tests@main
+        uses: navigaite/.github/.github/actions/run-tests@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
-          coverage: true
+          test-command: ${{ needs.setup.outputs.test-command }}
+          working-directory: ${{ inputs.working-directory }}
+          coverage: ${{ needs.setup.outputs.test-coverage }}
 
   # =============================================================================
   # BUILD
@@ -631,17 +776,22 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🔧 Setup Environment
-        uses: navigaite/.github/.github/actions/setup-environment@main
+        uses: navigaite/.github/.github/actions/setup-environment@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
           node-version: ${{ needs.setup.outputs.runtime-version }}
+          python-version: ${{ needs.setup.outputs.runtime-version }}
+          flutter-version: ${{ needs.setup.outputs.runtime-version }}
+          working-directory: ${{ inputs.working-directory }}
           write-summary: 'false'
+          enable-caching: ${{ needs.setup.outputs.enable-caching }}
 
       - name: 📦 Install Dependencies
-        uses: navigaite/.github/.github/actions/install-dependencies@main
+        uses: navigaite/.github/.github/actions/install-dependencies@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
           package-manager: ${{ needs.setup.outputs.package-manager }}
+          working-directory: ${{ inputs.working-directory }}
           write-summary: 'false'
 
       - name: 🔍 Check Infisical Configuration
@@ -674,11 +824,16 @@ jobs:
           secret-path: ${{ vars.INFISICAL_SECRET_PATH || secrets.INFISICAL_SECRET_PATH || '/' }}
 
       - name: 🏗️ Run Build
-        uses: navigaite/.github/.github/actions/run-build@main
+        uses: navigaite/.github/.github/actions/run-build@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
-          upload-artifacts: false
-          attest-artifacts: false
+          build-command: ${{ needs.setup.outputs.build-command }}
+          working-directory: ${{ inputs.working-directory }}
+          upload-artifacts: ${{ needs.setup.outputs.build-upload-artifacts }}
+          artifact-name: ${{ needs.setup.outputs.build-artifact-name }}
+          artifact-path: ${{ needs.setup.outputs.build-artifact-path }}
+          attest-artifacts: ${{ needs.setup.outputs.build-attest-artifacts }}
+          artifact-retention-days: ${{ needs.setup.outputs.build-artifact-retention-days }}
 
   # =============================================================================
   # DEPLOYMENT (Provider-specific jobs to avoid loading unused actions)
@@ -751,13 +906,16 @@ jobs:
           secret-path: ${{ vars.INFISICAL_SECRET_PATH || secrets.INFISICAL_SECRET_PATH || '/' }}
 
       - name: 🚀 Deploy to Vercel
-        uses: navigaite/.github/.github/actions/deploy-vercel@main
+        uses: navigaite/.github/.github/actions/deploy-vercel@v2
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-scope: ${{ needs.setup.outputs.vercel-scope }}
           environment: ${{ matrix.environment }}
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          working-directory: ${{ inputs.working-directory }}
+          build-command: ${{ needs.setup.outputs.vercel-build-command }}
 
   deploy-digitalocean:
     name: 🚀 DigitalOcean / ${{ matrix.environment }}
@@ -785,12 +943,17 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: 🚀 Deploy to DigitalOcean
-        uses: navigaite/.github/.github/actions/deploy-digitalocean@main
+        uses: navigaite/.github/.github/actions/deploy-digitalocean@v2
         with:
           digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          app-name: ${{ github.event.repository.name }}
+          app-name:
+            ${{ needs.setup.outputs.digitalocean-app-name != '' &&
+            needs.setup.outputs.digitalocean-app-name || github.event.repository.name }}
+          app-spec-location: ${{ needs.setup.outputs.digitalocean-app-spec }}
           environment: ${{ matrix.environment }}
           is-pr-preview: ${{ matrix.environment == 'preview' && github.event_name == 'pull_request' }}
+          print-build-logs: ${{ needs.setup.outputs.digitalocean-print-build-logs }}
+          print-deploy-logs: ${{ needs.setup.outputs.digitalocean-print-deploy-logs }}
 
   deploy-docker:
     name: 🐳 Docker / ${{ matrix.image.name }}
@@ -859,7 +1022,7 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: 🚀 Deploy Docker Image
-        uses: navigaite/.github/.github/actions/deploy-docker@main
+        uses: navigaite/.github/.github/actions/deploy-docker@v2
         with:
           dockerfile: ${{ matrix.image.dockerfile || 'Dockerfile' }}
           context: ${{ matrix.image.context || '.' }}
@@ -934,7 +1097,7 @@ jobs:
 
       - name: 📦 Run Release Management
         id: release-mgmt
-        uses: navigaite/.github/.github/actions/release-management@main
+        uses: navigaite/.github/.github/actions/release-management@v2
         with:
           github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           strategy: ${{ needs.setup.outputs.release-strategy }}
@@ -945,9 +1108,7 @@ jobs:
           target-branch: ${{ github.ref_name }}
           prerelease: ${{ steps.prerelease.outputs.is-prerelease }}
           prerelease-type: ${{ steps.prerelease.outputs.prerelease-type }}
-          release-type:
-            ${{ needs.setup.outputs.stack == 'nodejs' && 'node' || needs.setup.outputs.stack == 'python' && 'python' ||
-            'simple' }}
+          release-type: ${{ needs.setup.outputs.release-type != '' && needs.setup.outputs.release-type || (needs.setup.outputs.stack == 'nodejs' && 'node' || needs.setup.outputs.stack == 'python' && 'python' || 'simple') }}
   # =============================================================================
   # SYNC MAIN TO DEV (After Release)
   # =============================================================================
@@ -976,7 +1137,7 @@ jobs:
           token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: 🔄 Sync Branches
-        uses: navigaite/.github/.github/actions/sync-branches@main
+        uses: navigaite/.github/.github/actions/sync-branches@v2
         with:
           source-branch: main
           target-branch: ${{ needs.setup.outputs.sync-target-branch }}
@@ -1081,4 +1242,3 @@ jobs:
             exit 1
           fi
           echo "✅ All pipeline jobs passed or were skipped"
-

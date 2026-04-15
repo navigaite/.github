@@ -40,11 +40,6 @@
       "type": "object",
       "description": "Pipeline behavior configuration",
       "properties": {
-        "fail_fast": {
-          "type": "boolean",
-          "description": "Stop all jobs on first failure",
-          "default": false
-        },
         "enable_caching": {
           "type": "boolean",
           "description": "Enable dependency and build caching",
@@ -148,6 +143,16 @@
         "artifact_path": {
           "type": "string",
           "description": "Path to build output (auto-detected if not specified)"
+        },
+        "attest_artifacts": {
+          "type": "boolean",
+          "description": "Generate SLSA provenance attestations for uploaded artifacts",
+          "default": false
+        },
+        "artifact_retention_days": {
+          "type": "string",
+          "description": "Retention period for uploaded artifacts in days",
+          "default": "7"
         }
       }
     },
@@ -199,34 +204,48 @@
           "type": "object",
           "description": "Docker deployment configuration",
           "properties": {
-            "dockerfile": {
-              "type": "string",
-              "description": "Path to Dockerfile",
-              "default": "Dockerfile"
-            },
-            "image_name": {
-              "type": "string",
-              "description": "Docker image name"
-            },
-            "registry": {
-              "type": "string",
-              "description": "Container registry",
-              "enum": ["dockerhub", "ghcr", "gcr", "ecr", "custom"],
-              "default": "ghcr"
-            },
-            "registry_url": {
-              "type": "string",
-              "description": "Custom registry URL (for custom registry)"
-            },
-            "platforms": {
-              "type": "string",
-              "description": "Target platforms",
-              "default": "linux/amd64"
-            },
-            "push": {
-              "type": "boolean",
-              "description": "Push image to registry",
-              "default": true
+            "images": {
+              "type": "array",
+              "description": "Optional multi-image Docker build configuration",
+              "items": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Logical image name or suffix"
+                  },
+                  "image_name": {
+                    "type": "string",
+                    "description": "Explicit image name override"
+                  },
+                  "dockerfile": {
+                    "type": "string",
+                    "description": "Path to Dockerfile",
+                    "default": "Dockerfile"
+                  },
+                  "context": {
+                    "type": "string",
+                    "description": "Docker build context",
+                    "default": "."
+                  },
+                  "registry": {
+                    "type": "string",
+                    "description": "Container registry",
+                    "enum": ["dockerhub", "ghcr", "gcr", "ecr", "custom"],
+                    "default": "ghcr"
+                  },
+                  "platforms": {
+                    "type": "string",
+                    "description": "Target platforms",
+                    "default": "linux/amd64"
+                  },
+                  "build_args": {
+                    "type": "string",
+                    "description": "Multiline Docker build arguments"
+                  }
+                }
+              }
             }
           }
         },
@@ -297,12 +316,47 @@
         },
         "package_name": {
           "type": "string",
-          "description": "Package name for releases"
+          "description": "Deprecated legacy release-please field"
         },
-        "bump_minor_pre_major": {
+        "force_patch_on_no_release": {
           "type": "boolean",
-          "description": "Bump minor version before major release",
-          "default": true
+          "description": "When using semantic-release, publish a patch release if no releasable commits are found",
+          "default": false
+        },
+        "extra_plugins": {
+          "type": "array",
+          "description": "Extra semantic-release plugins to install",
+          "items": {
+            "type": "string"
+          }
+        },
+        "config_file": {
+          "type": "string",
+          "description": "release-please config file path"
+        },
+        "config_file_stable": {
+          "type": "string",
+          "description": "Optional stable-branch release-please config file path"
+        },
+        "manifest_file": {
+          "type": "string",
+          "description": "release-please manifest file path"
+        },
+        "prerelease_branches": {
+          "type": "array",
+          "description": "Branches that should publish prerelease versions",
+          "items": {
+            "type": "object",
+            "required": ["branch", "label"],
+            "properties": {
+              "branch": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            }
+          }
         },
         "sync_to_dev": {
           "type": "boolean",

@@ -24,6 +24,11 @@ inputs:
     required: false
     default: ''
 
+  working-directory:
+    description: Working directory used for stack detection and cache path resolution
+    required: false
+    default: .
+
   enable-caching:
     description: Enable dependency caching
     required: false
@@ -54,9 +59,23 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      shell: bash
+      env:
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        if [[ "$WORKING_DIR" == *".."* ]] || [[ "$WORKING_DIR" == /* ]] \
+          || [[ "$WORKING_DIR" == \\* ]] || [[ "$WORKING_DIR" == //* ]] \
+          || [[ "$WORKING_DIR" =~ ^[A-Za-z]:[\\/] ]]; then
+          echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"
+          exit 1
+        fi
+
     - name: Detect Tech Stack
       id: detect
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       env:
         INPUT_STACK: ${{ inputs.stack }}
         INPUT_NODE_VERSION: ${{ inputs.node-version }}
@@ -70,6 +89,11 @@ runs:
         VERSION=""
         PKG_MANAGER=""
         DEP_FILE=""
+
+        extract_numeric_version() {
+          local raw="$1"
+          grep -Eo '[0-9]+([.][0-9]+){0,2}' <<<"$raw" | head -1 || true
+        }
 
         # Auto-detect if not specified
         if [[ "$STACK" == "auto" ]]; then
@@ -105,7 +129,9 @@ runs:
             else
               # Try to read from package.json engines field
               if command -v jq &> /dev/null; then
-                VERSION=$(jq -r '.engines.node // "20"' package.json | sed 's/[^0-9.]//g')
+                RAW_VERSION=$(jq -r '.engines.node // "20"' package.json)
+                VERSION=$(extract_numeric_version "$RAW_VERSION")
+                [[ -z "$VERSION" ]] && VERSION="20"
               else
                 VERSION="20"
                 echo "::warning::jq not available, defaulting to Node.js 20. Install jq or set node-version explicitly."
@@ -196,7 +222,9 @@ runs:
                   VERSION=$(cat .node-version | tr -d '[:space:]')
                   echo "✓ Read Node version from .node-version: $VERSION"
                 elif [[ -f "package.json" ]] && command -v jq &> /dev/null; then
-                  VERSION=$(jq -r '.engines.node // "20"' package.json | sed 's/[^0-9.]//g')
+                  RAW_VERSION=$(jq -r '.engines.node // "20"' package.json)
+                  VERSION=$(extract_numeric_version "$RAW_VERSION")
+                  [[ -z "$VERSION" ]] && VERSION="20"
                   echo "✓ Read Node version from package.json engines: $VERSION"
                 else
                   VERSION="20"
@@ -262,7 +290,11 @@ runs:
         cache:
           ${{ inputs.enable-caching == 'true' && steps.detect.outputs.dependency-file != '' &&
           steps.detect.outputs.package-manager || '' }}
-        cache-dependency-path: ${{ steps.detect.outputs.dependency-file }}
+        cache-dependency-path:
+          ${{ steps.detect.outputs.dependency-file != '' &&
+          (inputs.working-directory != '.' &&
+          format('{0}/{1}', inputs.working-directory, steps.detect.outputs.dependency-file) ||
+          steps.detect.outputs.dependency-file) || '' }}
 
     - name: Setup Python
       if: steps.detect.outputs.stack == 'python'
@@ -286,6 +318,7 @@ runs:
         STACK: ${{ steps.detect.outputs.stack }}
         VERSION: ${{ steps.detect.outputs.version }}
         PKG_MANAGER: ${{ steps.detect.outputs.package-manager }}
+        WORKING_DIR: ${{ inputs.working-directory }}
         ENABLE_CACHING: ${{ inputs.enable-caching }}
       run: |
         set -euo pipefail
@@ -294,5 +327,5 @@ runs:
         echo "- **Tech Stack:** $STACK" >> $GITHUB_STEP_SUMMARY
         echo "- **Version:** $VERSION" >> $GITHUB_STEP_SUMMARY
         echo "- **Package Manager:** $PKG_MANAGER" >> $GITHUB_STEP_SUMMARY
+        echo "- **Working Directory:** $WORKING_DIR" >> $GITHUB_STEP_SUMMARY
         echo "- **Caching:** $ENABLE_CACHING" >> $GITHUB_STEP_SUMMARY
-

@@ -5,7 +5,7 @@
 
 <p align="center">
   <a href="https://github.com/navigaite/.github/releases/latest"><img src="https://img.shields.io/github/v/release/navigaite/.github?label=version&sort=semver&style=flat-square&color=4f46e5" alt="Latest Release"></a>
-  <a href="https://github.com/navigaite/.github/actions/workflows/test-actions.yaml"><img src="https://img.shields.io/github/actions/workflow/status/navigaite/.github/test-actions.yaml?branch=main&style=flat-square&label=CI" alt="CI Status"></a>
+  <a href="https://github.com/navigaite/.github/actions/workflows/ci.yaml"><img src="https://img.shields.io/github/actions/workflow/status/navigaite/.github/ci.yaml?branch=main&style=flat-square&label=CI" alt="CI Status"></a>
   <a href="https://github.com/navigaite/.github/actions/workflows/nightly-maintenance.yaml"><img src="https://img.shields.io/github/actions/workflow/status/navigaite/.github/nightly-maintenance.yaml?branch=main&style=flat-square&label=nightly" alt="Nightly"></a>
   <a href="https://github.com/navigaite/.github/blob/main/LICENSE"><img src="https://img.shields.io/github/license/navigaite/.github?style=flat-square&color=gray" alt="License"></a>
 </p>
@@ -23,7 +23,7 @@ The Universal Pipeline is a **reusable GitHub Actions workflow** that auto-detec
 | | |
 |:--|:--|
 | **Stacks** | Node.js, Python, Flutter (auto-detected) |
-| **Deploy** | Vercel, DigitalOcean, Docker, Coolify |
+| **Deploy** | Vercel, DigitalOcean, Docker |
 | **Security** | TruffleHog, dependency review, Trivy, SLSA attestations |
 | **Releases** | release-please or semantic-release with conventional commits |
 | **Maintenance** | Nightly security audits, cache cleanup, dependency checks |
@@ -35,14 +35,13 @@ The Universal Pipeline is a **reusable GitHub Actions workflow** that auto-detec
 **1. Add the workflow** to your repo at `.github/workflows/ci.yaml`:
 
 ```yaml
-name: CI/CD Pipeline
+name: Navigaite Pipeline
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-    branches: [main, dev]
-  merge_group: {}
+    branches: [main]
 
 permissions:
   contents: write
@@ -54,15 +53,36 @@ permissions:
   security-events: write
 
 jobs:
+  branch-guard:
+    name: Branch Guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Single-branch repo — all PRs target main directly"
+
   pipeline:
     uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
     with:
       config-file: .github/pipeline.yaml
-    secrets:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    secrets: inherit
+
+  check-gate:
+    name: Check Gate
+    if: always()
+    needs: [pipeline]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate pipeline result
+        shell: bash
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          set -euo pipefail
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
+            exit 1
+          fi
 ```
 
 **2. Add a config** at `.github/pipeline.yaml`:
@@ -129,7 +149,6 @@ Push / PR
 <tr><td><strong>Vercel</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td>-</td></tr>
 <tr><td><strong>DigitalOcean</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td>-</td></tr>
 <tr><td><strong>Docker</strong></td><td>-</td><td>-</td><td>Yes</td><td>amd64 + arm64</td></tr>
-<tr><td><strong>Coolify</strong></td><td>-</td><td>-</td><td>Yes</td><td>-</td></tr>
 </table>
 
 ---
@@ -223,7 +242,7 @@ release:
 
 ## Reusable Actions
 
-13 composite actions in [`.github/actions/`](.github/actions/):
+14 composite actions live in [`.github/actions/`](.github/actions/). The reusable workflow currently wires Vercel, DigitalOcean, and Docker; `deploy-coolify` and `deploy-render` remain standalone composites for custom jobs.
 
 | Action | Purpose |
 |--------|---------|
@@ -239,6 +258,7 @@ release:
 | `deploy-digitalocean` | DigitalOcean App Platform |
 | `deploy-docker` | Docker build + multi-registry push |
 | `deploy-coolify` | Coolify webhook deployment |
+| `deploy-render` | Render deploy hook deployment |
 | `build-executable` | PyInstaller cross-platform builds |
 
 ---
