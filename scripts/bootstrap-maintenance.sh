@@ -28,15 +28,24 @@
 #
 # Usage:
 #   scripts/bootstrap-maintenance.sh                 # dry run, prints plan
+#   scripts/bootstrap-maintenance.sh --audit-only    # read-only AGENTS.md
+#                                                    # compliance report per
+#                                                    # repo, no changes
 #   scripts/bootstrap-maintenance.sh --apply         # actually open PRs
 #   scripts/bootstrap-maintenance.sh --apply --only repo1,repo2
 #   scripts/bootstrap-maintenance.sh --org my-org    # override org name
+#
+# Every --apply PR body embeds a per-repo pipeline compliance audit derived
+# from navigaite/.github/AGENTS.md §4. The audit is read-only — it flags
+# deviations for human follow-up but never mutates caller workflows or
+# pipeline.yaml.
 
 set -euo pipefail
 
 ORG="navigaite"
 APPLY=false
 ONLY=""
+AUDIT_ONLY=false
 # No repos are skipped — every caller-template now uses a distinct
 # filename (`claude-code-fix.yaml`, `trunk-upgrade-scheduled.yaml`),
 # so they no longer collide with the reusable workflows' paths inside
@@ -46,6 +55,7 @@ SKIP_REPOS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --apply) APPLY=true; shift ;;
+    --audit-only) AUDIT_ONLY=true; shift ;;
     --org) ORG="$2"; shift 2 ;;
     --only) ONLY="$2"; shift 2 ;;
     -h|--help)
@@ -141,6 +151,152 @@ is_legacy_caller() {
     return 1
   fi
   return 0
+}
+
+audit_repo() {
+  # Reads the repo's default branch, ci.yaml, and pipeline.yaml via gh api
+  # (no clone). Emits a Markdown audit report to stdout. Pure read — never
+  # mutates the repo. Checks are derived from AGENTS.md §4 "MANDATORY vs
+  # OPTIONAL — Consumer Integration Checklist".
+  local repo="$1"
+
+  # The .github meta repo itself PROVIDES the universal pipeline; it does
+  # not consume it as a caller. Skip the consumer-side audit here and emit
+  # a short note instead so the bootstrap PR body still has content.
+  if [[ "$repo" == ".github" ]]; then
+    cat <<'EOF'
+## Pipeline Compliance Audit
+
+Not applicable — this is `navigaite/.github`, the meta repo that *provides* the universal pipeline. Consumer-side checks (caller `ci.yaml` shape, `pipeline.yaml`, etc.) don't apply.
+
+See [AGENTS.md §10](https://github.com/navigaite/.github/blob/main/AGENTS.md) for conventions that govern this repo's own release/versioning workflow.
+EOF
+    return 0
+  fi
+
+  local default_branch ci_yaml pipeline_yaml rp_config rp_config_main rp_manifest
+  local profile lines=()
+
+  default_branch="$(gh api "repos/$ORG/$repo" --jq '.default_branch' 2>/dev/null || echo "")"
+  ci_yaml="$(fetch_remote_file "$repo" ".github/workflows/ci.yaml")"
+  pipeline_yaml="$(fetch_remote_file "$repo" ".github/pipeline.yaml")"
+  rp_config="$(fetch_remote_file "$repo" ".github/release-please-config.json")"
+  rp_config_main="$(fetch_remote_file "$repo" ".github/release-please-config.main.json")"
+  rp_manifest="$(fetch_remote_file "$repo" ".release-please-manifest.json")"
+
+  case "$default_branch" in
+    dev) profile="B (dev + main, prereleases)" ;;
+    main) profile="A (main only)" ;;
+    *) profile="? (default branch: ${default_branch:-unknown})" ;;
+  esac
+
+  lines+=("## Pipeline Compliance Audit")
+  lines+=("")
+  lines+=("Read-only check against [AGENTS.md](https://github.com/$ORG/.github/blob/main/AGENTS.md). No automated fixes — deviations below require a focused follow-up PR.")
+  lines+=("")
+  lines+=("- **Detected branching profile:** $profile")
+  lines+=("")
+  lines+=("| Check | Status | Notes |")
+  lines+=("| --- | :---: | --- |")
+
+  # --- ci.yaml presence + shape ---
+  if [[ -z "$ci_yaml" ]]; then
+    lines+=("| \`.github/workflows/ci.yaml\` exists | 🚫 | No caller workflow found — pipeline not wired up |")
+    # Skip downstream ci.yaml checks if missing.
+    local ci_present=false
+  else
+    local ci_present=true
+    lines+=("| \`.github/workflows/ci.yaml\` exists | ✅ | |")
+
+    if grep -qE '^name:[[:space:]]+Navigaite Pipeline[[:space:]]*$' <<< "$ci_yaml"; then
+      lines+=("| Workflow \`name: Navigaite Pipeline\` | ✅ | |")
+    else
+      local actual_name
+      actual_name="$(grep -E '^name:' <<< "$ci_yaml" | head -1 | sed 's/^name:[[:space:]]*//' | tr -d '"'"'"'' )"
+      lines+=("| Workflow \`name: Navigaite Pipeline\` | ⚠️ | Current: \`${actual_name:-<none>}\` — required for uniform UI grouping |")
+    fi
+
+    if grep -qE 'uses:[[:space:]]+navigaite/\.github/\.github/workflows/universal-pipeline\.yaml@v2' <<< "$ci_yaml"; then
+      lines+=("| Pipeline delegates to \`universal-pipeline.yaml@v2\` | ✅ | |")
+    elif grep -qE 'uses:[[:space:]]+navigaite/\.github/\.github/workflows/universal-pipeline\.yaml@' <<< "$ci_yaml"; then
+      local pin
+      pin="$(grep -oE 'universal-pipeline\.yaml@[^[:space:]]+' <<< "$ci_yaml" | head -1 | sed 's|.*@||')"
+      lines+=("| Pipeline pinned to \`@v2\` rolling tag | ⚠️ | Currently pinned to \`@${pin}\` — drifts from rolling release |")
+    else
+      lines+=("| Pipeline delegates to \`universal-pipeline.yaml\` | 🚫 | No \`uses:\` of the universal pipeline — caller may be misconfigured |")
+    fi
+
+    if grep -qE '^[[:space:]]+name:[[:space:]]+Branch Guard[[:space:]]*$' <<< "$ci_yaml"; then
+      lines+=("| \`Branch Guard\` job present (exact name) | ✅ | |")
+    else
+      lines+=("| \`Branch Guard\` job present (exact name) | 🚫 | Required status check — org ruleset will fail |")
+    fi
+
+    if grep -qE '^[[:space:]]+name:[[:space:]]+Check Gate[[:space:]]*$' <<< "$ci_yaml"; then
+      lines+=("| \`Check Gate\` job present (exact name) | ✅ | |")
+    else
+      lines+=("| \`Check Gate\` job present (exact name) | 🚫 | Required status check — org ruleset will fail |")
+    fi
+
+    if grep -qE '^[[:space:]]+secrets:[[:space:]]+inherit[[:space:]]*$' <<< "$ci_yaml"; then
+      lines+=("| \`secrets: inherit\` on pipeline job | ✅ | |")
+    else
+      lines+=("| \`secrets: inherit\` on pipeline job | ⚠️ | Not found — reusable workflow may lack deploy/release secrets |")
+    fi
+
+    if grep -qE '^permissions:[[:space:]]*$' <<< "$ci_yaml"; then
+      lines+=("| Workflow-level \`permissions:\` block | ✅ | |")
+    else
+      lines+=("| Workflow-level \`permissions:\` block | ⚠️ | Not found — defaults may not cover all enabled stages |")
+    fi
+  fi
+
+  # --- pipeline.yaml ---
+  if [[ -z "$pipeline_yaml" ]]; then
+    lines+=("| \`.github/pipeline.yaml\` exists | 🚫 | Required — pipeline cannot configure stages |")
+  else
+    lines+=("| \`.github/pipeline.yaml\` exists | ✅ | |")
+    if grep -qE "^version:[[:space:]]+['\"]?2\.0['\"]?[[:space:]]*$" <<< "$pipeline_yaml"; then
+      lines+=("| \`pipeline.yaml\` declares \`version: '2.0'\` | ✅ | |")
+    else
+      lines+=("| \`pipeline.yaml\` declares \`version: '2.0'\` | ⚠️ | Version line missing or wrong |")
+    fi
+  fi
+
+  # --- release-please shape per profile ---
+  if [[ -z "$rp_manifest" ]]; then
+    lines+=("| release-please manifest present | ℹ️ | No \`.release-please-manifest.json\` — release automation likely disabled |")
+  else
+    lines+=("| release-please manifest present | ✅ | |")
+    case "$default_branch" in
+      dev)
+        if [[ -n "$rp_config" && -n "$rp_config_main" ]]; then
+          lines+=("| Profile B dual release-please configs | ✅ | \`release-please-config.json\` (dev/beta) + \`release-please-config.main.json\` (stable) |")
+        else
+          lines+=("| Profile B dual release-please configs | ⚠️ | Expected both \`release-please-config.json\` AND \`release-please-config.main.json\` for dev+main prereleases |")
+        fi
+        ;;
+      main)
+        if [[ -n "$rp_config" && -z "$rp_config_main" ]]; then
+          lines+=("| Profile A single release-please config | ✅ | |")
+        elif [[ -n "$rp_config_main" ]]; then
+          lines+=("| Profile A single release-please config | ⚠️ | Has \`release-please-config.main.json\` but default branch is \`main\` — may be misconfigured |")
+        else
+          lines+=("| Profile A single release-please config | ℹ️ | No \`release-please-config.json\` — release automation likely disabled |")
+        fi
+        ;;
+    esac
+  fi
+
+  # --- items we cannot verify via API ---
+  lines+=("| Secrets per deploy provider | ℹ️ | Not auto-checkable — verify in repo Settings → Secrets → Actions (see AGENTS.md §6) |")
+  lines+=("| Signed commits enforced | ℹ️ | Controlled by org ruleset \"Protected branches\" |")
+  lines+=("| Repo settings (squash/merge/auto-merge) | ℹ️ | Not auto-checkable — see AGENTS.md §7 |")
+
+  lines+=("")
+  lines+=("**Legend:** ✅ matches spec · ⚠️ deviation — follow-up PR recommended · 🚫 mandatory item missing — required for org ruleset · ℹ️ informational / manual verification")
+
+  printf '%s\n' "${lines[@]}"
 }
 
 plan_repo() {
@@ -239,11 +395,14 @@ apply_repo() {
 
   git -C "$workdir" push -u origin "$branch_name" >/dev/null 2>&1
 
-  gh pr create -R "$ORG/$repo" \
-    --base "$default_branch" \
-    --head "$branch_name" \
-    --title "chore(ci): bootstrap org maintenance automation" \
-    --body "Automated bootstrap from \`navigaite/.github\`. Installs:
+  local audit_md
+  audit_md="$(audit_repo "$repo")"
+
+  local body_file
+  body_file="$(mktemp)"
+  {
+    cat <<EOF
+Automated bootstrap from \`navigaite/.github\`. Installs:
 
 - Weekly Dependabot updates (github-actions ecosystem).
 - Staggered \`Trunk Upgrade Scheduled\` caller at \`.github/workflows/trunk-upgrade-scheduled.yaml\` that delegates to the reusable \`trunk-upgrade\` workflow in \`navigaite/.github\`. Auto-merges after CI.
@@ -251,7 +410,20 @@ apply_repo() {
 
 If this repo previously had caller-style \`trunk-upgrade.yaml\` or \`claude-code.yaml\` at those shared paths, they are removed here in favor of the new \`-fix\` / \`-scheduled\` naming. Reusable-workflow definitions (files with \`on: workflow_call\`) are preserved.
 
-Managed by \`scripts/bootstrap-maintenance.sh\` — edits to these files will be overwritten on the next bootstrap run." >/dev/null
+Managed by \`scripts/bootstrap-maintenance.sh\` — edits to these files will be overwritten on the next bootstrap run.
+
+---
+
+EOF
+    printf '%s\n' "$audit_md"
+  } > "$body_file"
+
+  gh pr create -R "$ORG/$repo" \
+    --base "$default_branch" \
+    --head "$branch_name" \
+    --title "chore(ci): bootstrap org maintenance automation" \
+    --body-file "$body_file" >/dev/null
+  rm -f "$body_file"
 
   echo "  [done] $repo — PR opened"
 }
@@ -262,8 +434,21 @@ while IFS= read -r r; do REPOS+=("$r"); done < <(list_repos)
 echo "Found ${#REPOS[@]} repos"
 echo
 
+if $AUDIT_ONLY; then
+  echo "Audit-only mode — reading pipeline compliance for each repo, no changes."
+  echo
+  for r in "${REPOS[@]}"; do
+    echo "===================================================================="
+    echo "# $r"
+    echo "===================================================================="
+    audit_repo "$r"
+    echo
+  done
+  exit 0
+fi
+
 if ! $APPLY; then
-  echo "Dry run — no changes will be made. Pass --apply to open PRs."
+  echo "Dry run — no changes will be made. Pass --apply to open PRs, or --audit-only for pipeline compliance report."
   echo
   for r in "${REPOS[@]}"; do
     plan_repo "$r" || true
