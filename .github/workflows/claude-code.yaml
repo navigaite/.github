@@ -16,15 +16,29 @@ name: 🤖 Claude Code
 #
 #   jobs:
 #     claude:
-#       # Permissive filter — exact-match on 'copilot-pull-request-reviewer[bot]'
-#       # was observed to silently skip in production (2026-04); use contains().
+#       # Review branch: permissive `contains(login, 'copilot')` because
+#       # exact-match on 'copilot-pull-request-reviewer[bot]' was observed
+#       # to silently skip in production (2026-04). Tightened by requiring
+#       # user.type == 'Bot' so a human account with "copilot" in the login
+#       # cannot trigger a privileged workflow.
+#       #
+#       # Comment branches: gate on the `@claude` keyword AND on
+#       # author_association so untrusted commenters cannot trigger runs.
+#       # Step-level check in this reusable workflow covers `issue_comment`
+#       # redundantly; adding it here saves runner spin-ups on both comment
+#       # event types.
 #       if: >-
 #         (github.event_name == 'pull_request_review' &&
+#           github.event.review.user.type == 'Bot' &&
 #           contains(github.event.review.user.login, 'copilot')) ||
 #         (github.event_name == 'pull_request_review_comment' &&
-#           contains(github.event.comment.body, '@claude')) ||
+#           contains(github.event.comment.body, '@claude') &&
+#           contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+#                    github.event.comment.author_association)) ||
 #         (github.event_name == 'issue_comment' &&
-#           contains(github.event.comment.body, '@claude'))
+#           contains(github.event.comment.body, '@claude') &&
+#           contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+#                    github.event.comment.author_association))
 #       permissions:
 #         contents: write
 #         pull-requests: write
@@ -47,8 +61,13 @@ on:
           Use '"*"' (quoted) to allow all bots. Empty string blocks all bots.
           Default is '"*"' because exact-match on
           'copilot-pull-request-reviewer[bot]' was observed to silently skip
-          in production (2026-04) — the workflow-level `if:` already guards
-          against non-Copilot bots with contains(..., 'copilot').
+          in production (2026-04). This input governs only the
+          claude-code-action's internal bot-author filter for comment-based
+          triggers — callers are expected to gate `pull_request_review` via
+          their own `if:` (e.g. `user.type == 'Bot'` +
+          `contains(login, 'copilot')`) and gate comment-based triggers
+          with an `author_association` check. See the example at the top
+          of this file.
         required: false
         type: string
         default: '*'
