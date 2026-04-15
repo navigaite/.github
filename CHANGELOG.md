@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.3](https://github.com/navigaite/.github/compare/v2.6.2...v2.6.3) (2026-04-15)
+
+
+### 🐛 Bug Fixes
+
+* **claude-code:** whitelist Copilot for bot-triggered permission check ([#94](https://github.com/navigaite/.github/issues/94)) ([f8f7522](https://github.com/navigaite/.github/commit/f8f7522be0b7ca3f35af5c9f14f530fdb31fd415))
+
 ## [2.6.2](https://github.com/navigaite/.github/compare/v2.6.1...v2.6.2) (2026-04-15)
 
 
