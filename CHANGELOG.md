@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.3](https://github.com/navigaite/.github/compare/v2.4.2...v2.4.3) (2026-04-15)
+
+
+### 🐛 Bug Fixes
+
+* **claude-code:** permissive trigger filter + always-on diagnostics ([#73](https://github.com/navigaite/.github/issues/73)) ([f7e5b0d](https://github.com/navigaite/.github/commit/f7e5b0da6cd28f8dba1f8f1ea60841c6f21200c8))
+
 ## [2.4.2](https://github.com/navigaite/.github/compare/v2.4.1...v2.4.2) (2026-04-14)
 
 
