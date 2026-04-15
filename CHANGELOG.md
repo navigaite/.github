@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.2](https://github.com/navigaite/.github/compare/v2.5.1...v2.5.2) (2026-04-15)
+
+
+### 🐛 Bug Fixes
+
+* **templates:** pick up Copilot review fixes from [#82](https://github.com/navigaite/.github/issues/82) ([#83](https://github.com/navigaite/.github/issues/83)) ([9bf571c](https://github.com/navigaite/.github/commit/9bf571cd24fdff0169927a53ee954fa4a0ed966d))
+
 ## [2.5.1](https://github.com/navigaite/.github/compare/v2.5.0...v2.5.1) (2026-04-15)
 
 
