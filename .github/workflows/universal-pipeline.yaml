@@ -249,6 +249,15 @@ jobs:
           else
             echo "✓ Found configuration file: $CONFIG_FILE"
 
+            command -v yq >/dev/null || {
+              echo "::error::yq is required to parse $CONFIG_FILE"
+              exit 1
+            }
+            command -v jq >/dev/null || {
+              echo "::error::jq is required to parse $CONFIG_FILE"
+              exit 1
+            }
+
             # Parse configuration using yq
             CONFIGURED_STACK=$(yq -r '.stack // "auto"' "$CONFIG_FILE")
             ENABLE_CACHING=$(yq '.pipeline.enable_caching // true' "$CONFIG_FILE")
@@ -284,7 +293,7 @@ jobs:
             ENABLE_RELEASE=$(yq '.release.enable // false' "$CONFIG_FILE")
             RELEASE_STRATEGY=$(yq '.release.strategy // "release-please"' "$CONFIG_FILE")
             RELEASE_TYPE=$(yq -r '.release.type // ""' "$CONFIG_FILE")
-            RELEASE_FORCE_PATCH_NO_RELEASE=$(yq '.release.force_patch_on_no_release // ""' "$CONFIG_FILE")
+            RELEASE_FORCE_PATCH_NO_RELEASE=$(yq -r '.release.force_patch_on_no_release // ""' "$CONFIG_FILE")
             if [[ -z "$RELEASE_FORCE_PATCH_NO_RELEASE" || "$RELEASE_FORCE_PATCH_NO_RELEASE" == "null" ]]; then
               if [[ "$RELEASE_STRATEGY" == "semantic-release" ]]; then
                 RELEASE_FORCE_PATCH_NO_RELEASE="true"
@@ -573,6 +582,7 @@ jobs:
         uses: millionco/react-doctor@87d4b86450008b7aa57bf6b1b556e9f9832d2eaa # main
         continue-on-error: true
         with:
+          directory: ${{ inputs.working-directory }}
           diff: ${{ github.base_ref || 'main' }}
           fail-on: none
           verbose: 'false'
@@ -583,6 +593,7 @@ jobs:
         uses: millionco/react-doctor@87d4b86450008b7aa57bf6b1b556e9f9832d2eaa # main
         continue-on-error: true
         with:
+          directory: ${{ inputs.working-directory }}
           fail-on: none
           verbose: 'false'
 
@@ -643,8 +654,27 @@ jobs:
 
       - name: 🧹 Run Trunk Lint
         id: trunk-lint
-        if: steps.detect-trunk.outputs.enabled == 'true'
+        if: steps.detect-trunk.outputs.enabled == 'true' && inputs.working-directory == '.'
         uses: trunk-io/trunk-action@75699af9e26881e564e9d832ef7dc3af25ec031b # v1.2.4
+
+      - name: 📥 Install Trunk CLI (Subdirectory)
+        if: steps.detect-trunk.outputs.enabled == 'true' && inputs.working-directory != '.'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://trunk.io/releases/trunk -o "$RUNNER_TEMP/trunk"
+          chmod +x "$RUNNER_TEMP/trunk"
+
+      - name: 🧹 Run Trunk Lint (Subdirectory)
+        id: trunk-lint-subdir
+        if: steps.detect-trunk.outputs.enabled == 'true' && inputs.working-directory != '.'
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          TRUNK_PATH: ${{ runner.temp }}/trunk
+        run: |
+          set -euo pipefail
+          "$TRUNK_PATH" check --ci
 
       - name: 🧹 Run Lint
         id: fallback-lint
@@ -662,6 +692,7 @@ jobs:
         env:
           TRUNK_ENABLED: ${{ steps.detect-trunk.outputs.enabled }}
           TRUNK_OUTCOME: ${{ steps.trunk-lint.outcome }}
+          TRUNK_SUBDIR_OUTCOME: ${{ steps.trunk-lint-subdir.outcome }}
           FALLBACK_OUTCOME: ${{ steps.fallback-lint.outcome }}
           REACT_ENABLED: ${{ steps.detect-react.outputs.enabled }}
           RD_PR_OUTCOME: ${{ steps.react-doctor-pr.outcome }}
@@ -673,6 +704,10 @@ jobs:
           if [[ "$TRUNK_ENABLED" == "true" ]]; then
             LINT_ENGINE="Trunk"
             LINT_STATUS="$TRUNK_OUTCOME"
+            if [[ -n "$TRUNK_SUBDIR_OUTCOME" && "$TRUNK_SUBDIR_OUTCOME" != "skipped" ]]; then
+              LINT_ENGINE="Trunk (subdirectory)"
+              LINT_STATUS="$TRUNK_SUBDIR_OUTCOME"
+            fi
           fi
 
           RD_STATUS="not run"
