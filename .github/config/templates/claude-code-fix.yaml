@@ -23,6 +23,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      id-token: write          # required for claude-code-action OIDC token
     # Review branch: permissive `contains(login, 'copilot')` because exact-
     # match on 'copilot-pull-request-reviewer[bot]' was observed to silently
     # skip in production (2026-04). `user.type == 'Bot'` blocks human
