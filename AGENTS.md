@@ -1,6 +1,6 @@
 # AGENTS.md — Navigaite Universal CI/CD Pipeline
 
-> Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2** (version 2.4.2). <!-- x-release-please-version -->
+> Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2**. For the exact released version see `CLAUDE.md` (updated automatically by release-please).
 
 This file is the single source of truth for AI coding agents (Claude, Copilot, Cursor, Codex, etc.) working in this repo **or** setting up this pipeline in a consumer repo. `CLAUDE.md` delegates here via `@AGENTS.md`.
 
@@ -128,8 +128,8 @@ When adding this pipeline to a consumer repo, items below are marked **[MANDATOR
 ### [MANDATORY] Caller workflow
 
 - **File path**: `.github/workflows/ci.yaml`
-- **Workflow `name:`**: exactly `Navigaite Pipeline` (the org ruleset matches on this prefix)
-- **Calling job key**: exactly `pipeline`, with NO explicit `name:` field
+- **Workflow `name:`**: exactly `Navigaite Pipeline` — for consistent UI grouping and org-wide convention (ruleset enforcement is on the bare required-check job names below, not on this prefix — see §8)
+- **Calling job key**: exactly `pipeline`, with NO explicit `name:` field (this is the YAML job key used by other jobs' `needs:`)
 - **Job: `Branch Guard`** (exact name, no emoji) — required status check
 - **Job: `Check Gate`** (exact name, no emoji) — required status check
 - **Pin**: `@v2` (rolling tag) — do NOT pin to `@main` except for testing unreleased changes
@@ -251,7 +251,7 @@ Set `deployment.provider: none` and add your own job depending on `pipeline`:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - run: curl -sf "${{ secrets.DEPLOY_HOOK }}"
+      - run: curl -sf "${{ secrets.RENDER_DEPLOY_HOOK }}"  # project-defined secret
 ```
 
 ---
