@@ -4,7 +4,7 @@
 # The cron minute/hour is staggered per repo to avoid a PR storm across
 # all Navigaite repos. Bootstrap script substitutes __CRON__ at install time.
 ---
-name: Trunk Upgrade
+name: Trunk Upgrade Scheduled
 
 on:
   schedule:

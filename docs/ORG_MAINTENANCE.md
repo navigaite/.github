@@ -13,11 +13,11 @@ It does **not** manage bumps of the reusable pipeline itself — consumers pin `
 | Piece                                          | Location                                                     | Role                                                                       |
 | ---------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | Reusable `trunk-upgrade.yaml`                  | `.github/workflows/trunk-upgrade.yaml` (this repo)           | Runs `trunk upgrade`, opens a PR, enables auto-merge via the workflow App. |
-| Consumer caller                                | `.github/workflows/trunk-upgrade.yaml` (each consumer repo)  | 10-line workflow with a staggered cron; calls the reusable workflow.       |
+| Trunk Upgrade caller                           | `.github/workflows/trunk-upgrade-scheduled.yaml` (every repo) | Scheduled caller with a staggered cron; delegates to the reusable workflow at `@v2`. Distinct filename so it coexists with the reusable in this repo. |
 | Dependabot config                              | `.github/dependabot.yml` (each consumer repo)                | Weekly grouped github-actions updates. Ignores `navigaite/.github/*`.      |
 | Reusable `claude-code.yaml`                    | `.github/workflows/claude-code.yaml` (this repo)             | Runs the `claude-code-action` with diagnostics + permissive bot filter.    |
 | Claude Code caller                             | `.github/workflows/claude-code-fix.yaml` (every repo)        | Thin caller that defines triggers + gating and delegates execution to the reusable workflow at `@v2`. Distinct filename so the caller can coexist with the reusable inside this repo too. |
-| Bootstrap script                               | `scripts/bootstrap-maintenance.sh` (this repo)               | Pushes all three files into every org repo via PRs. Deletes legacy inline `claude-code.yaml` callers. Idempotent. |
+| Bootstrap script                               | `scripts/bootstrap-maintenance.sh` (this repo)               | Pushes the three caller files into every org repo via PRs. Deletes legacy caller-style `trunk-upgrade.yaml` and `claude-code.yaml` (preserves reusable definitions). Idempotent. |
 
 ## Why this shape
 
