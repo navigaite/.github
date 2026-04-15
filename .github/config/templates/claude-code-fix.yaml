@@ -15,13 +15,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event_name }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+permissions: {}
 
 jobs:
   claude:
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     # Review branch: permissive `contains(login, 'copilot')` because exact-
     # match on 'copilot-pull-request-reviewer[bot]' was observed to silently
     # skip in production (2026-04). `user.type == 'Bot'` blocks human
@@ -40,6 +41,7 @@ jobs:
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
                  github.event.comment.author_association)) ||
       (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
         contains(github.event.comment.body, '@claude') &&
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
                  github.event.comment.author_association))
