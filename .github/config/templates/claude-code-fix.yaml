@@ -22,14 +22,26 @@ permissions:
 
 jobs:
   claude:
-    # Permissive filter — exact-match on 'copilot-pull-request-reviewer[bot]'
-    # was observed to silently skip in production (2026-04); use contains().
+    # Review branch: permissive `contains(login, 'copilot')` because exact-
+    # match on 'copilot-pull-request-reviewer[bot]' was observed to silently
+    # skip in production (2026-04). `user.type == 'Bot'` blocks human
+    # accounts whose login contains "copilot" from triggering.
+    #
+    # Comment branches: require `@claude` AND trusted author_association.
+    # The reusable workflow has a redundant step-level guard for
+    # issue_comment; repeating it here saves runner spin-ups and extends
+    # the check to pull_request_review_comment as well.
     if: >-
       (github.event_name == 'pull_request_review' &&
+        github.event.review.user.type == 'Bot' &&
         contains(github.event.review.user.login, 'copilot')) ||
       (github.event_name == 'pull_request_review_comment' &&
-        contains(github.event.comment.body, '@claude')) ||
+        contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                 github.event.comment.author_association)) ||
       (github.event_name == 'issue_comment' &&
-        contains(github.event.comment.body, '@claude'))
+        contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                 github.event.comment.author_association))
     uses: navigaite/.github/.github/workflows/claude-code.yaml@v2
     secrets: inherit
