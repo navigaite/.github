@@ -120,6 +120,18 @@ fetch_remote_file() {
     | base64 -d 2>/dev/null || true
 }
 
+is_bespoke_dependabot() {
+  # Returns 0 (true) if a non-empty dependabot.yml exists WITHOUT the
+  # "Managed by navigaite/.github bootstrap" sentinel header — i.e. it
+  # was hand-maintained and the bootstrap should not steamroll it.
+  local content="$1"
+  [[ -z "$content" ]] && return 1
+  if grep -qF 'Managed by navigaite/.github bootstrap' <<< "$content"; then
+    return 1
+  fi
+  return 0
+}
+
 is_legacy_caller() {
   # Returns 0 (true) if the file exists and is a caller-style workflow
   # (no `workflow_call:` trigger) — i.e. safe to delete. Returns 1 otherwise.
@@ -148,7 +160,11 @@ plan_repo() {
   current_trunk_legacy="$(fetch_remote_file "$repo" ".github/workflows/trunk-upgrade.yaml")"
   current_claude_legacy="$(fetch_remote_file "$repo" ".github/workflows/claude-code.yaml")"
 
-  [[ "$current_dependabot" != "$desired_dependabot" ]] && changes+=("dependabot.yml")
+  if is_bespoke_dependabot "$current_dependabot"; then
+    echo "  [keep] $repo — preserving bespoke dependabot.yml (no bootstrap sentinel)" >&2
+  elif [[ "$current_dependabot" != "$desired_dependabot" ]]; then
+    changes+=("dependabot.yml")
+  fi
   [[ "$current_trunk" != "$desired_trunk" ]] && changes+=("trunk-upgrade-scheduled.yaml")
   [[ "$current_claude" != "$desired_claude" ]] && changes+=("claude-code-fix.yaml")
   if is_legacy_caller "$current_trunk_legacy"; then
@@ -187,7 +203,12 @@ apply_repo() {
   git -C "$workdir" checkout -b "$branch_name"
 
   mkdir -p "$workdir/.github/workflows"
-  cp "$DEPENDABOT_TEMPLATE" "$workdir/.github/dependabot.yml"
+  if [[ -f "$workdir/.github/dependabot.yml" ]] \
+     && ! grep -qF 'Managed by navigaite/.github bootstrap' "$workdir/.github/dependabot.yml"; then
+    echo "  [keep] $repo — bespoke dependabot.yml retained" >&2
+  else
+    cp "$DEPENDABOT_TEMPLATE" "$workdir/.github/dependabot.yml"
+  fi
   render_trunk_workflow "$repo" > "$workdir/.github/workflows/trunk-upgrade-scheduled.yaml"
   cp "$CLAUDE_TEMPLATE" "$workdir/.github/workflows/claude-code-fix.yaml"
 

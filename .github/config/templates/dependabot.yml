@@ -1,14 +1,17 @@
 # Managed by navigaite/.github bootstrap. Do not edit manually —
 # changes will be overwritten the next time bootstrap-maintenance.sh runs.
 #
-# Rationale:
-# - github-actions ecosystem catches third-party action bumps.
+# Scope:
+# - This bootstrap-managed file ONLY configures the github-actions
+#   ecosystem (third-party action bumps).
 # - The reusable `navigaite/.github` pipeline is pinned via rolling `@v2` tag,
 #   which release-please retargets on every release. Do NOT let Dependabot
 #   SHA-pin it — that would cause noise PRs on every pipeline patch.
-# - Native package ecosystems (npm, pip, docker, etc.) add themselves via
-#   repo-specific overrides; the bootstrap script appends them based on
-#   files detected in the repo.
+# - Native package ecosystems (npm, pip, docker, etc.) are NOT auto-added
+#   here. If a repo has a bespoke `dependabot.yml` (without the "Managed by"
+#   header above), the bootstrap script preserves it and skips this file.
+#   To get github-actions updates AND e.g. npm in the same repo, drop the
+#   sentinel header and maintain `dependabot.yml` by hand.
 
 version: 2
 updates:
