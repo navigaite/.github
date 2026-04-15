@@ -203,25 +203,23 @@ EOF
   if [[ -z "$ci_yaml" ]]; then
     lines+=("| \`.github/workflows/ci.yaml\` exists | 🚫 | No caller workflow found — pipeline not wired up |")
     # Skip downstream ci.yaml checks if missing.
-    local ci_present=false
   else
-    local ci_present=true
     lines+=("| \`.github/workflows/ci.yaml\` exists | ✅ | |")
 
     if grep -qE '^name:[[:space:]]+Navigaite Pipeline[[:space:]]*$' <<< "$ci_yaml"; then
       lines+=("| Workflow \`name: Navigaite Pipeline\` | ✅ | |")
     else
       local actual_name
-      actual_name="$(grep -E '^name:' <<< "$ci_yaml" | head -1 | sed 's/^name:[[:space:]]*//' | tr -d '"'"'"'' )"
+      actual_name="$(grep -E '^name:' <<< "$ci_yaml" | head -1 | sed 's/^name:[[:space:]]*//' | sed -E 's/^"(.*)"$/\1/; s/^'\''(.*)'\''$/\1/')"
       lines+=("| Workflow \`name: Navigaite Pipeline\` | ⚠️ | Current: \`${actual_name:-<none>}\` — required for uniform UI grouping |")
     fi
 
-    if grep -qE 'uses:[[:space:]]+navigaite/\.github/\.github/workflows/universal-pipeline\.yaml@v2' <<< "$ci_yaml"; then
+    if grep -qE "uses:[[:space:]]+$ORG/\.github/\.github/workflows/universal-pipeline\.yaml@v2" <<< "$ci_yaml"; then
       lines+=("| Pipeline delegates to \`universal-pipeline.yaml@v2\` | ✅ | |")
-    elif grep -qE 'uses:[[:space:]]+navigaite/\.github/\.github/workflows/universal-pipeline\.yaml@' <<< "$ci_yaml"; then
+    elif grep -qE "uses:[[:space:]]+$ORG/\.github/\.github/workflows/universal-pipeline\.yaml@" <<< "$ci_yaml"; then
       local pin
       pin="$(grep -oE 'universal-pipeline\.yaml@[^[:space:]]+' <<< "$ci_yaml" | head -1 | sed 's|.*@||')"
-      lines+=("| Pipeline pinned to \`@v2\` rolling tag | ⚠️ | Currently pinned to \`@${pin}\` — drifts from rolling release |")
+      lines+=("| Pipeline pinned to mandatory \`@v2\` tag | 🚫 | Currently pinned to \`@${pin}\` — non-\`@v2\` pins violate AGENTS.md requirements |")
     else
       lines+=("| Pipeline delegates to \`universal-pipeline.yaml\` | 🚫 | No \`uses:\` of the universal pipeline — caller may be misconfigured |")
     fi
@@ -241,13 +239,23 @@ EOF
     if grep -qE '^[[:space:]]+secrets:[[:space:]]+inherit[[:space:]]*$' <<< "$ci_yaml"; then
       lines+=("| \`secrets: inherit\` on pipeline job | ✅ | |")
     else
-      lines+=("| \`secrets: inherit\` on pipeline job | ⚠️ | Not found — reusable workflow may lack deploy/release secrets |")
+      lines+=("| \`secrets: inherit\` on pipeline job | 🚫 | Not found — required by AGENTS.md §4; caller may fail at runtime without inherited secrets |")
     fi
 
-    if grep -qE '^permissions:[[:space:]]*$' <<< "$ci_yaml"; then
+    if awk '
+      BEGIN { in_permissions = 0; valid = 0 }
+      /^permissions:[[:space:]]*\{[[:space:]]*\}[[:space:]]*($|#)/ { exit 1 }
+      /^permissions:[[:space:]]*($|#)/ { in_permissions = 1; next }
+      /^permissions:[[:space:]]*[^[:space:]#][^#]*($|[[:space:]]+#)/ { valid = 1; exit }
+      in_permissions {
+        if ($0 ~ /^[^[:space:]#][^:]*:/) { in_permissions = 0; exit 1 }
+        if ($0 ~ /^[[:space:]]+[^#[:space:]][^:]*:[[:space:]]*([^#].*)?$/) { valid = 1; exit }
+      }
+      END { exit valid ? 0 : 1 }
+    ' <<< "$ci_yaml"; then
       lines+=("| Workflow-level \`permissions:\` block | ✅ | |")
     else
-      lines+=("| Workflow-level \`permissions:\` block | ⚠️ | Not found — defaults may not cover all enabled stages |")
+      lines+=("| Workflow-level \`permissions:\` block | 🚫 | Missing or empty workflow-level \`permissions:\` — AGENTS.md §4 requires it |")
     fi
   fi
 
@@ -353,7 +361,9 @@ apply_repo() {
 
   local workdir
   workdir="$(mktemp -d)"
-  trap 'rm -rf "$workdir"' RETURN
+  local body_file
+  body_file="$(mktemp)"
+  trap 'rm -rf "$workdir"; rm -f "$body_file"' RETURN
 
   git -C "$workdir" clone --depth 1 --branch "$default_branch" "https://github.com/$ORG/$repo.git" . >/dev/null 2>&1
   git -C "$workdir" checkout -b "$branch_name"
@@ -398,8 +408,6 @@ apply_repo() {
   local audit_md
   audit_md="$(audit_repo "$repo")"
 
-  local body_file
-  body_file="$(mktemp)"
   {
     cat <<EOF
 Automated bootstrap from \`navigaite/.github\`. Installs:
@@ -423,7 +431,6 @@ EOF
     --head "$branch_name" \
     --title "chore(ci): bootstrap org maintenance automation" \
     --body-file "$body_file" >/dev/null
-  rm -f "$body_file"
 
   echo "  [done] $repo — PR opened"
 }
