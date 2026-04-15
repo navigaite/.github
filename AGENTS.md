@@ -1,44 +1,176 @@
-# Navigaite Universal CI/CD Pipeline — AI Agent Instructions
+# AGENTS.md — Navigaite Universal CI/CD Pipeline
 
-## CI Check Naming Convention
+> Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2** (version 2.4.2). <!-- x-release-please-version -->
 
-All repos in the `navigaite` org MUST follow this naming convention for GitHub Actions workflows.
+This file is the single source of truth for AI coding agents (Claude, Copilot, Cursor, Codex, etc.) working in this repo **or** setting up this pipeline in a consumer repo. `CLAUDE.md` delegates here via `@AGENTS.md`.
 
-### Required Check Names (Org Ruleset)
+---
 
-The org-level ruleset "Protected branches" requires exactly two status checks, matched by GitHub on the job `name:` field (the bare `check_run.name`, NOT the workflow-prefixed path shown in the PR UI):
+## 1. What This Repo Is
 
-| Ruleset context | Job `name:` | Purpose                                                |
-| --------------- | ----------- | ------------------------------------------------------ |
-| `Check Gate`    | `Check Gate`   | Aggregator — passes only when all pipeline stages pass |
-| `Branch Guard`  | `Branch Guard` | Enforces branch targeting rules (dev/main flow)        |
+This is **not an application** — it is a shared CI/CD infrastructure repo. It provides:
 
-GitHub's PR UI displays these as `Navigaite Pipeline / Check Gate` and `Navigaite Pipeline / Branch Guard` (the workflow name is a visual grouping prefix), but the ruleset `context` field matches the bare job name. Do not include the `Navigaite Pipeline /` prefix in ruleset configuration — it will fail to match.
+- A **reusable workflow** (`universal-pipeline.yaml`) that any repo in the `navigaite` org calls.
+- **14 composite actions** for security, lint, test, build, deploy, and release.
+- **Auto-detection** of tech stacks (Node.js, Python, Flutter).
+- **Multi-provider deployment** (Vercel, DigitalOcean, Docker/GHCR, Coolify, Render).
+- **Release automation** via release-please or semantic-release.
 
-### Caller Workflow Convention
+Consumer repos integrate by adding a thin caller workflow + a `.github/pipeline.yaml` config.
 
-Every repo's `.github/workflows/ci.yaml` MUST use:
+---
 
-```yaml
-name: Navigaite Pipeline  # EXACT — this becomes the check name prefix
+## 2. Repo Structure
+
+```
+.github/
+  workflows/
+    universal-pipeline.yaml    # Core reusable workflow (consumers call this)
+    release.yaml               # This repo's own release process
+    create-release-pr.yaml     # Reusable: generate release PRs with changelog
+    build-executables.yaml     # Reusable: PyInstaller cross-platform builds
+    claude-code.yaml           # Reusable: Claude Code AI for PR reviews + @claude
+    nightly-maintenance.yaml   # Scheduled: cache cleanup, security audits
+    test-actions.yaml          # CI: validates the composite actions themselves
+  actions/
+    setup-environment/         # Stack auto-detection + runtime setup
+    install-dependencies/      # Multi-stack dependency installation
+    run-lint/                  # Auto-detected linting
+    run-tests/                 # Auto-detected test runner
+    run-build/                 # Build + optional SLSA attestation
+    security-scan/             # TruffleHog + dependency review
+    release-management/        # release-please or semantic-release
+    sync-branches/             # Auto-sync main -> dev after release
+    deploy-vercel/
+    deploy-digitalocean/
+    deploy-docker/
+    deploy-coolify/
+    deploy-render/
+    build-executable/          # PyInstaller single-platform build
+  config/
+    examples/                  # Example pipeline.yaml files for consumers
+docs/                          # Human-readable guides
 ```
 
-The calling job MUST use the key `pipeline` with NO explicit `name:` field:
+### Pipeline Flow
+
+```
+Setup (stack detect + config parse)
+  -> Security (TruffleHog, dependency review)
+  -> Lint + Test (parallel)
+    -> Build (+ SLSA attestation)
+      -> Deploy (Vercel | DigitalOcean | Docker | Coolify | Render)
+        -> Release (release-please | semantic-release)
+          -> Sync to dev (auto-merge version bumps back)
+```
+
+Each stage is independently toggleable via the consumer's `.github/pipeline.yaml`.
+
+---
+
+## 3. Setup Flow for Consuming Agents (Q&A)
+
+**Use this flow when a user asks you to set up the Navigaite pipeline in a new or existing repo.** Ask the user these questions in order. Each answer determines what you generate.
+
+### Q1 — Branching profile (required)
+
+> Will this repo use **Profile A (small: feature → main)** or **Profile B (large: feature → dev → main with prereleases)**?
+
+- **Default to Profile A** unless the user explicitly wants a staging branch, beta versioning, or this is a large product repo (e.g. `edilio`).
+- Profile B implies: default branch = `dev`, prerelease versions on `dev`, stable on `main`, merge-commit promotions.
+
+### Q2 — Deployment provider (required)
+
+> Which deploy provider: `vercel`, `digitalocean`, `docker` (GHCR), `coolify`, `render`, or `none`?
+
+- Choose `none` if the user deploys via a custom job/webhook — you will add that job next to the `pipeline` job.
+- Provider determines which secrets the user must configure (see §6).
+
+### Q3 — Release automation (required)
+
+> Enable releases? If yes, use `release-please` (recommended) or `semantic-release`? What `type`: `node`, `python`, or `simple`?
+
+- Most consumers want `release-please` + `node` or `python`.
+- Profile B repos need TWO release-please configs (dev=prerelease, main=stable) — see §5.
+
+### Q4 — Stack override (optional)
+
+> Should stack auto-detection be overridden?
+
+- Auto-detection order: `package.json` → Node.js, `requirements.txt|pyproject.toml|setup.py|Pipfile` → Python, `pubspec.yaml` → Flutter.
+- Only override if detection picks the wrong stack.
+
+### Q5 — Custom lint/test/build commands (optional)
+
+> Are the default auto-detected commands correct, or does this repo use non-standard tooling (Turbo, Trunk, etc.)?
+
+- Only set `lint.command`, `test.command`, `build.command` if defaults don't work.
+
+### Q6 — Environments per branch (required if deploying)
+
+> Which environments (preview / staging / production) trigger on which events/branches?
+
+- Standard mapping: `preview` on PR, `staging` on push-to-dev, `production` on push-to-main.
+- Small repos (Profile A) skip `staging`.
+
+### Q7 — Secrets (required if deploying or releasing)
+
+> Have the provider-specific secrets been added to the repo (Settings → Secrets → Actions)?
+
+- If not, stop and instruct the user to add them before the pipeline will pass. See §6.
+
+---
+
+## 4. MANDATORY vs OPTIONAL — Consumer Integration Checklist
+
+When adding this pipeline to a consumer repo, items below are marked **[MANDATORY]** (required for org ruleset compliance / correctness) or **[OPTIONAL]** (project-specific).
+
+### [MANDATORY] Caller workflow
+
+- **File path**: `.github/workflows/ci.yaml`
+- **Workflow `name:`**: exactly `Navigaite Pipeline` (the org ruleset matches on this prefix)
+- **Calling job key**: exactly `pipeline`, with NO explicit `name:` field
+- **Job: `Branch Guard`** (exact name, no emoji) — required status check
+- **Job: `Check Gate`** (exact name, no emoji) — required status check
+- **Pin**: `@v2` (rolling tag) — do NOT pin to `@main` except for testing unreleased changes
+- **`secrets: inherit`** on the pipeline job
+- **`permissions:` block** at workflow level covering all enabled stages
+
+Minimal caller template (Profile A — small repo):
 
 ```yaml
+name: Navigaite Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write          # releases, tag updates
+  pull-requests: write     # PR comments
+  id-token: write          # OIDC + SLSA attestation
+  deployments: write       # deployment status
+  packages: write          # Docker/GHCR
+  attestations: write      # SLSA provenance
+  security-events: write   # SARIF uploads
+
 jobs:
-  pipeline:  # No 'name:' — GitHub uses the key
+  branch-guard:
+    name: Branch Guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "Single-branch repo — all PRs target main directly"
+
+  pipeline:
     uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
     with:
       config-file: .github/pipeline.yaml
     secrets: inherit
-```
 
-### Check Gate Job
-
-Every caller workflow MUST include a Check Gate job:
-
-```yaml
   check-gate:
     name: Check Gate
     if: always()
@@ -59,59 +191,308 @@ Every caller workflow MUST include a Check Gate job:
             echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
-          echo "✅ All pipeline jobs passed"
+          echo "All pipeline jobs passed"
 ```
 
-### Branch Guard Job
-
-Every caller workflow MUST include a Branch Guard job. Two variants:
-
-**Small repos (main only):**
-
-```yaml
-  branch-guard:
-    name: Branch Guard
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - run: echo "✅ Single-branch repo — all PRs target main directly"
-```
-
-**Large repos (dev + main):**
-
-The branch guard enforces:
+For **Profile B (large repo with dev + main)** the Branch Guard must enforce:
 
 - Feature PRs must target `dev`, not `main`
-- Only `dev` (promotion), `release-please--*` (bot), and `hotfix/*` branches can target `main`
-- Blocks promotion if dev has an open release-please PR
+- Only `dev` (promotion), `release-please--*`, and `hotfix/*` branches may target `main`
+- Block promotion if `dev` has an open release-please PR
 
-See the edilio or maimaldrei-mietkatalog `ci.yaml` files for the full implementation.
+See `edilio` or `maimaldrei-mietkatalog` `ci.yaml` for the full implementation.
 
-### Resulting Check Names (PR UI Display)
+### [MANDATORY] Pipeline config file
 
-For a consumer repo calling the universal pipeline, GitHub's PR UI displays these check paths:
+- **File path**: `.github/pipeline.yaml`
+- Must declare `version: '2.0'`
 
-- `Navigaite Pipeline / Check Gate` — **required** (ruleset context: `Check Gate`)
-- `Navigaite Pipeline / Branch Guard` — **required** (ruleset context: `Branch Guard`)
+### [MANDATORY] Conventional Commits
+
+- Commit messages must follow conventional commits (commitlint is enforced).
+- Types: `feat`, `fix`, `chore`, `ci`, `docs`, `test`, `refactor`, `perf`, `build`, `style`, `revert`.
+- Breaking: `feat!:` or footer `BREAKING CHANGE:`.
+
+### [MANDATORY] Signed commits
+
+- Org ruleset "Protected branches" requires signed commits on `main` and `dev`.
+
+### [OPTIONAL] Individual pipeline stages
+
+Each of these can be enabled/disabled via `pipeline.yaml`:
+
+- `security:` — TruffleHog + dependency review
+- `lint:` — auto-detected linting
+- `test:` — auto-detected test runner
+- `build:` — build + optional SLSA attestation
+- `deployment:` — provider choice (or `none`)
+- `release:` — release-please or semantic-release
+
+### [OPTIONAL] Stack / runtime override
+
+Only set `stack:` or `runtime:` when auto-detection is wrong.
+
+### [OPTIONAL] Custom commands
+
+Only set `lint.command`, `test.command`, `build.command` if defaults don't work.
+
+### [OPTIONAL] Infisical integration
+
+Inject build-time secrets from Infisical — configured per-consumer.
+
+### [OPTIONAL] Custom deploy jobs
+
+Set `deployment.provider: none` and add your own job depending on `pipeline`:
+
+```yaml
+  deploy-production:
+    name: Deploy Production
+    needs: [pipeline]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -sf "${{ secrets.DEPLOY_HOOK }}"
+```
+
+---
+
+## 5. Pipeline Config Reference (`.github/pipeline.yaml`)
+
+Minimal Profile A config:
+
+```yaml
+version: '2.0'
+
+deployment:
+  provider: vercel              # [MANDATORY if deploying] vercel|digitalocean|docker|coolify|render|none
+  environments:                 # [MANDATORY if deploying]
+    - name: preview
+      trigger:
+        event: pull_request
+    - name: production
+      trigger:
+        event: push
+        branch: main
+
+release:
+  enable: true                  # [OPTIONAL]
+  type: node                    # node|python|simple
+```
+
+Profile B config (dev + main with prereleases):
+
+```yaml
+release:
+  enable: true
+  strategy: release-please
+  config_file: release-please-config.json            # prerelease on dev
+  config_file_stable: release-please-config.main.json # stable on main
+  manifest_file: .release-please-manifest.json
+  sync_to_dev: true
+  prerelease_branches:
+    - branch: dev
+      label: beta
+```
+
+Full reference: `docs/CONFIGURATION.md`. Working examples: `.github/config/examples/`.
+
+---
+
+## 6. Secrets (Per Provider)
+
+Add to repo Settings → Secrets → Actions:
+
+| Provider | Required secrets |
+| --- | --- |
+| **Vercel** | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
+| **DigitalOcean** | `DIGITALOCEAN_TOKEN` |
+| **Docker / GHCR** | defaults to `GITHUB_TOKEN`; override with `DOCKER_REGISTRY_USERNAME` + `DOCKER_REGISTRY_PASSWORD` |
+| **Coolify** | `COOLIFY_URL`, `COOLIFY_TOKEN` |
+| **Render** | `RENDER_DEPLOY_HOOK` (per env) |
+| **Workflow automation (THIS repo only)** | `WORKFLOW_APP_ID` + `WORKFLOW_APP_PRIVATE_KEY` — **not needed for consumer repos**. Falls back to `GITHUB_TOKEN`. |
+
+---
+
+## 7. Branching & Release Strategy
+
+### Profile A — Small repos (feature → main)
+
+- `main` is the only long-lived branch and the default branch.
+- Feature branches squash-merge to `main` via PR.
+- release-please produces stable versions (`v1.0.0`, `v1.1.0`).
+- No `dev` branch, no prerelease versions.
+
+### Profile B — Large repos (feature → dev → main)
+
+- `dev` is the integration branch and the **default branch** (PRs target `dev` by default).
+- `main` is the production branch.
+- Feature branches squash-merge to `dev` via PR.
+- release-please on `dev` produces beta versions (`v0.4.0-beta.1`).
+- Promotion: **merge-commit** PR from `dev → main` (preserves conventional commit history).
+- release-please on `main` produces stable versions (`v1.0.0`).
+- Pipeline auto-syncs `main` back to `dev` after promotion (`sync_to_dev: true`).
+- Branch Guard blocks feature PRs targeting `main`.
+
+### Merge methods
+
+- Feature PRs: **squash** (enforced via repo-level rulesets for large repos).
+- release-please PRs: **squash**.
+- `dev → main` promotions: **merge commit** (enforced via repo-level ruleset on `main`).
+
+### Promotion preconditions (Profile B only)
+
+1. No open release-please PR on `dev`.
+2. All CI checks pass.
+3. Merge commit method (enforced by ruleset).
+
+### Repo settings (all repos)
+
+- Default branch: `dev` (Profile B) or `main` (Profile A).
+- Squash merge: enabled (title = PR title, body = PR body).
+- Merge commit: enabled.
+- Rebase: disabled.
+- Delete branch on merge: yes.
+- Auto-merge: yes.
+
+---
+
+## 8. CI Check Naming Convention
+
+### Required check names (Org Ruleset)
+
+The org-level ruleset "Protected branches" requires exactly two status checks. GitHub matches them on the bare `check_run.name` (the job `name:` field), **not** the workflow-prefixed path shown in the PR UI.
+
+| Ruleset context | Job `name:` | Purpose |
+| --- | --- | --- |
+| `Check Gate` | `Check Gate` | Aggregator — passes only when all pipeline stages pass |
+| `Branch Guard` | `Branch Guard` | Enforces branch targeting rules |
+
+The PR UI displays these as `Navigaite Pipeline / Check Gate` and `Navigaite Pipeline / Branch Guard` — the `Navigaite Pipeline /` prefix is visual grouping only. **Do NOT include the prefix in ruleset configuration** — it will fail to match.
+
+### Resulting check names (PR UI)
+
+- `Navigaite Pipeline / Check Gate` — **required**
+- `Navigaite Pipeline / Branch Guard` — **required**
 - `Navigaite Pipeline / pipeline / 🧹 Lint` — informational
 - `Navigaite Pipeline / pipeline / 🧪 Test` — informational
 - `Navigaite Pipeline / pipeline / 🏗️ Build` — informational
 - `Navigaite Pipeline / pipeline / 🔧 Setup & Configuration` — informational
 - (other pipeline stages as configured)
 
-The `Navigaite Pipeline /` prefix is GitHub's UI grouping, not part of the ruleset context. The ruleset matches the bare job `name:` field.
+### Why this convention
 
-### Why This Convention
-
-1. **No emoji in required check names** — emoji encoding varies across editors and can silently break exact-match enforcement.
-2. **Single gate check** — adding/removing pipeline stages (e.g., E2E tests) doesn't require updating the org ruleset.
-3. **Uniform prefix** — all repos produce `Navigaite Pipeline / ...` checks, making the GitHub UI consistent.
-4. **Branch Guard is separate** — it runs outside the reusable workflow as a top-level job, ensuring it always reports regardless of pipeline configuration.
+1. **No emoji in required check names** — emoji encoding varies and can silently break exact-match.
+2. **Single gate check** — adding/removing stages doesn't require updating the org ruleset.
+3. **Uniform prefix** — all repos produce `Navigaite Pipeline / ...` checks.
+4. **Branch Guard is a top-level job** — outside the reusable workflow, so it always reports regardless of pipeline configuration.
 
 ### Do NOT
 
-- Use a different workflow `name:` (e.g., `CI/CD Pipeline`, `CI`, `Build`)
-- Add an explicit `name:` to the `pipeline` job (this changes the check name prefix)
-- Remove the Check Gate or Branch Guard jobs
-- Add individual pipeline stages (Lint, Test, Build) to the org ruleset's required checks
+- Use a different workflow `name:` (e.g., `CI/CD Pipeline`, `CI`, `Build`).
+- Add an explicit `name:` to the `pipeline` job (changes the check name prefix).
+- Remove the Check Gate or Branch Guard jobs.
+- Add individual pipeline stages (Lint, Test, Build) to the org ruleset's required checks.
+
+---
+
+## 9. Org-Level & Repo-Level GitHub Rulesets
+
+### Org rulesets (apply to ALL `navigaite` repos)
+
+**"Protected branches"** — targets `~DEFAULT_BRANCH`, `refs/heads/main`, and `refs/heads/dev`:
+
+- PR required: 1 approval, dismiss stale reviews, resolve conversations.
+- Merge methods: squash + merge (repo-level rulesets narrow per branch).
+- Required status checks: `Check Gate`, `Branch Guard`.
+- Signed commits, no force push, no deletion.
+- Copilot code review: auto-review on push.
+- Bypass: org admins + `navigaite-workflow-app` bot.
+
+**"Tag protection"** — targets `v*` tags:
+
+- No deletion, no force push, restrict creation.
+- Bypass: org admins + `navigaite-workflow-app` bot.
+
+### Repo-level rulesets (Profile B only)
+
+- **"dev: squash only"** — forces squash on `dev`.
+- **"main: merge only (promotions)"** — forces merge commits on `main`.
+
+---
+
+## 10. Development Conventions (for THIS repo)
+
+### Commits
+
+Use conventional commits. Bumps driven by release-please:
+
+- `feat:` → minor bump
+- `fix:` → patch bump
+- `feat!:` or `BREAKING CHANGE:` → major bump
+- `chore:`, `ci:`, `docs:`, `test:`, `refactor:`, `perf:` → no bump (hidden unless `docs`/`refactor`/`perf`)
+
+### Versioning
+
+- release-please manages versions via `.release-please-manifest.json` and `.github/release-please-config.json`.
+- The `release.yaml` workflow updates rolling `v{MAJOR}` and `latest` tags so consumers pinned to `@v2` get patches automatically.
+- **Never manually edit version numbers** — release-please handles it.
+
+---
+
+## 11. Key Design Decisions
+
+1. **Third-party actions are SHA-pinned** — never `@v4` style tags for external actions. Always pin to exact commit SHA with a version comment.
+2. **Path traversal protection** — all actions validate `working-directory` inputs to prevent `../` attacks. `test-actions.yaml` tests this.
+3. **Stack auto-detection order**: `package.json` → Node.js, `requirements.txt|pyproject.toml|setup.py|Pipfile` → Python, `pubspec.yaml` → Flutter.
+4. **Environment filtering** — the setup job filters deployment environments by matching the current event + branch against each environment's trigger config. Only matching environments proceed to deploy jobs.
+5. **Infisical integration** — optional, per-consumer secret injection at build time.
+6. **GitHub App for workflow triggers** — `GITHUB_TOKEN` merges don't trigger subsequent workflow runs. This repo uses `WORKFLOW_APP_ID` + `WORKFLOW_APP_PRIVATE_KEY` via `actions/create-github-app-token` so release PR merges trigger the release publish workflow.
+
+---
+
+## 12. Testing Changes
+
+Run `test-actions.yaml` locally via `act` or on a feature branch. It validates:
+
+- `actionlint` on all workflow definitions.
+- Invalid stack rejection for each action.
+- Path traversal prevention.
+
+When modifying an action, **also test it against a real consumer repo** before merging.
+
+---
+
+## 13. Common Tasks
+
+### Adding a new deployment provider
+
+1. Create `.github/actions/deploy-{provider}/action.yaml`.
+2. Add the deploy job to `universal-pipeline.yaml` (follow existing `deploy-vercel` pattern).
+3. Add provider to the setup job's environment filtering logic.
+4. Add an example config in `.github/config/examples/`.
+5. Document in `docs/CONFIGURATION.md`.
+
+### Modifying pipeline stages
+
+Edit `universal-pipeline.yaml`. Each stage is a separate job with conditional execution based on the setup job's outputs. The `needs` graph enforces ordering.
+
+### Updating a pinned action version
+
+Find the SHA-pinned `uses:` line, update both the SHA and the version comment. Verify the SHA matches the tagged release on the action's repo.
+
+---
+
+## 14. Known Limitations
+
+- **Skipped deploy jobs show `${{ matrix.environment }}`** in the GitHub Actions sidebar. When a matrix job is skipped (e.g. `deploy-vercel` when provider is `none`), the matrix expression is never resolved so GitHub shows it raw. Cosmetic only — jobs are properly skipped and don't affect the pipeline result.
+
+---
+
+## 15. Further Reading
+
+- `docs/GETTING_STARTED.md` — 5-minute consumer quickstart.
+- `docs/CONFIGURATION.md` — full `pipeline.yaml` reference.
+- `docs/BRANCHING_STRATEGY.md` — Profile A vs B deep dive.
+- `docs/VERSIONING_GUIDE.md` — release-please setup.
+- `docs/ORG_MAINTENANCE.md` — org ruleset + bootstrap tooling.
+- `.github/config/examples/` — working config samples.
