@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.4](https://github.com/navigaite/.github/compare/v2.6.3...v2.6.4) (2026-04-16)
+
+
+### 🐛 Bug Fixes
+
+* **claude-code:** pass prompt for bot reviews to enable automation mode ([#97](https://github.com/navigaite/.github/issues/97)) ([f22bd76](https://github.com/navigaite/.github/commit/f22bd763127ee0df9c735a2656bcd231db936f09))
+
 ## [2.6.3](https://github.com/navigaite/.github/compare/v2.6.2...v2.6.3) (2026-04-15)
 
 
