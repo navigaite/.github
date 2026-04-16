@@ -187,12 +187,36 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
 
+      # For bot-triggered pull_request_review events (e.g. Copilot reviews),
+      # craft a prompt so the action runs in automation mode. Without a
+      # prompt, the action stays in interactive mode and looks for the
+      # trigger_phrase (@claude) in the review body — which bot reviews
+      # never contain, causing "No trigger found, skipping remaining steps".
+      - name: Craft bot-review prompt
+        id: review-prompt
+        if: >-
+          github.event_name == 'pull_request_review' &&
+          github.event.review.user.type == 'Bot'
+        shell: bash
+        run: |
+          {
+            echo 'prompt<<PROMPT_EOF'
+            echo 'A code reviewer has submitted a review on this pull request.'
+            echo 'Review the PR changes and all of the reviewer'\''s comments (both top-level and inline).'
+            echo 'Address valid suggestions by making code changes.'
+            echo 'If a suggestion does not apply, reply to the comment explaining why.'
+            echo 'PROMPT_EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@1c8b699d43e9bfed42b48ef15da85d89bab70960 # v1
         with:
           trigger_phrase: ${{ inputs.trigger_phrase }}
           allowed_bots: ${{ inputs.allowed_bots }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # For bot reviews, supply the crafted prompt so the action enters
+          # automation mode instead of waiting for a trigger_phrase match.
+          prompt: ${{ steps.review-prompt.outputs.prompt || '' }}
           # Only override github_token for bot-triggered runs. Human triggers
           # continue through the default OIDC exchange so commits carry the
           # `claude[bot]` identity.
