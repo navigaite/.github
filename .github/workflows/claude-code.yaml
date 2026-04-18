@@ -24,9 +24,13 @@ name: 🤖 Claude Code
 #       #
 #       # Comment branches: gate on the `@claude` keyword AND on
 #       # author_association so untrusted commenters cannot trigger runs.
-#       # Step-level check in this reusable workflow covers `issue_comment`
-#       # redundantly; adding it here saves runner spin-ups on both comment
-#       # event types.
+#       # The `navigaite-workflow-app[bot]` OR-branch lets the reusable
+#       # workflow's own `repost-copilot-review` step (below) re-fire
+#       # Claude via a synthesized `@claude` comment when the original
+#       # trigger was a Copilot review — `claude-code-action@v1`'s
+#       # `checkHumanActor` calls `users.getByUsername('Copilot')`
+#       # which 404s (Copilot is a virtual actor with no user record),
+#       # so we proxy the review into a normal comment event.
 #       if: >-
 #         (github.event_name == 'pull_request_review' &&
 #           github.event.review.user.type == 'Bot' &&
@@ -38,8 +42,9 @@ name: 🤖 Claude Code
 #         (github.event_name == 'issue_comment' &&
 #           github.event.issue.pull_request &&
 #           contains(github.event.comment.body, '@claude') &&
-#           contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-#                    github.event.comment.author_association))
+#           (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+#                     github.event.comment.author_association) ||
+#            github.event.comment.user.login == 'navigaite-workflow-app[bot]'))
 #       permissions:
 #         contents: write
 #         pull-requests: write
@@ -99,8 +104,85 @@ on:
 permissions: {}
 
 jobs:
+  # Copilot PR reviews cannot run claude-code-action directly: its
+  # `checkHumanActor` step calls `octokit.users.getByUsername('Copilot')`
+  # which 404s (Copilot is a virtual actor with no user record). No
+  # action input bypasses that lookup — see
+  # src/github/validation/actor.ts and upstream PRs #1018 / #1030 / #1144.
+  #
+  # Workaround: mint our GitHub App token, fetch the Copilot review + its
+  # inline comments, and post them as a single synthesized `@claude`
+  # issue comment on the PR. The `issue_comment` trigger fires a new
+  # run where `github.actor == 'navigaite-workflow-app[bot]'` — a real
+  # bot user that resolves — and `checkHumanActor`'s `allowed_bots: *`
+  # branch takes over.
+  repost-copilot-review:
+    name: 🔁 Repost Copilot review as @claude comment
+    if: >-
+      github.event_name == 'pull_request_review' &&
+      github.event.review.user.type == 'Bot' &&
+      contains(github.event.review.user.login, 'copilot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write     # post the @claude issue comment
+    steps:
+      - name: 🔍 Require app secrets
+        shell: bash
+        env:
+          APP_ID: ${{ secrets.WORKFLOW_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$APP_ID" || -z "$APP_PRIVATE_KEY" ]]; then
+            echo "::error::WORKFLOW_APP_ID/WORKFLOW_APP_PRIVATE_KEY required to repost Copilot reviews."
+            exit 1
+          fi
+
+      - name: 🔑 Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+
+      - name: 📤 Post review as @claude comment
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          REVIEW_ID: ${{ github.event.review.id }}
+          REVIEW_USER: ${{ github.event.review.user.login }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
+        run: |
+          set -euo pipefail
+
+          # shellcheck disable=SC2016  # jq filter, not shell expansion
+          inline="$(gh api "repos/${REPO}/pulls/${PR}/reviews/${REVIEW_ID}/comments" \
+            --jq '[.[] | "- **`" + .path + (if .line then ":" + (.line|tostring) else "" end) + "`** — " + .body] | join("\n\n")' \
+            || echo "")"
+
+          jq -n \
+            --arg user "$REVIEW_USER" \
+            --arg rb "${REVIEW_BODY:-_(no summary provided)_}" \
+            --arg inline "${inline:-_(no inline comments)_}" \
+            --arg url "$REVIEW_URL" \
+            '{body: ("@claude A code reviewer (**" + $user + "**) submitted a review on this PR. Please address valid suggestions by making code changes, and reply to any inline comment where the suggestion does not apply, explaining why.\n\n**Summary**\n\n" + $rb + "\n\n**Inline comments**\n\n" + $inline + "\n\n_[Original review](" + $url + ")_")}' \
+            | gh api "repos/${REPO}/issues/${PR}/comments" --input -
+
+          echo "::notice::Reposted Copilot review from ${REVIEW_USER} as @claude comment on PR #${PR}."
+
   claude:
     name: 🤖 Claude Code
+    # Copilot PR reviews are handled by `repost-copilot-review` above —
+    # skip the direct claude-code-action path here to avoid the 404 on
+    # `users.getByUsername('Copilot')`. The repost job triggers a fresh
+    # `issue_comment` run that lands here via the trusted-bot branch.
+    if: >-
+      !(github.event_name == 'pull_request_review' &&
+        github.event.review.user.type == 'Bot' &&
+        contains(github.event.review.user.login, 'copilot'))
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.timeout_minutes }}
     permissions:
@@ -133,10 +215,16 @@ jobs:
             echo "| triggering_actor | \`${TRIGGERING_ACTOR}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Bypass the MEMBER/OWNER/COLLABORATOR gate for comments posted by
+      # our own GitHub App — that's how `repost-copilot-review` re-enters
+      # Claude after a Copilot review (the app's comments have
+      # `author_association: NONE` but are trusted by construction since
+      # only the installed app can mint its own token).
       - name: Check author association
         if: >-
           github.event_name == 'issue_comment' &&
-          !contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)
+          !contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association) &&
+          github.event.comment.user.login != 'navigaite-workflow-app[bot]'
         shell: bash
         env:
           AUTHOR_ASSOCIATION: ${{ github.event.comment.author_association }}

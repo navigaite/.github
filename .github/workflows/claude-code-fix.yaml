@@ -30,9 +30,11 @@ jobs:
     # accounts whose login contains "copilot" from triggering.
     #
     # Comment branches: require `@claude` AND trusted author_association.
-    # The reusable workflow has a redundant step-level guard for
-    # issue_comment; repeating it here saves runner spin-ups and extends
-    # the check to pull_request_review_comment as well.
+    # The `navigaite-workflow-app[bot]` OR-branch admits synthesized
+    # `@claude` comments posted by the reusable workflow's own
+    # `repost-copilot-review` job — that's how Copilot reviews are
+    # handled, since claude-code-action@v1 `checkHumanActor` 404s on
+    # `users.getByUsername('Copilot')`.
     if: >-
       (github.event_name == 'pull_request_review' &&
         github.event.review.user.type == 'Bot' &&
@@ -44,7 +46,8 @@ jobs:
       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
         contains(github.event.comment.body, '@claude') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-                 github.event.comment.author_association))
+        (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                  github.event.comment.author_association) ||
+         github.event.comment.user.login == 'navigaite-workflow-app[bot]'))
     uses: navigaite/.github/.github/workflows/claude-code.yaml@v2
     secrets: inherit
