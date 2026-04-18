@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.5](https://github.com/navigaite/.github/compare/v2.6.4...v2.6.5) (2026-04-18)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** repost Copilot reviews as [@claude](https://github.com/claude) comments ([#99](https://github.com/navigaite/.github/issues/99)) ([bf6d42e](https://github.com/navigaite/.github/commit/bf6d42e8460839288d1f6775ae85e89b65129b9c))
+
 ## [2.6.4](https://github.com/navigaite/.github/compare/v2.6.3...v2.6.4) (2026-04-16)
 
 
