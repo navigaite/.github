@@ -1109,9 +1109,22 @@ jobs:
       # "Skip output 'token' since it may contain secret." warning, which
       # silently degrades to GITHUB_TOKEN and breaks workflow triggering on
       # release-please PR pushes.
+      - name: 🔎 Check app credentials
+        id: app-creds
+        shell: bash
+        env:
+          APP_ID: ${{ secrets.WORKFLOW_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+        run: |
+          if [[ -n "$APP_ID" && -n "$PRIVATE_KEY" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 🔑 Mint GitHub App token
         id: app-token
-        if: ${{ secrets.WORKFLOW_APP_ID != '' && secrets.WORKFLOW_APP_PRIVATE_KEY != '' }}
+        if: steps.app-creds.outputs.available == 'true'
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
@@ -1191,9 +1204,22 @@ jobs:
       needs.release.result == 'success' &&
       (needs.deploy-docker.result == 'success' || needs.deploy-docker.result == 'skipped')
     steps:
+      - name: 🔎 Check app credentials
+        id: app-creds
+        shell: bash
+        env:
+          APP_ID: ${{ secrets.WORKFLOW_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+        run: |
+          if [[ -n "$APP_ID" && -n "$PRIVATE_KEY" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 🔑 Mint GitHub App token
         id: app-token
-        if: ${{ secrets.WORKFLOW_APP_ID != '' && secrets.WORKFLOW_APP_PRIVATE_KEY != '' }}
+        if: steps.app-creds.outputs.available == 'true'
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
