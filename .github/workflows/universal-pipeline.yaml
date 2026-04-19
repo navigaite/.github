@@ -85,8 +85,21 @@ on:
       DOCKER_REGISTRY_PASSWORD:
         required: false
 
-      # GitHub token (for deployments and release-please)
+      # GitHub token (for deployments and release-please).
+      # Prefer passing WORKFLOW_APP_ID + WORKFLOW_APP_PRIVATE_KEY so the reusable
+      # workflow can mint an installation token in-job — release-please pushes
+      # authenticated with a cross-job-passed token are stripped by GitHub
+      # (masked outputs), which silently falls back to GITHUB_TOKEN and breaks
+      # downstream workflow triggering on release PRs.
       GH_TOKEN:
+        required: false
+
+      # GitHub App credentials for minting installation tokens in-job.
+      # When both are set, release + sync steps push with the app token so that
+      # downstream workflows (e.g. the pipeline itself on the release PR) fire.
+      WORKFLOW_APP_ID:
+        required: false
+      WORKFLOW_APP_PRIVATE_KEY:
         required: false
 
       # Infisical Universal Auth for loading secrets at build-time
@@ -1091,6 +1104,19 @@ jobs:
       github.event_name == 'push' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     steps:
+      # Minting the installation token in-job is deliberate: passing a token
+      # through `needs.*.outputs.*` makes GitHub Actions strip it with the
+      # "Skip output 'token' since it may contain secret." warning, which
+      # silently degrades to GITHUB_TOKEN and breaks workflow triggering on
+      # release-please PR pushes.
+      - name: 🔑 Mint GitHub App token
+        id: app-token
+        if: ${{ secrets.WORKFLOW_APP_ID != '' && secrets.WORKFLOW_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+
       - name: 📥 Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -1134,7 +1160,7 @@ jobs:
         id: release-mgmt
         uses: navigaite/.github/.github/actions/release-management@v2
         with:
-          github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token || secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           strategy: ${{ needs.setup.outputs.release-strategy }}
           force-patch-on-no-release: ${{ needs.setup.outputs.release-force-patch-on-no-release }}
           extra-plugins: ${{ needs.setup.outputs.release-extra-plugins }}
@@ -1165,18 +1191,26 @@ jobs:
       needs.release.result == 'success' &&
       (needs.deploy-docker.result == 'success' || needs.deploy-docker.result == 'skipped')
     steps:
+      - name: 🔑 Mint GitHub App token
+        id: app-token
+        if: ${{ secrets.WORKFLOW_APP_ID != '' && secrets.WORKFLOW_APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+
       - name: 📥 Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token || secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: 🔄 Sync Branches
         uses: navigaite/.github/.github/actions/sync-branches@v2
         with:
           source-branch: main
           target-branch: ${{ needs.setup.outputs.sync-target-branch }}
-          github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token || secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           create-pr: false
           auto-merge-pr: true
 
