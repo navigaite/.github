@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.6](https://github.com/navigaite/.github/compare/v2.6.5...v2.6.6) (2026-04-19)
+
+
+### 🐛 Bug Fixes
+
+* **pipeline:** mint release app token in-job so release-please PRs trigger CI ([#101](https://github.com/navigaite/.github/issues/101)) ([6069ef7](https://github.com/navigaite/.github/commit/6069ef74b80ff54d1fafe453362c083f17a6ceb3))
+
 ## [2.6.5](https://github.com/navigaite/.github/compare/v2.6.4...v2.6.5) (2026-04-18)
 
 
