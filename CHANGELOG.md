@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.0](https://github.com/navigaite/.github/compare/v2.6.9...v2.7.0) (2026-04-20)
+
+
+### ✨ Features
+
+* **ci:** skip test/build/deploy on docs-only PRs ([#116](https://github.com/navigaite/.github/issues/116)) ([b87fc0d](https://github.com/navigaite/.github/commit/b87fc0dee9e8aa568aebe4ecd06a6bceb00c9c87))
+
 ## [2.6.9](https://github.com/navigaite/.github/compare/v2.6.8...v2.6.9) (2026-04-20)
 
 
