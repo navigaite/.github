@@ -483,13 +483,62 @@ Find the SHA-pinned `uses:` line, update both the SHA and the version comment. V
 
 ---
 
-## 14. Known Limitations
+## 14. Skipping CI Runs
+
+The pipeline has three ways to avoid burning CI minutes on work that doesn't need full validation.
+
+### Auto-skip on docs-only PRs (v2.6.10+)
+
+When a pull request's changed file list matches only these patterns, the pipeline automatically skips `test`, `build`, and all `deploy-*` jobs:
+
+- `**/*.md`, `**/*.mdx`
+- `docs/**`, `**/docs/**`
+- `**/LICENSE`, `**/LICENSE.*`
+
+`security` and `lint` still run — they're fast and can catch issues in markdown/config too. `release` and `sync-to-dev` still run on push events so docs commits land in changelogs as intended.
+
+The classification uses the GitHub PR Files API from the `setup` job, so it works without any extra git fetch. If the API lookup fails, the pipeline falls back to a full run (safe default). Detection only applies to `pull_request` events — `push` events (e.g. merges to `dev`/`main`) always run the full pipeline so deploys aren't silently skipped.
+
+### Native `[skip ci]` in commit messages
+
+GitHub natively skips **all workflow runs** for a push/PR when the head commit message contains any of these markers:
+
+- `[skip ci]`
+- `[ci skip]`
+- `[no ci]`
+- `[skip actions]`
+- `[actions skip]`
+
+Use this for commits that genuinely don't need any CI (e.g. `chore: fix typo in trailing comment`). **Caveat:** required status checks won't report, so PRs can't be merged without manually re-running CI first. Safer for push commits on feature branches than for PRs headed to merge.
+
+### Draft PRs
+
+By default, draft PRs still trigger the full pipeline — GitHub's default `pull_request` event includes drafts. Consumer caller workflows that want to skip CI on drafts can add:
+
+```yaml
+on:
+  pull_request:
+    branches: [main, dev]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  pipeline:
+    if: github.event.pull_request.draft == false
+    uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
+    ...
+```
+
+The `ready_for_review` trigger type is required — without it, un-drafting a PR doesn't fire a new workflow run, so the pipeline would never execute. This is a per-consumer opt-in; not all repos want draft skip.
+
+---
+
+## 15. Known Limitations
 
 - **Skipped deploy jobs show `${{ matrix.environment }}`** in the GitHub Actions sidebar. When a matrix job is skipped (e.g. `deploy-vercel` when provider is `none`), the matrix expression is never resolved so GitHub shows it raw. Cosmetic only — jobs are properly skipped and don't affect the pipeline result.
 
 ---
 
-## 15. Further Reading
+## 16. Further Reading
 
 - `docs/GETTING_STARTED.md` — 5-minute consumer quickstart.
 - `docs/CONFIGURATION.md` — full `pipeline.yaml` reference.
