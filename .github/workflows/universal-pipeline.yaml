@@ -195,6 +195,7 @@ jobs:
       release-config-file: ${{ steps.parse-config.outputs.release-config-file }}
       release-config-file-stable: ${{ steps.parse-config.outputs.release-config-file-stable }}
       release-manifest-file: ${{ steps.parse-config.outputs.release-manifest-file }}
+      release-draft-pull-request: ${{ steps.parse-config.outputs.release-draft-pull-request }}
 
     steps:
       - name: 📥 Checkout code
@@ -334,6 +335,11 @@ jobs:
             RP_CONFIG_FILE_STABLE=$(yq -r '.release.config_file_stable // ""' "$CONFIG_FILE")
             RP_MANIFEST_FILE=$(yq -r '.release.manifest_file // ""' "$CONFIG_FILE")
 
+            # Open release-please PRs in draft by default so the caller's
+            # full pipeline doesn't run on every merge to the release branch.
+            # Release PRs are human-gated: marking them ready re-triggers CI.
+            RP_DRAFT_PR=$(yq '.release.draft_pull_request // true' "$CONFIG_FILE")
+
             # Validate release strategy
             if [[ "$RELEASE_STRATEGY" != "release-please" && "$RELEASE_STRATEGY" != "semantic-release" ]]; then
               echo "::warning::Invalid release.strategy '$RELEASE_STRATEGY'. Falling back to 'release-please'"
@@ -435,6 +441,7 @@ jobs:
           echo "release-config-file=$RP_CONFIG_FILE" >> $GITHUB_OUTPUT
           echo "release-config-file-stable=$RP_CONFIG_FILE_STABLE" >> $GITHUB_OUTPUT
           echo "release-manifest-file=$RP_MANIFEST_FILE" >> $GITHUB_OUTPUT
+          echo "release-draft-pull-request=$RP_DRAFT_PR" >> $GITHUB_OUTPUT
 
           echo ""
           echo "📦 Configuration Summary:"
@@ -1242,6 +1249,7 @@ jobs:
           prerelease: ${{ steps.prerelease.outputs.is-prerelease }}
           prerelease-type: ${{ steps.prerelease.outputs.prerelease-type }}
           release-type: ${{ needs.setup.outputs.release-type != '' && needs.setup.outputs.release-type || (needs.setup.outputs.stack == 'nodejs' && 'node' || needs.setup.outputs.stack == 'python' && 'python' || 'simple') }}
+          draft-pull-request: ${{ needs.setup.outputs.release-draft-pull-request }}
   # =============================================================================
   # SYNC MAIN TO DEV (After Release)
   # =============================================================================

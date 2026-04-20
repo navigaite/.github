@@ -72,6 +72,18 @@ inputs:
     required: false
     default: ''
 
+  draft-pull-request:
+    description: >-
+      Open release-please PRs in draft mode. Defaults to 'true' so the
+      caller's full pipeline (test/build/deploy) does not run on every
+      merge to the release branch — the release PR only triggers the
+      full pipeline when a human marks it "ready for review", at which
+      point release-please has already aggregated all changes since the
+      last release. Set to 'false' for legacy behavior. Only applies to
+      the release-please strategy.
+    required: false
+    default: 'true'
+
 outputs:
   release-created:
     description: Whether a release was created
@@ -145,6 +157,7 @@ runs:
         config-file: ${{ inputs.config-file }}
         manifest-file: ${{ inputs.manifest-file || '.release-please-manifest.json' }}
         target-branch: ${{ inputs.target-branch || github.ref_name }}
+        draft-pull-request: ${{ inputs.draft-pull-request }}
 
     - name: Run Release Please (legacy mode)
       id: release-please
@@ -154,6 +167,7 @@ runs:
         token: ${{ inputs.github-token }}
         release-type: ${{ inputs.release-type }}
         target-branch: ${{ inputs.target-branch || github.ref_name }}
+        draft-pull-request: ${{ inputs.draft-pull-request }}
 
     - name: Run Semantic Release
       id: semantic-release

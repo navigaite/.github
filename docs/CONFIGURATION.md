@@ -210,6 +210,28 @@ If the repo is a Turborepo monorepo, `run-tests` and `run-build` automatically r
 
 On a cache hit, Turbo skips tasks whose inputs haven't changed — typically turning lint/test/build into near-no-ops on unrelated package changes.
 
+#### Draft release-please PRs (automatic, v2.8.0+)
+
+By default, release-please PRs are opened in **draft** mode. This prevents the full pipeline (test, build, deploy) from running every time a feature PR merges to the release branch and triggers a release-please re-run (which updates the existing release PR's changelog).
+
+- When the release is ready to publish, a human marks the release PR ready-for-review, which re-triggers the full pipeline.
+- If CI passes, the release PR can be merged, publishing the release.
+- Opt out per-repo via `release.draft_pull_request: false`.
+
+Your caller workflow **must** include `ready_for_review` in the PR `types:` and skip draft PRs — see [AGENTS.md §4](../AGENTS.md) for the updated template:
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  pipeline:
+    if: github.event.pull_request.draft != true
+    # ...
+```
+
 #### Docs-only PR auto-skip (automatic, v2.7.0+)
 
 When a pull request changes only files matching `**/*.md`, `**/*.mdx`, `docs/**`, `**/docs/**`, or `**/LICENSE*`, the pipeline automatically skips `test`, `build`, and all `deploy-*` jobs. `security` and `lint` still run.

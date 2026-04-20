@@ -147,6 +147,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # ready_for_review required — without it, un-drafting a PR doesn't
+    # fire a new run, so draft release-please PRs would never execute CI.
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: write          # releases, tag updates
@@ -167,6 +170,11 @@ jobs:
       - run: echo "Single-branch repo — all PRs target main directly"
 
   pipeline:
+    # Skip draft PRs. release-please opens its release PRs as drafts by
+    # default (v2.8.0+) so the full pipeline doesn't run on every merge
+    # that updates the release PR's changelog — it only fires when a
+    # human marks the release PR ready to publish.
+    if: github.event.pull_request.draft != true
     uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
     with:
       config-file: .github/pipeline.yaml

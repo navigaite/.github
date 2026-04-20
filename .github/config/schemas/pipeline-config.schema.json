@@ -367,6 +367,11 @@
           "type": "string",
           "description": "Target branch for back-merge after release",
           "default": "dev"
+        },
+        "draft_pull_request": {
+          "type": "boolean",
+          "description": "Open release-please PRs in draft mode so the caller's full pipeline does not run on every merge to the release branch. Marking the PR ready-for-review re-triggers CI. Only applies to the release-please strategy.",
+          "default": true
         }
       }
     }
