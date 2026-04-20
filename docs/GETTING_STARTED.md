@@ -15,24 +15,64 @@ This guide will walk you through setting up the Universal CI/CD Pipeline v2 for 
 
 ### Step 1: Create Workflow File (1 min)
 
-Create `.github/workflows/ci.yaml` in your project:
+Create `.github/workflows/ci.yaml` in your project. The template below is **org-ruleset compliant** — it wires the mandatory `Branch Guard` and `Check Gate` status checks the org ruleset "Protected branches" requires.
+
+> **Do not rename the workflow or jobs.** The `name: Navigaite Pipeline` header and the bare job names `Branch Guard` / `Check Gate` are required for the org ruleset to match. See [AGENTS.md §8](../AGENTS.md) for the full naming convention.
 
 ```yaml
-name: CI/CD Pipeline
+name: Navigaite Pipeline
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  deployments: write
+  packages: write
+  id-token: write
+  attestations: write
+  security-events: write
 
 jobs:
+  branch-guard:
+    name: Branch Guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "Single-branch repo — all PRs target main directly"
+
   pipeline:
     uses: navigaite/.github/.github/workflows/universal-pipeline.yaml@v2
     with:
       config-file: .github/pipeline.yaml
     secrets: inherit
+
+  check-gate:
+    name: Check Gate
+    if: always()
+    needs: [pipeline]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate pipeline result
+        shell: bash
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          set -euo pipefail
+          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
+          if [[ "$FAILURES" -gt 0 ]]; then
+            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
+            exit 1
+          fi
 ```
+
+> Using the `dev` + `main` profile (large repos)? The Branch Guard job must instead enforce that feature PRs target `dev` and only promotion/release-please/hotfix branches target `main`. See [AGENTS.md §4](../AGENTS.md) for the Profile B caller.
 
 ### Step 2: Create Configuration File (2 min)
 
@@ -330,6 +370,16 @@ runtime:
 2. Look for the red X to see which step failed
 3. Click on the failed step to see error messages
 
+## 🏃 Skipping CI When It Doesn't Matter
+
+The pipeline has three ways to avoid burning CI minutes on work that doesn't need full validation:
+
+**1. Auto-skip for docs-only PRs (v2.7.0+)** — pull requests that only touch `*.md`, `*.mdx`, `docs/**`, or `LICENSE*` files automatically skip `test`, `build`, and all `deploy-*` jobs. `security` and `lint` still run. Push events (merges to `main`/`dev`) always run the full pipeline so deploys are never silently skipped. Nothing to configure — it's on by default.
+
+**2. Native `[skip ci]` in commit messages** — include `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]`, or `[actions skip]` in the head commit message to skip all workflow runs entirely. Caveat: required status checks won't report, so PRs can't be merged without manually re-running CI.
+
+**3. Draft PR skip (opt-in)** — add `if: github.event.pull_request.draft == false` to your pipeline job and include `ready_for_review` in your PR `types:` to skip CI on drafts until marked ready. Example in [AGENTS.md §14](../AGENTS.md).
+
 ## 💡 Pro Tips
 
 1. **Start minimal**: Begin with just CI (no deployment), then add deployment later
@@ -337,6 +387,7 @@ runtime:
 3. **Test locally first**: Run `npm test`, `npm run build` locally before pushing
 4. **Check Actions tab**: Monitor your pipeline runs
 5. **Read the logs**: Error messages are usually very helpful
+6. **Leverage turbo caching**: If you use [Turborepo](https://turbo.build/), the pipeline automatically restores and saves `node_modules/.cache/turbo` across runs (v2.6.9+) — lint/test/build become near-instant on unchanged packages
 
 ## 🎓 Common Workflows
 

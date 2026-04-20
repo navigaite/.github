@@ -200,6 +200,24 @@ Enable dependency and build output caching.
 - Caches pub for Flutter
 - Uses GitHub Actions cache
 
+#### Turborepo cache (automatic, v2.6.9+)
+
+If the repo is a Turborepo monorepo, `run-tests` and `run-build` automatically restore and save `node_modules/.cache/turbo` using the GitHub Actions cache. No configuration needed.
+
+- **Test cache key:** `turbo-tests-${OS}-${branch}-${sha}` (with cross-branch fallback)
+- **Build cache key:** `turbo-build-${OS}-${branch}-${sha}` (with cross-branch fallback)
+- **Path:** `node_modules/.cache/turbo`
+
+On a cache hit, Turbo skips tasks whose inputs haven't changed — typically turning lint/test/build into near-no-ops on unrelated package changes.
+
+#### Docs-only PR auto-skip (automatic, v2.7.0+)
+
+When a pull request changes only files matching `**/*.md`, `**/*.mdx`, `docs/**`, `**/docs/**`, or `**/LICENSE*`, the pipeline automatically skips `test`, `build`, and all `deploy-*` jobs. `security` and `lint` still run.
+
+- **Applies only to `pull_request` events** — push events (including merges to `main`/`dev`) always run the full pipeline so releases and deploys aren't silently skipped.
+- Detection uses the GitHub PR Files API; if the lookup fails the pipeline falls back to a full run.
+- No configuration needed — opt-out by manually re-running workflow dispatch.
+
 ---
 
 ### `security` (optional)

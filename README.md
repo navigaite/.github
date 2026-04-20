@@ -23,16 +23,28 @@ The Universal Pipeline is a **reusable GitHub Actions workflow** that auto-detec
 | | |
 |:--|:--|
 | **Stacks** | Node.js, Python, Flutter (auto-detected) |
-| **Deploy** | Vercel, DigitalOcean, Docker |
+| **Deploy** | Vercel, DigitalOcean, Docker (Coolify + Render as standalone composites) |
 | **Security** | TruffleHog, dependency review, Trivy, SLSA attestations |
 | **Releases** | release-please or semantic-release with conventional commits |
+| **Caching** | Dependency caches + automatic **Turborepo** remote cache (v2.6.9+) |
+| **Skip-on-docs** | PRs touching only `*.md` / `docs/**` skip test+build+deploy (v2.7.0+) |
+| **AI review** | Reusable Claude Code workflow for `@claude` PR reviews + fix commands |
 | **Maintenance** | Nightly security audits, cache cleanup, dependency checks |
+
+### What's new in v2.7.0 (2026-04-20)
+
+- **Docs-only PR skip** — test, build and deploy jobs are skipped automatically on pull requests that change only markdown / `docs/**` / `LICENSE*` files ([#116](https://github.com/navigaite/.github/pull/116)). See [AGENTS.md §14](./AGENTS.md).
+- **Turborepo cache across runs** (v2.6.9) — `run-tests` and `run-build` restore and save `node_modules/.cache/turbo` automatically ([#114](https://github.com/navigaite/.github/pull/114)).
+- **Leaner dependency install** (v2.6.8) — redundant global `pnpm` install dropped from setup ([#112](https://github.com/navigaite/.github/pull/112)).
+- **Claude Code reliability** (v2.6.2 – v2.6.7) — app-token minting for bot-triggered runs, Copilot review repost, queueing instead of cancellation.
 
 ---
 
 ## Quick Start
 
-**1. Add the workflow** to your repo at `.github/workflows/ci.yaml`:
+**1. Add the workflow** to your repo at `.github/workflows/ci.yaml`.
+
+The template is **org-ruleset compliant** — the workflow `name:` and the `Branch Guard` / `Check Gate` job names are required for the ruleset "Protected branches" to match status checks. Do not rename them.
 
 ```yaml
 name: Navigaite Pipeline
@@ -57,6 +69,7 @@ jobs:
     name: Branch Guard
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - run: echo "Single-branch repo — all PRs target main directly"
 
@@ -71,6 +84,7 @@ jobs:
     if: always()
     needs: [pipeline]
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - name: Evaluate pipeline result
         shell: bash
