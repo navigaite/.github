@@ -6,7 +6,7 @@
 <p align="center">
   <a href="https://github.com/navigaite/.github/releases/latest"><img src="https://img.shields.io/github/v/release/navigaite/.github?label=version&sort=semver&style=flat-square&color=4f46e5" alt="Latest Release"></a>
   <a href="https://github.com/navigaite/.github/actions/workflows/ci.yaml"><img src="https://img.shields.io/github/actions/workflow/status/navigaite/.github/ci.yaml?branch=main&style=flat-square&label=CI" alt="CI Status"></a>
-  <a href="https://github.com/navigaite/.github/actions/workflows/nightly-maintenance.yaml"><img src="https://img.shields.io/github/actions/workflow/status/navigaite/.github/nightly-maintenance.yaml?branch=main&style=flat-square&label=nightly" alt="Nightly"></a>
+  <a href="https://github.com/navigaite/.github/actions/workflows/nightly-maintenance.yaml"><img src="https://img.shields.io/github/actions/workflow/status/navigaite/.github/nightly-maintenance.yaml?branch=main&style=flat-square&label=weekly" alt="Weekly Maintenance"></a>
   <a href="https://github.com/navigaite/.github/blob/main/LICENSE"><img src="https://img.shields.io/github/license/navigaite/.github?style=flat-square&color=gray" alt="License"></a>
 </p>
 
@@ -29,7 +29,7 @@ The Universal Pipeline is a **reusable GitHub Actions workflow** that auto-detec
 | **Caching** | Dependency caches + automatic **Turborepo** remote cache (v2.6.9+) |
 | **Skip-on-docs** | PRs touching only `*.md` / `docs/**` skip test+build+deploy (v2.7.0+) |
 | **AI review** | Reusable Claude Code workflow for `@claude` PR reviews + fix commands |
-| **Maintenance** | Nightly security audits, cache cleanup, dependency checks |
+| **Maintenance** | Weekly security audits, cache cleanup, workflow lint |
 
 ### What's new in v2.7.0 (2026-04-20)
 
@@ -246,7 +246,7 @@ release:
 |-------|------|---------|
 | Secrets | TruffleHog | Detect leaked credentials |
 | Dependencies | Dependency Review | Vulnerable package detection in PRs |
-| Containers | Trivy | Nightly vulnerability scans + SARIF upload |
+| Containers | Trivy | Weekly vulnerability scans + SARIF upload |
 | Build | SLSA Attestations | Supply chain integrity |
 | Code | Shell injection prevention | All actions use `env:` blocks (semgrep compliant) |
 | Actions | SHA-pinned versions | Immutable third-party dependencies |
@@ -277,14 +277,13 @@ release:
 
 ---
 
-## Nightly Maintenance
+## Weekly Maintenance
 
-Runs daily at **02:00 UTC** via [nightly-maintenance.yaml](.github/workflows/nightly-maintenance.yaml):
+Runs every Monday at **02:00 UTC** via [nightly-maintenance.yaml](.github/workflows/nightly-maintenance.yaml):
 
 - Cleanup workflow runs > 30 days
 - Purge caches > 7 days
 - Trivy security audit (SARIF upload)
-- Outdated dependency report
 - Workflow lint (actionlint)
 
 ---
