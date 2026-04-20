@@ -509,7 +509,7 @@ jobs:
 
           echo "docs-only=$DOCS_ONLY" >> "$GITHUB_OUTPUT"
           if [[ "$DOCS_ONLY" == "true" ]]; then
-            echo "::notice::PR contains only docs/LICENSE changes — test/build/deploy will be skipped."
+            echo "::notice::PR contains only docs/LICENSE changes — security, lint, test, build, and deploy will be skipped."
           else
             echo "Non-docs file detected: $NON_DOC_FILE — running full pipeline."
           fi
@@ -528,13 +528,31 @@ jobs:
           ENABLE_RELEASE: ${{ steps.parse-config.outputs.enable-release }}
           RELEASE_STRATEGY: ${{ steps.parse-config.outputs.release-strategy }}
           RELEASE_FORCE_PATCH_NO_RELEASE: ${{ steps.parse-config.outputs.release-force-patch-on-no-release }}
+          DOCS_ONLY: ${{ steps.docs-check.outputs.docs-only }}
         run: |
           set -euo pipefail
-          SECURITY=$([[ "$ENABLE_SECURITY" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
-          LINT=$([[ "$ENABLE_LINT" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
-          TEST=$([[ "$ENABLE_TEST" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
-          BUILD=$([[ "$ENABLE_BUILD" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
-          DEPLOY=$([[ "$ENABLE_DEPLOY" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
+          # On docs-only PRs, security/lint/test/build/deploy all skip even
+          # when enabled in config. Release + sync still fire on push events
+          # (docs-only detection only applies to pull_request events).
+          docs_skip_note=""
+          if [[ "$DOCS_ONLY" == "true" ]]; then
+            docs_skip_note=" (docs-only PR)"
+          fi
+          status_stage() {
+            local enabled="$1"
+            if [[ "$enabled" != "true" ]]; then
+              echo "⏭️ Skipped"
+            elif [[ "$DOCS_ONLY" == "true" ]]; then
+              echo "⏭️ Skipped${docs_skip_note}"
+            else
+              echo "✅ Enabled"
+            fi
+          }
+          SECURITY=$(status_stage "$ENABLE_SECURITY")
+          LINT=$(status_stage "$ENABLE_LINT")
+          TEST=$(status_stage "$ENABLE_TEST")
+          BUILD=$(status_stage "$ENABLE_BUILD")
+          DEPLOY=$(status_stage "$ENABLE_DEPLOY")
           RELEASE=$([[ "$ENABLE_RELEASE" == "true" ]] && echo "✅ Enabled" || echo "⏭️ Skipped")
 
           {
