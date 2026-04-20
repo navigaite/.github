@@ -128,7 +128,7 @@ permissions: {}
 
 concurrency:
   group: ${{ github.repository }}-pipeline-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # =============================================================================
