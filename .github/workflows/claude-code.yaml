@@ -103,6 +103,24 @@ on:
 
 permissions: {}
 
+# Collapse rapid-fire @claude invocations on the same PR into the latest
+# request. Without this, every comment spawns a fresh run that can burn
+# up to `timeout_minutes` of Claude API tokens in parallel — a noisy PR
+# thread can rack up $10-50/month of wasted spend plus Actions minutes.
+#
+# `cancel-in-progress: true` — "replace with latest" semantics. If a user
+# sends a follow-up `@claude` before the previous run finishes, cancel
+# the older run and work on the new request. For queue-instead-of-replace
+# semantics, flip this to `false`.
+#
+# Group key falls back from pull_request.number (review / review_comment
+# events) to issue.number (issue_comment events) to github.ref (manual
+# dispatch, workflow_call without a PR context) so every event shape
+# resolves to a stable group.
+concurrency:
+  group: claude-code-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Copilot PR reviews cannot run claude-code-action directly: its
   # `checkHumanActor` step calls `octokit.users.getByUsername('Copilot')`
