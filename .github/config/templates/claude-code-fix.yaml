@@ -11,9 +11,14 @@ on:
   issue_comment:
     types: [created]
 
+# Queue, don't cancel. Claude runs make code changes and post review
+# replies — cancelling them mid-flight leaves the action's "eyes"
+# reaction stuck in a pending state and wastes the partial work. GitHub
+# auto-coalesces further events into the queued slot, so rapid-fire
+# reviews collapse to one pending run without stranded indicators.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions: {}
 

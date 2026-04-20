@@ -151,24 +151,19 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-          REVIEW_ID: ${{ github.event.review.id }}
           REVIEW_USER: ${{ github.event.review.user.login }}
-          REVIEW_BODY: ${{ github.event.review.body }}
           REVIEW_URL: ${{ github.event.review.html_url }}
         run: |
           set -euo pipefail
 
-          # shellcheck disable=SC2016  # jq filter, not shell expansion
-          inline="$(gh api "repos/${REPO}/pulls/${PR}/reviews/${REVIEW_ID}/comments" \
-            --jq '[.[] | "- **`" + .path + (if .line then ":" + (.line|tostring) else "" end) + "`** — " + .body] | join("\n\n")' \
-            || echo "")"
-
+          # Minimal trigger comment — Claude has gh/GitHub MCP access and
+          # can fetch the review body and inline comments itself. Dumping
+          # them into the comment body just duplicates content that lives
+          # one click away on the same PR.
           jq -n \
             --arg user "$REVIEW_USER" \
-            --arg rb "${REVIEW_BODY:-_(no summary provided)_}" \
-            --arg inline "${inline:-_(no inline comments)_}" \
             --arg url "$REVIEW_URL" \
-            '{body: ("@claude A code reviewer (**" + $user + "**) submitted a review on this PR. Please address valid suggestions by making code changes, and reply to any inline comment where the suggestion does not apply, explaining why.\n\n**Summary**\n\n" + $rb + "\n\n**Inline comments**\n\n" + $inline + "\n\n_[Original review](" + $url + ")_")}' \
+            '{body: ("@claude **" + $user + "** [submitted a review](" + $url + "). Please fetch the review + inline comments, address valid suggestions, and reply to any that do not apply.")}' \
             | gh api "repos/${REPO}/issues/${PR}/comments" --input -
 
           echo "::notice::Reposted Copilot review from ${REVIEW_USER} as @claude comment on PR #${PR}."
