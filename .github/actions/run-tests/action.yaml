@@ -42,6 +42,30 @@ runs:
           echo "::error::Invalid working-directory '$WORKING_DIR'. Must be a relative path without '..'"; exit 1
         fi
 
+    - name: Detect Turborepo
+      id: detect-turbo
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        if [[ -f turbo.json ]] || [[ -f turbo.jsonc ]]; then
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+          echo "Detected turbo.json — turbo cache will be restored/saved across runs."
+        else
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Restore Turbo Cache
+      if: steps.detect-turbo.outputs.enabled == 'true'
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ inputs.working-directory }}/node_modules/.cache/turbo
+        key: turbo-tests-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+        restore-keys: |
+          turbo-tests-${{ runner.os }}-${{ github.ref_name }}-
+          turbo-tests-${{ runner.os }}-
+          turbo-${{ runner.os }}-
+
     - name: Run Tests
       id: test
       shell: bash
@@ -214,6 +238,13 @@ runs:
 
         echo "::endgroup::"
         exit "${TEST_EXIT_CODE:-0}"
+
+    - name: Save Turbo Cache
+      if: always() && steps.detect-turbo.outputs.enabled == 'true'
+      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ inputs.working-directory }}/node_modules/.cache/turbo
+        key: turbo-tests-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
 
     - name: Upload Coverage
       id: detect-coverage
