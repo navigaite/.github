@@ -1,5 +1,5 @@
 ---
-name: 🌙 Nightly Maintenance
+name: 🗓️ Weekly Maintenance
 
 on:
   workflow_call: {}
@@ -167,7 +167,7 @@ jobs:
           RESULT_LINT_WORKFLOWS: ${{ needs.lint-workflows.result }}
         run: |
           set -euo pipefail
-          echo "### 🌙 Weekly Maintenance Summary" >> $GITHUB_STEP_SUMMARY
+          echo "### 🗓️ Weekly Maintenance Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
