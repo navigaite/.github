@@ -113,12 +113,14 @@ permissions: {}
 # the older run and work on the new request. For queue-instead-of-replace
 # semantics, flip this to `false`.
 #
-# Group key falls back from pull_request.number (review / review_comment
-# events) to issue.number (issue_comment events) to github.ref (manual
-# dispatch, workflow_call without a PR context) so every event shape
-# resolves to a stable group.
+# Group key is namespaced with caller repo + caller workflow name to
+# avoid collisions across workflows or consumer repos that happen to use
+# the same base key. Falls back from pull_request.number (review /
+# review_comment events) to issue.number (issue_comment events) to
+# github.ref (manual dispatch, workflow_call without a PR context) so
+# every event shape resolves to a stable group.
 concurrency:
-  group: claude-code-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  group: claude-code-${{ github.repository }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
