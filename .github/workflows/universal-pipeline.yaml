@@ -264,6 +264,7 @@ jobs:
             RP_CONFIG_FILE=""
             RP_CONFIG_FILE_STABLE=""
             RP_MANIFEST_FILE=""
+            RP_DRAFT_PR="true"
           else
             echo "✓ Found configuration file: $CONFIG_FILE"
 
