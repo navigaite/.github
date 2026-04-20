@@ -487,15 +487,15 @@ Find the SHA-pinned `uses:` line, update both the SHA and the version comment. V
 
 The pipeline has three ways to avoid burning CI minutes on work that doesn't need full validation.
 
-### Auto-skip on docs-only PRs (v2.6.10+)
+### Auto-skip on docs-only PRs (v2.7.0+)
 
-When a pull request's changed file list matches only these patterns, the pipeline automatically skips `test`, `build`, and all `deploy-*` jobs:
+When a pull request's changed file list matches only these patterns, the pipeline automatically skips `security`, `lint`, `test`, `build`, and all `deploy-*` jobs:
 
 - `**/*.md`, `**/*.mdx`
 - `docs/**`, `**/docs/**`
 - `**/LICENSE`, `**/LICENSE.*`
 
-`security` and `lint` still run — they're fast and can catch issues in markdown/config too. `release` and `sync-to-dev` still run on push events so docs commits land in changelogs as intended.
+`release` and `sync-to-dev` still run on push events so docs commits land in changelogs as intended.
 
 The classification uses the GitHub PR Files API from the `setup` job, so it works without any extra git fetch. If the API lookup fails, the pipeline falls back to a full run (safe default). Detection only applies to `pull_request` events — `push` events (e.g. merges to `dev`/`main`) always run the full pipeline so deploys aren't silently skipped.
 

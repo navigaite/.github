@@ -212,7 +212,7 @@ On a cache hit, Turbo skips tasks whose inputs haven't changed — typically tur
 
 #### Docs-only PR auto-skip (automatic, v2.7.0+)
 
-When a pull request changes only files matching `**/*.md`, `**/*.mdx`, `docs/**`, `**/docs/**`, or `**/LICENSE*`, the pipeline automatically skips `test`, `build`, and all `deploy-*` jobs. `security` and `lint` still run.
+When a pull request changes only files matching `**/*.md`, `**/*.mdx`, `docs/**`, `**/docs/**`, or `**/LICENSE*`, the pipeline automatically skips `security`, `lint`, `test`, `build`, and all `deploy-*` jobs.
 
 - **Applies only to `pull_request` events** — push events (including merges to `main`/`dev`) always run the full pipeline so releases and deploys aren't silently skipped.
 - Detection uses the GitHub PR Files API; if the lookup fails the pipeline falls back to a full run.
