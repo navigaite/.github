@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.9](https://github.com/navigaite/.github/compare/v2.6.8...v2.6.9) (2026-04-20)
+
+
+### ⚡ Performance Improvements
+
+* **ci:** cache turborepo outputs across runs ([#114](https://github.com/navigaite/.github/issues/114)) ([b90f493](https://github.com/navigaite/.github/commit/b90f4938af3444023ad0901adb64f457c9fed13b))
+
 ## [2.6.8](https://github.com/navigaite/.github/compare/v2.6.7...v2.6.8) (2026-04-20)
 
 
