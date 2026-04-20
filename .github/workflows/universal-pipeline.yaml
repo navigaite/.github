@@ -1299,7 +1299,13 @@ jobs:
           create-pr: false
           auto-merge-pr: true
 
-  # ─── Pipeline Summary ───────────────────────────────────────────
+  # =============================================================================
+  # PIPELINE SUMMARY — aggregates results into a markdown table AND fails the
+  # reusable workflow if any required job failed or was cancelled. This job
+  # is the inner gate that surfaces failures to the caller's `pipeline` job
+  # result — the caller's own top-level `Check Gate` then maps that result
+  # into the org-ruleset-matched status check.
+  # =============================================================================
   pipeline-summary:
     name: 📊 Pipeline Summary
     runs-on: ubuntu-latest
@@ -1319,9 +1325,10 @@ jobs:
       - sync-to-dev
     if: always()
     steps:
-      - name: Generate Pipeline Summary
+      - name: Generate summary and evaluate pipeline result
         shell: bash
         env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
           SETUP: ${{ needs.setup.result }}
           SECURITY: ${{ needs.security.result }}
           LINT: ${{ needs.lint.result }}
@@ -1334,6 +1341,8 @@ jobs:
           SYNC: ${{ needs.sync-to-dev.result }}
         run: |
           set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
+
           status_icon() {
             case "$1" in
               success) echo "✅" ;;
@@ -1361,34 +1370,6 @@ jobs:
             echo "| Sync to Dev | $(status_icon "$SYNC") $SYNC |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # =============================================================================
-  # CHECK GATE — single aggregator for org ruleset required status checks
-  # =============================================================================
-  check-gate:
-    name: Check Gate
-    if: always()
-    needs:
-      - setup
-      - security
-      - lint
-      - test
-      - build
-      - deploy-vercel
-      - deploy-digitalocean
-      - deploy-docker
-      - release
-      - sync-to-dev
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - name: Evaluate pipeline result
-        shell: bash
-        env:
-          RESULTS: ${{ toJSON(needs.*.result) }}
-        run: |
-          set -euo pipefail
-          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
-          echo "Job results: $RESULTS"
           # Fail if any required job failed or was cancelled (skipped is OK)
           FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
           if [[ "$FAILURES" -gt 0 ]]; then
