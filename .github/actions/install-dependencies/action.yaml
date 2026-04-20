@@ -103,6 +103,11 @@ runs:
                 ;;
               pnpm)
                 # pnpm is pre-installed by pnpm/action-setup in setup-environment
+                if ! command -v pnpm >/dev/null 2>&1; then
+                  echo "::error::pnpm is not installed. Run the setup-environment action" \
+                    "before install-dependencies, or install pnpm via pnpm/action-setup."
+                  exit 1
+                fi
                 echo "Installing with pnpm install --frozen-lockfile..."
                 pnpm install --frozen-lockfile
                 ;;
