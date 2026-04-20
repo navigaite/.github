@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.8](https://github.com/navigaite/.github/compare/v2.6.7...v2.6.8) (2026-04-20)
+
+
+### ⚡ Performance Improvements
+
+* **ci:** drop redundant global pnpm install ([#112](https://github.com/navigaite/.github/issues/112)) ([4add0d1](https://github.com/navigaite/.github/commit/4add0d1f38f5d8e9844e940d0df36e2475760b7a))
+
 ## [2.6.7](https://github.com/navigaite/.github/compare/v2.6.6...v2.6.7) (2026-04-20)
 
 
