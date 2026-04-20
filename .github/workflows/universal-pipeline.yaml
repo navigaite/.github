@@ -117,7 +117,7 @@ on:
         required: false
 
 # NOTE: Calling workflows must grant the permissions each job actually uses:
-#   setup:     contents: read
+#   setup:     contents: read, pull-requests: read (PR Files API for docs-only detection)
 #   security:  contents: read, pull-requests: write
 #   lint/test: contents: read
 #   build:     contents: read, id-token: write, attestations: write
