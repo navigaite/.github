@@ -277,14 +277,13 @@ release:
 
 ---
 
-## Nightly Maintenance
+## Weekly Maintenance
 
-Runs daily at **02:00 UTC** via [nightly-maintenance.yaml](.github/workflows/nightly-maintenance.yaml):
+Runs every Monday at **02:00 UTC** via [nightly-maintenance.yaml](.github/workflows/nightly-maintenance.yaml):
 
 - Cleanup workflow runs > 30 days
 - Purge caches > 7 days
 - Trivy security audit (SARIF upload)
-- Outdated dependency report
 - Workflow lint (actionlint)
 
 ---
