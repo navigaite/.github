@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.7](https://github.com/navigaite/.github/compare/v2.6.6...v2.6.7) (2026-04-20)
+
+
+### 🐛 Bug Fixes
+
+* **claude-code:** shrink repost comment, queue instead of cancel ([#109](https://github.com/navigaite/.github/issues/109)) ([ac58b45](https://github.com/navigaite/.github/commit/ac58b455470f4a12a3059465868a9a07ff914b2d))
+
 ## [2.6.6](https://github.com/navigaite/.github/compare/v2.6.5...v2.6.6) (2026-04-19)
 
 
