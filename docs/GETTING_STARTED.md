@@ -374,7 +374,7 @@ runtime:
 
 The pipeline has three ways to avoid burning CI minutes on work that doesn't need full validation:
 
-**1. Auto-skip for docs-only PRs (v2.7.0+)** — pull requests that only touch `*.md`, `*.mdx`, `docs/**`, or `LICENSE*` files automatically skip `test`, `build`, and all `deploy-*` jobs. `security` and `lint` still run. Push events (merges to `main`/`dev`) always run the full pipeline so deploys are never silently skipped. Nothing to configure — it's on by default.
+**1. Auto-skip for docs-only PRs (v2.7.0+)** — pull requests that only touch `*.md`, `*.mdx`, `docs/**`, or `LICENSE*` files automatically skip `security`, `lint`, `test`, `build`, and all `deploy-*` jobs. Push events (merges to `main`/`dev`) always run the full pipeline so deploys are never silently skipped. Nothing to configure — it's on by default.
 
 **2. Native `[skip ci]` in commit messages** — include `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]`, or `[actions skip]` in the head commit message to skip all workflow runs entirely. Caveat: required status checks won't report, so PRs can't be merged without manually re-running CI.
 
