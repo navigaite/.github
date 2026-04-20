@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.8.0](https://github.com/navigaite/.github/compare/v2.7.0...v2.8.0) (2026-04-20)
+
+
+### ✨ Features
+
+* **release:** open release-please PRs in draft by default ([#123](https://github.com/navigaite/.github/issues/123)) ([3932560](https://github.com/navigaite/.github/commit/3932560d5e5812c27cf65f50a37d82aa202f1a3e))
+
+
+### ⚡ Performance Improvements
+
+* **ci:** merge pipeline-summary + inner check-gate into one job ([#122](https://github.com/navigaite/.github/issues/122)) ([ec4f4a0](https://github.com/navigaite/.github/commit/ec4f4a07853973e94f4f61a0350e2baddd117130))
+* **ci:** skip security + lint on docs-only PRs ([#121](https://github.com/navigaite/.github/issues/121)) ([f423878](https://github.com/navigaite/.github/commit/f4238784189ff443e277c8a7c1b4ba97bfb07d38))
+* **ci:** weekly nightly maintenance + drop dependency-check ([#120](https://github.com/navigaite/.github/issues/120)) ([74741b0](https://github.com/navigaite/.github/commit/74741b0d101b45b83a7d3d48bb66676f635666d0))
+* **claude-code:** cancel in-flight runs on the same PR ([#119](https://github.com/navigaite/.github/issues/119)) ([7e1e2b7](https://github.com/navigaite/.github/commit/7e1e2b7d68ff0549bc42d7c936fde484e17c01b9))
+
+
+### 📚 Documentation
+
+* sync README, getting-started, configuration to v2.7.0 ([#118](https://github.com/navigaite/.github/issues/118)) ([cbc8126](https://github.com/navigaite/.github/commit/cbc8126b9aca6d139a85a2d0479de070afb2e5ca))
+
 ## [2.7.0](https://github.com/navigaite/.github/compare/v2.6.9...v2.7.0) (2026-04-20)
 
 
