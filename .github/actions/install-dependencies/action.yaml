@@ -102,8 +102,7 @@ runs:
                 done
                 ;;
               pnpm)
-                echo "Installing pnpm globally..."
-                npm install -g pnpm
+                # pnpm is pre-installed by pnpm/action-setup in setup-environment
                 echo "Installing with pnpm install --frozen-lockfile..."
                 pnpm install --frozen-lockfile
                 ;;
