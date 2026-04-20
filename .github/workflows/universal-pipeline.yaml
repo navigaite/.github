@@ -117,7 +117,7 @@ on:
         required: false
 
 # NOTE: Calling workflows must grant the permissions each job actually uses:
-#   setup:     contents: read
+#   setup:     contents: read, pull-requests: read (PR Files API for docs-only detection)
 #   security:  contents: read, pull-requests: write
 #   lint/test: contents: read
 #   build:     contents: read, id-token: write, attestations: write
@@ -140,7 +140,11 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      pull-requests: read # for docs-only change detection via PR files API
     outputs:
+      # Change classification
+      docs-only: ${{ steps.docs-check.outputs.docs-only }}
+
       # Tech stack detection
       stack: ${{ steps.setup-env.outputs.detected-stack }}
       runtime-version: ${{ steps.setup-env.outputs.runtime-version }}
@@ -459,6 +463,57 @@ jobs:
           write-summary: 'false'
           enable-caching: 'false'
 
+      - name: 📄 Detect Docs-Only Changes
+        id: docs-check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Only classify docs-only for pull_request events. push events (merge to main/dev)
+          # always run the full pipeline so deploy/release don't get silently skipped.
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "docs-only=false" >> "$GITHUB_OUTPUT"
+            echo "Event '$EVENT_NAME' — docs-only detection only applies to pull_request."
+            exit 0
+          fi
+
+          CHANGED=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename' || true)
+          if [[ -z "$CHANGED" ]]; then
+            echo "docs-only=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Could not list PR files via API — defaulting to full pipeline."
+            exit 0
+          fi
+
+          echo "::group::Changed files in PR #$PR_NUMBER"
+          echo "$CHANGED"
+          echo "::endgroup::"
+
+          # A PR is docs-only when *every* changed file matches one of these patterns.
+          # Adding a new pattern? Remember: code that silently depends on markdown at runtime
+          # (e.g. loaded content) will be under-tested by a docs-only skip.
+          DOCS_ONLY=true
+          NON_DOC_FILE=""
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            case "$file" in
+              *.md|*.mdx) ;;
+              docs/*|*/docs/*) ;;
+              LICENSE|LICENSE.*|*/LICENSE|*/LICENSE.*) ;;
+              *) DOCS_ONLY=false; NON_DOC_FILE="$file"; break ;;
+            esac
+          done <<< "$CHANGED"
+
+          echo "docs-only=$DOCS_ONLY" >> "$GITHUB_OUTPUT"
+          if [[ "$DOCS_ONLY" == "true" ]]; then
+            echo "::notice::PR contains only docs/LICENSE changes — test/build/deploy will be skipped."
+          else
+            echo "Non-docs file detected: $NON_DOC_FILE — running full pipeline."
+          fi
+
       - name: 📊 Pipeline Summary
         shell: bash
         env:
@@ -770,7 +825,7 @@ jobs:
     permissions:
       contents: read
     needs: setup
-    if: needs.setup.outputs.enable-test == 'true'
+    if: needs.setup.outputs.enable-test == 'true' && needs.setup.outputs.docs-only != 'true'
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -817,6 +872,7 @@ jobs:
     if: |
       always() &&
       needs.setup.outputs.enable-build == 'true' &&
+      needs.setup.outputs.docs-only != 'true' &&
       (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
       (needs.test.result == 'success' || needs.test.result == 'skipped')
     steps:
@@ -900,6 +956,7 @@ jobs:
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'vercel' &&
+      needs.setup.outputs.docs-only != 'true' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     strategy:
       fail-fast: false
@@ -979,6 +1036,7 @@ jobs:
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'digitalocean' &&
+      needs.setup.outputs.docs-only != 'true' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     strategy:
       fail-fast: false
@@ -1017,6 +1075,7 @@ jobs:
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'docker' &&
+      needs.setup.outputs.docs-only != 'true' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped')
     strategy:
