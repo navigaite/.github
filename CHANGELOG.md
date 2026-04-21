@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0](https://github.com/navigaite/.github/compare/v2.8.0...v2.9.0) (2026-04-21)
+
+
+### ✨ Features
+
+* **docker:** apply floating version tag to every image build ([#125](https://github.com/navigaite/.github/issues/125)) ([c1fb2c5](https://github.com/navigaite/.github/commit/c1fb2c570dbc48b3301590485c632dc0fca4df3f))
+
 ## [2.8.0](https://github.com/navigaite/.github/compare/v2.7.0...v2.8.0) (2026-04-20)
 
 

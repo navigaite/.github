@@ -1,6 +1,6 @@
 {
   "name": "navigaite-github",
-  "version": "2.8.0",
+  "version": "2.9.0",
   "private": true,
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
