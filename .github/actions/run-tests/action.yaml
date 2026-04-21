@@ -45,10 +45,15 @@ runs:
     - name: Detect Turborepo
       id: detect-turbo
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
+      env:
+        WORKING_DIR: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
-        if [[ -f turbo.json ]] || [[ -f turbo.jsonc ]]; then
+        # Turbo config usually lives at the repo root; for single-package setups it may instead
+        # live at the caller's working-directory. Check both so monorepo callers that set a
+        # subpackage as working-directory still get cache enabled.
+        if [[ -f "$WORKING_DIR/turbo.json" ]] || [[ -f "$WORKING_DIR/turbo.jsonc" ]] \
+           || [[ -f "$GITHUB_WORKSPACE/turbo.json" ]] || [[ -f "$GITHUB_WORKSPACE/turbo.jsonc" ]]; then
           echo "enabled=true" >> "$GITHUB_OUTPUT"
           echo "Detected turbo.json — turbo cache will be restored/saved across runs."
         else
@@ -59,11 +64,25 @@ runs:
       if: steps.detect-turbo.outputs.enabled == 'true'
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: ${{ inputs.working-directory }}/node_modules/.cache/turbo
-        key: turbo-tests-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+        # Turbo 2.x writes local cache to .turbo/cache at the turbo root (typically the repo root);
+        # turbo 1.x used node_modules/.cache/turbo in the package directory. Cover both locations
+        # (workspace root and working-directory) so either layout hits; non-existent paths are
+        # skipped silently.
+        # Key: scope saves to the branch being built (head_ref on PRs, ref_name on push) so PR runs
+        # can't poison the target branch's cache namespace. restore-keys lets PRs inherit the
+        # target branch's cache (github.base_ref) without writing into it.
+        path: |
+          ${{ github.workspace }}/.turbo/cache
+          ${{ inputs.working-directory }}/.turbo/cache
+          ${{ inputs.working-directory }}/node_modules/.cache/turbo
+        key: turbo-tests-${{ runner.os }}-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
         restore-keys: |
-          turbo-tests-${{ runner.os }}-${{ github.ref_name }}-
+          turbo-tests-${{ runner.os }}-${{ github.head_ref || github.ref_name }}-
+          turbo-tests-${{ runner.os }}-${{ github.base_ref }}-
+          turbo-build-${{ runner.os }}-${{ github.head_ref || github.ref_name }}-
+          turbo-build-${{ runner.os }}-${{ github.base_ref }}-
           turbo-tests-${{ runner.os }}-
+          turbo-build-${{ runner.os }}-
           turbo-${{ runner.os }}-
 
     - name: Run Tests
@@ -243,8 +262,11 @@ runs:
       if: always() && steps.detect-turbo.outputs.enabled == 'true'
       uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: ${{ inputs.working-directory }}/node_modules/.cache/turbo
-        key: turbo-tests-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+        path: |
+          ${{ github.workspace }}/.turbo/cache
+          ${{ inputs.working-directory }}/.turbo/cache
+          ${{ inputs.working-directory }}/node_modules/.cache/turbo
+        key: turbo-tests-${{ runner.os }}-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
 
     - name: Upload Coverage
       id: detect-coverage
