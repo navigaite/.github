@@ -59,11 +59,18 @@ runs:
       if: steps.detect-turbo.outputs.enabled == 'true'
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: ${{ inputs.working-directory }}/node_modules/.cache/turbo
-        key: turbo-tests-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+        # Turbo 2.x writes its local cache to .turbo/cache (turbo 1.x used node_modules/.cache/turbo —
+        # include both so either version hits). Using github.base_ref for PRs so PR runs can restore
+        # from their target branch's saved cache; falls back to github.ref_name on push events.
+        path: |
+          ${{ inputs.working-directory }}/.turbo/cache
+          ${{ inputs.working-directory }}/node_modules/.cache/turbo
+        key: turbo-tests-${{ runner.os }}-${{ github.base_ref || github.ref_name }}-${{ github.sha }}
         restore-keys: |
-          turbo-tests-${{ runner.os }}-${{ github.ref_name }}-
+          turbo-tests-${{ runner.os }}-${{ github.base_ref || github.ref_name }}-
+          turbo-build-${{ runner.os }}-${{ github.base_ref || github.ref_name }}-
           turbo-tests-${{ runner.os }}-
+          turbo-build-${{ runner.os }}-
           turbo-${{ runner.os }}-
 
     - name: Run Tests
@@ -243,8 +250,10 @@ runs:
       if: always() && steps.detect-turbo.outputs.enabled == 'true'
       uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: ${{ inputs.working-directory }}/node_modules/.cache/turbo
-        key: turbo-tests-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+        path: |
+          ${{ inputs.working-directory }}/.turbo/cache
+          ${{ inputs.working-directory }}/node_modules/.cache/turbo
+        key: turbo-tests-${{ runner.os }}-${{ github.base_ref || github.ref_name }}-${{ github.sha }}
 
     - name: Upload Coverage
       id: detect-coverage
