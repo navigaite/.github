@@ -1120,6 +1120,7 @@ jobs:
           IMAGE_NAME_OVERRIDE: ${{ matrix.image.image_name }}
           IMAGE_SUFFIX: ${{ matrix.image.name }}
           RELEASE_VERSION: ${{ needs.release.outputs.release-version }}
+          MANIFEST_FILE: ${{ needs.setup.outputs.release-manifest-file }}
           EXTRA_BUILD_ARGS: ${{ matrix.image.build_args }}
         run: |
           set -euo pipefail
@@ -1135,21 +1136,36 @@ jobs:
           fi
 
           # Determine image tag: release version > git sha
+          # (primary tag; uniquely identifies this specific build)
           if [[ -n "$RELEASE_VERSION" ]]; then
             IMAGE_TAG="$RELEASE_VERSION"
           else
             IMAGE_TAG="${GITHUB_SHA}"
           fi
 
-          # Build args: always inject APP_VERSION when release version is known
-          BUILD_ARGS="${EXTRA_BUILD_ARGS}"
+          # Determine floating version tag (applied in addition to image-tag
+          # on every build): release-please's release version on release
+          # commits, else the current version from the release-please
+          # manifest. The tag moves to the newest build within the same
+          # version cycle; per-build uniqueness is preserved by the
+          # dev-<sha> / full-sha tags.
+          VERSION_TAG=""
           if [[ -n "$RELEASE_VERSION" ]]; then
+            VERSION_TAG="$RELEASE_VERSION"
+          elif [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" ]]; then
+            VERSION_TAG=$(jq -r '."." // empty' "$MANIFEST_FILE" 2>/dev/null || true)
+          fi
+
+          # Build args: inject APP_VERSION whenever a version is known
+          BUILD_ARGS="${EXTRA_BUILD_ARGS}"
+          if [[ -n "$VERSION_TAG" ]]; then
             BUILD_ARGS="${BUILD_ARGS:+${BUILD_ARGS}
-          }APP_VERSION=${RELEASE_VERSION}"
+          }APP_VERSION=${VERSION_TAG}"
           fi
 
           echo "image-name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
           echo "image-tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version-tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
           echo "build-args<<EOF" >> "$GITHUB_OUTPUT"
           echo "$BUILD_ARGS" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -1161,6 +1177,7 @@ jobs:
           context: ${{ matrix.image.context || '.' }}
           image-name: ${{ steps.resolve.outputs.image-name }}
           image-tag: ${{ steps.resolve.outputs.image-tag }}
+          version-tag: ${{ steps.resolve.outputs.version-tag }}
           registry: ${{ matrix.image.registry || 'ghcr' }}
           build-args: ${{ steps.resolve.outputs.build-args }}
           platforms: ${{ matrix.image.platforms || 'linux/amd64' }}

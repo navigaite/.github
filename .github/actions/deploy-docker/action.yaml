@@ -22,6 +22,16 @@ inputs:
     required: false
     default: ${{ github.sha }}
 
+  version-tag:
+    description: >-
+      Optional floating version tag (e.g. `1.2.3` or `0.3.0-beta.26`) applied
+      in addition to the primary image-tag. Typically sourced from the
+      release-please manifest so every build within a release cycle is
+      tagged with the target version. The tag moves to the most recent
+      build; per-commit uniqueness is preserved by sha-based tags.
+    required: false
+    default: ''
+
   registry:
     description: Container registry (dockerhub, ghcr, gcr, ecr, custom)
     required: false
@@ -135,6 +145,7 @@ runs:
           type=semver,pattern={{major}}.{{minor}}
           type=sha,prefix={{branch}}-
           type=raw,value=${{ inputs.image-tag }}
+          type=raw,value=${{ inputs.version-tag }},enable=${{ inputs.version-tag != '' }}
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and Push Docker Image
