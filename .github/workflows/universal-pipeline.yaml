@@ -1156,11 +1156,13 @@ jobs:
             VERSION_TAG=$(jq -r '."." // empty' "$MANIFEST_FILE" 2>/dev/null || true)
           fi
 
-          # Build args: inject APP_VERSION whenever a version is known
+          # Build args: inject APP_VERSION whenever a version is known.
+          # Separator is an explicit $'\n' so YAML block indentation doesn't
+          # bleed into the value and break docker/build-push-action parsing.
           BUILD_ARGS="${EXTRA_BUILD_ARGS}"
           if [[ -n "$VERSION_TAG" ]]; then
-            BUILD_ARGS="${BUILD_ARGS:+${BUILD_ARGS}
-          }APP_VERSION=${VERSION_TAG}"
+            [[ -n "$BUILD_ARGS" ]] && BUILD_ARGS+=$'\n'
+            BUILD_ARGS+="APP_VERSION=${VERSION_TAG}"
           fi
 
           echo "image-name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
