@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.1](https://github.com/navigaite/.github/compare/v2.9.0...v2.9.1) (2026-04-21)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** correct turbo cache path and key for turbo 2.x ([#126](https://github.com/navigaite/.github/issues/126)) ([78e9ba7](https://github.com/navigaite/.github/commit/78e9ba7ce05cff93d1cf49ea2efb99be9ea0b8e3))
+
 ## [2.9.0](https://github.com/navigaite/.github/compare/v2.8.0...v2.9.0) (2026-04-21)
 
 
