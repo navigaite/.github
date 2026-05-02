@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.2](https://github.com/navigaite/.github/compare/v2.9.1...v2.9.2) (2026-05-02)
+
+
+### ⚡ Performance Improvements
+
+* **ci:** parallelize build with lint+test, preserve dev concurrency ([#134](https://github.com/navigaite/.github/issues/134)) ([82317b5](https://github.com/navigaite/.github/commit/82317b5dad8d9818058635d0df96dc03ebe6a574))
+
 ## [2.9.1](https://github.com/navigaite/.github/compare/v2.9.0...v2.9.1) (2026-04-21)
 
 
