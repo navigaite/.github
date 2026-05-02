@@ -128,7 +128,11 @@ permissions: {}
 
 concurrency:
   group: ${{ github.repository }}-pipeline-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # Preserve in-progress runs on `main` and `dev`. Cancelling a release-please
+  # push or a dev → main promotion mid-flight can leave release tags, GHCR
+  # images, and the sync-to-dev branch in inconsistent states. Repos without
+  # a `dev` branch are unaffected — no runs on dev exist to cancel.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 
 jobs:
   # =============================================================================
@@ -894,13 +898,29 @@ jobs:
       contents: read
       id-token: write # SLSA attestation + OIDC
       attestations: write # SLSA build provenance
-    needs: [setup, lint, test]
+    # Build runs in parallel with lint + test (only blocked on `setup`) so the
+    # pipeline critical path is `setup + max(lint, test, build)` instead of
+    # `setup + max(lint, test) + build`. Downstream jobs (release, deploy)
+    # still gate on lint + test results — see their `if:` blocks.
+    #
+    # Trade-off: on a PR with broken lint/test, this job still runs to
+    # completion, which means it consumes Infisical secrets (loaded below)
+    # and CI minutes that the previous serial graph would have skipped.
+    # Acceptable because:
+    #   - Secret material is masked in logs by the Infisical action and only
+    #     reaches the user's build command — same surface area as a passing
+    #     build, just on a SHA that won't ship.
+    #   - SLSA attestation only fires when `upload-artifacts` AND
+    #     `attest-artifacts` are both true (see run-build action). Most
+    #     callers (e.g. edilio with `upload_artifacts: false`) don't attest,
+    #     so attestation pollution is not a concern in the common case.
+    #   - On `push` events, lint/test have already passed in the PR that
+    #     produced the merge commit, so the wasted-build case essentially
+    #     only applies to PR runs that were going to fail anyway.
+    needs: [setup]
     if: |
-      always() &&
       needs.setup.outputs.enable-build == 'true' &&
-      needs.setup.outputs.docs-only != 'true' &&
-      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped')
+      needs.setup.outputs.docs-only != 'true'
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -977,12 +997,16 @@ jobs:
       deployments: write
       pull-requests: write
       id-token: write # OIDC for cloud providers
-    needs: [setup, build]
+    # `build` runs in parallel with lint + test, so we must gate on all three
+    # here (was previously implied via `build needs: [lint, test]`).
+    needs: [setup, lint, test, build]
     if: |
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'vercel' &&
       needs.setup.outputs.docs-only != 'true' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     strategy:
       fail-fast: false
@@ -1057,12 +1081,15 @@ jobs:
       deployments: write
       pull-requests: write
       id-token: write # OIDC for cloud providers
-    needs: [setup, build]
+    # `build` runs in parallel with lint + test — gate on all three explicitly.
+    needs: [setup, lint, test, build]
     if: |
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'digitalocean' &&
       needs.setup.outputs.docs-only != 'true' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     strategy:
       fail-fast: false
@@ -1096,12 +1123,15 @@ jobs:
       deployments: write
       packages: write
       id-token: write # OIDC for cloud providers
-    needs: [setup, build, release]
+    # `build` runs in parallel with lint + test — gate on all three explicitly.
+    needs: [setup, lint, test, build, release]
     if: |
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'docker' &&
       needs.setup.outputs.docs-only != 'true' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped')
     strategy:
@@ -1197,7 +1227,8 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write # OIDC for release signing
-    needs: [setup, build]
+    # `build` runs in parallel with lint + test — gate on all three explicitly.
+    needs: [setup, lint, test, build]
     outputs:
       release-created: ${{ steps.release-mgmt.outputs.release-created }}
       release-version: ${{ steps.release-mgmt.outputs.release-version }}
@@ -1206,6 +1237,8 @@ jobs:
       always() &&
       needs.setup.outputs.enable-release == 'true' &&
       github.event_name == 'push' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     steps:
       # Minting the installation token in-job is deliberate: passing a token
