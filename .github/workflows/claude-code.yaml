@@ -312,7 +312,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code
-        uses: anthropics/claude-code-action@38ec876110f9fbf8b950c79f534430740c3ac009 # v1
+        uses: anthropics/claude-code-action@567fe954a4527e81f132d87d1bdbcc94f7737434 # v1
         with:
           trigger_phrase: ${{ inputs.trigger_phrase }}
           allowed_bots: ${{ inputs.allowed_bots }}
