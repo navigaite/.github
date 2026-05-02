@@ -128,10 +128,10 @@ permissions: {}
 
 concurrency:
   group: ${{ github.repository }}-pipeline-${{ github.ref }}
-  # Preserve in-progress runs on long-lived release branches. Cancelling a
-  # release-please push or a promotion mid-flight can leave release tags,
-  # GHCR images, and the sync-to-dev branch in inconsistent states. Repos
-  # without a `dev` branch are unaffected — no runs on dev exist to cancel.
+  # Preserve in-progress runs on `main` and `dev`. Cancelling a release-please
+  # push or a dev → main promotion mid-flight can leave release tags, GHCR
+  # images, and the sync-to-dev branch in inconsistent states. Repos without
+  # a `dev` branch are unaffected — no runs on dev exist to cancel.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 
 jobs:
@@ -901,12 +901,24 @@ jobs:
     # Build runs in parallel with lint + test (only blocked on `setup`) so the
     # pipeline critical path is `setup + max(lint, test, build)` instead of
     # `setup + max(lint, test) + build`. Downstream jobs (release, deploy)
-    # still gate on lint + test results — see their `if:` blocks. A broken
-    # lint/test wastes one build run, which is a fair trade for the speedup.
+    # still gate on lint + test results — see their `if:` blocks.
+    #
+    # Trade-off: on a PR with broken lint/test, this job still runs to
+    # completion, which means it consumes Infisical secrets (loaded below)
+    # and CI minutes that the previous serial graph would have skipped.
+    # Acceptable because:
+    #   - Secret material is masked in logs by the Infisical action and only
+    #     reaches the user's build command — same surface area as a passing
+    #     build, just on a SHA that won't ship.
+    #   - SLSA attestation only fires when `upload-artifacts` AND
+    #     `attest-artifacts` are both true (see run-build action). Most
+    #     callers (e.g. edilio with `upload_artifacts: false`) don't attest,
+    #     so attestation pollution is not a concern in the common case.
+    #   - On `push` events, lint/test have already passed in the PR that
+    #     produced the merge commit, so the wasted-build case essentially
+    #     only applies to PR runs that were going to fail anyway.
     needs: [setup]
     if: |
-      always() &&
-      needs.setup.result == 'success' &&
       needs.setup.outputs.enable-build == 'true' &&
       needs.setup.outputs.docs-only != 'true'
     steps:
