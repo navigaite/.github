@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.3](https://github.com/navigaite/.github/compare/v2.9.2...v2.9.3) (2026-05-06)
+
+
+### 🐛 Bug Fixes
+
+* **trunk-upgrade:** sign bot commits via Contents API ([#140](https://github.com/navigaite/.github/issues/140)) ([d513140](https://github.com/navigaite/.github/commit/d51314070dbedaa24019a56512f3ed5f55fb34bf))
+
 ## [2.9.2](https://github.com/navigaite/.github/compare/v2.9.1...v2.9.2) (2026-05-02)
 
 
