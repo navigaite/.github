@@ -173,6 +173,11 @@ jobs:
             Auto-merges after `Check Gate` passes.
           delete-branch: true
           signoff: true
+          # Commit via the GitHub Contents API so the commit is signed with the
+          # GitHub App's verified key. Required by org rulesets that enforce
+          # `required_signatures` on protected branches (otherwise the PR is
+          # MERGE BLOCKED with reason "unsigned").
+          sign-commits: true
 
       - name: Enable auto-merge
         if: steps.cpr.outputs.pull-request-number != '' && steps.token.outputs.using == 'app'
