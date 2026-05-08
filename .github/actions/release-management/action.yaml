@@ -157,7 +157,6 @@ runs:
         config-file: ${{ inputs.config-file }}
         manifest-file: ${{ inputs.manifest-file || '.release-please-manifest.json' }}
         target-branch: ${{ inputs.target-branch || github.ref_name }}
-        draft-pull-request: ${{ inputs.draft-pull-request }}
 
     - name: Run Release Please (legacy mode)
       id: release-please
@@ -167,7 +166,6 @@ runs:
         token: ${{ inputs.github-token }}
         release-type: ${{ inputs.release-type }}
         target-branch: ${{ inputs.target-branch || github.ref_name }}
-        draft-pull-request: ${{ inputs.draft-pull-request }}
 
     - name: Run Semantic Release
       id: semantic-release
