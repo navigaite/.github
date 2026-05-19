@@ -4,8 +4,14 @@
 name: Claude Code Fix
 
 on:
-  pull_request_review_comment:
-    types: [created]
+  # Only listen to top-level PR comments. We deliberately drop
+  # `pull_request_review_comment` because a single Copilot/human review
+  # with N inline comments fires N events, each of which spawns a
+  # workflow-run shell (visible as "Action required" pile-up when the
+  # commenter is a bot, even though the job-level `if:` would skip).
+  # A reviewer who wants to invoke Claude can write `@claude …` in the
+  # review body itself or as a separate PR comment — both surface as
+  # `issue_comment` events.
   issue_comment:
     types: [created]
 
@@ -15,7 +21,7 @@ on:
 # auto-coalesces further events into the queued slot, so rapid-fire
 # reviews collapse to one pending run without stranded indicators.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event_name }}
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 permissions: {}
@@ -27,18 +33,16 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write          # required for claude-code-action OIDC token
-    # Manual on-demand only: require `@claude` in the comment body and a
-    # trusted author_association. Automatic Copilot → Claude auto-fix
-    # was removed.
+    # Manual on-demand only: require `@claude` in the comment body, a
+    # trusted author_association, and a human (non-bot) commenter so a
+    # bot quoting `@claude` (e.g. Copilot's review body echoing prior
+    # discussion) cannot trigger a privileged run. Automatic
+    # Copilot → Claude auto-fix was removed.
     if: >-
-      (github.event_name == 'pull_request_review_comment' &&
-        contains(github.event.comment.body, '@claude') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-                 github.event.comment.author_association)) ||
-      (github.event_name == 'issue_comment' &&
-        github.event.issue.pull_request &&
-        contains(github.event.comment.body, '@claude') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
-                 github.event.comment.author_association))
+      github.event.issue.pull_request &&
+      github.event.comment.user.type != 'Bot' &&
+      contains(github.event.comment.body, '@claude') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+               github.event.comment.author_association)
     uses: navigaite/.github/.github/workflows/claude-code.yaml@v2
     secrets: inherit
