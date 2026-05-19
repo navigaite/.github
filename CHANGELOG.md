@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.0](https://github.com/navigaite/.github/compare/v2.9.3...v2.10.0) (2026-05-19)
+
+
+### ✨ Features
+
+* extend docs-only detection to push events + tighten Claude Code Fix triggers ([#152](https://github.com/navigaite/.github/issues/152)) ([b042759](https://github.com/navigaite/.github/commit/b042759d779580c181f89611b2f4bb42ac640399))
+
 ## [2.9.3](https://github.com/navigaite/.github/compare/v2.9.2...v2.9.3) (2026-05-06)
 
 
