@@ -35,8 +35,7 @@ jobs:
       id-token: write          # required for claude-code-action OIDC token
     # Manual on-demand only: require `@claude` in the comment body, a
     # trusted author_association, and a human (non-bot) commenter so a
-    # bot quoting `@claude` (e.g. Copilot's review body echoing prior
-    # discussion) cannot trigger a privileged run. Automatic
+    # bot quoting `@claude` cannot trigger a privileged run. Automatic
     # Copilot → Claude auto-fix was removed.
     if: >-
       github.event.issue.pull_request &&
