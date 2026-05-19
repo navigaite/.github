@@ -204,6 +204,11 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # fetch-depth 2 lets the docs-only detector compare HEAD against
+          # its parent on push events. PR events use the Files API and
+          # don't need history.
+          fetch-depth: 2
 
       - name: 📋 Parse Configuration
         id: parse-config
@@ -483,30 +488,46 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # Only classify docs-only for pull_request events. push events (merge to main/dev)
-          # always run the full pipeline so deploy/release don't get silently skipped.
-          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+          # Resolve the list of changed files for both pull_request and push events.
+          # Skipping heavy jobs on docs-only changes saves Actions minutes; deploy
+          # remains independently gated by the caller's skip-deploy expression
+          # (typically only release-please commits), so a docs-only push to dev
+          # that *is* a release-please merge still deploys correctly.
+          CHANGED=""
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            CHANGED=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename' || true)
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            # First push to a new branch or force-push: github.event.before may be
+            # 0000…0000. Fall back to diffing against HEAD~1 (requires fetch-depth ≥ 2).
+            if [[ -z "$PUSH_BEFORE" || "$PUSH_BEFORE" == "0000000000000000000000000000000000000000" ]]; then
+              CHANGED=$(git diff --name-only "HEAD~1" "$PUSH_AFTER" 2>/dev/null || true)
+            else
+              CHANGED=$(git diff --name-only "$PUSH_BEFORE" "$PUSH_AFTER" 2>/dev/null || true)
+            fi
+          else
             echo "docs-only=false" >> "$GITHUB_OUTPUT"
-            echo "Event '$EVENT_NAME' — docs-only detection only applies to pull_request."
+            echo "Event '$EVENT_NAME' — docs-only detection not applicable."
             exit 0
           fi
 
-          CHANGED=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename' || true)
           if [[ -z "$CHANGED" ]]; then
             echo "docs-only=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Could not list PR files via API — defaulting to full pipeline."
+            echo "::notice::Could not list changed files — defaulting to full pipeline."
             exit 0
           fi
 
-          echo "::group::Changed files in PR #$PR_NUMBER"
+          echo "::group::Changed files ($EVENT_NAME)"
           echo "$CHANGED"
           echo "::endgroup::"
 
-          # A PR is docs-only when *every* changed file matches one of these patterns.
-          # Adding a new pattern? Remember: code that silently depends on markdown at runtime
-          # (e.g. loaded content) will be under-tested by a docs-only skip.
+          # A change-set is docs-only when *every* changed file matches one of these
+          # patterns. Adding a new pattern? Remember: code that silently depends on
+          # markdown at runtime (e.g. loaded content) will be under-tested by a
+          # docs-only skip.
           DOCS_ONLY=true
           NON_DOC_FILE=""
           while IFS= read -r file; do
@@ -521,7 +542,7 @@ jobs:
 
           echo "docs-only=$DOCS_ONLY" >> "$GITHUB_OUTPUT"
           if [[ "$DOCS_ONLY" == "true" ]]; then
-            echo "::notice::PR contains only docs/LICENSE changes — security, lint, test, build, and deploy will be skipped."
+            echo "::notice::Only docs/LICENSE changes detected — security, lint, test, build will be skipped."
           else
             echo "Non-docs file detected: $NON_DOC_FILE — running full pipeline."
           fi
