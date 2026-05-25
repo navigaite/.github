@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.0](https://github.com/navigaite/.github/compare/v2.10.0...v2.11.0) (2026-05-25)
+
+
+### ✨ Features
+
+* add OIDC support for Infisical secrets loading ([#159](https://github.com/navigaite/.github/issues/159)) ([c8a982d](https://github.com/navigaite/.github/commit/c8a982d2455e1deffdfc93a13c7d942f48b7f8ee))
+
 ## [2.10.0](https://github.com/navigaite/.github/compare/v2.9.3...v2.10.0) (2026-05-19)
 
 
