@@ -107,6 +107,12 @@ on:
         required: false
       INFISICAL_CLIENT_SECRET:
         required: false
+      # Infisical Machine Identity ID for OIDC auth (preferred over Universal Auth).
+      # Typically set via `vars.INFISICAL_IDENTITY_ID` since the identity ID is
+      # not sensitive, but declared as a secret here so the `vars || secrets`
+      # fallback expression type-checks under actionlint.
+      INFISICAL_IDENTITY_ID:
+        required: false
       INFISICAL_PROJECT_SLUG:
         required: false
       INFISICAL_ENV_SLUG:
