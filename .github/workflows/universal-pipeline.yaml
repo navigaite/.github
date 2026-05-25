@@ -995,7 +995,7 @@ jobs:
             echo "method=universal" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Infisical auth incomplete (set vars.INFISICAL_IDENTITY_ID for OIDC, or secrets.INFISICAL_CLIENT_ID/SECRET for Universal Auth), skipping secrets injection step"
+            echo "::notice::Infisical auth incomplete (set vars.INFISICAL_IDENTITY_ID for OIDC, or secrets.INFISICAL_CLIENT_ID and secrets.INFISICAL_CLIENT_SECRET for Universal Auth), skipping secrets injection step"
           fi
 
       - name: 🔐 Load Infisical Secrets (OIDC)
