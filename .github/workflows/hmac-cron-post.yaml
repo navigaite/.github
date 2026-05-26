@@ -1,5 +1,5 @@
 ---
-name: HMAC Cron Post
+name: 🕒 HMAC Cron Post
 
 # Reusable workflow that POSTs an HMAC-signed empty request to a cron
 # endpoint on the deployed app. Callers supply only the endpoint path
@@ -17,6 +17,10 @@ on:
         description: Endpoint path (must start with `/`), e.g. `/api/cron/dunning`.
         required: true
         type: string
+    secrets:
+      CRON_HMAC_KEY:
+        description: HMAC key shared with the app server (matches runtime `verifyCronHmac`).
+        required: true
 
 permissions: {}
 

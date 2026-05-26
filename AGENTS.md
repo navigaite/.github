@@ -314,17 +314,17 @@ jobs:
 
 ### [OPTIONAL] Workflow naming convention
 
-Use a single emoji prefix on each workflow `name:` field for visual scanning in the Actions tab. This is **purely cosmetic** and does **not** affect required check names (those come from job `name:` fields — see §8).
+Use a single emoji prefix on each workflow `name:` field for visual scanning in the Actions tab. This applies to **all workflow files** in this repo (reusables and callers) and to the **consumer / caller workflows** templated into downstream repos. It is **purely cosmetic** and does **not** affect required check names (those come from job `name:` fields — see §8).
 
-| Prefix | Usage |
-| --- | --- |
-| `🌙` | Nightly / scheduled maintenance |
-| `🌍` | Translation / localization |
-| `🕒` | Scheduled HMAC cron jobs |
-| `🏷️` | Label sync |
-| `🤖` | Claude / Copilot helpers |
-| `🧰` | Trunk upgrade and other tooling bumps |
-| `📤` | Promotion / release-orchestration triggers |
+| Prefix | Usage | Example |
+| --- | --- | --- |
+| `🌙` / `🗓️` | Nightly / weekly scheduled maintenance | `nightly-maintenance.yaml` |
+| `🌍` | Translation / localization | reserved |
+| `🕒` | Scheduled HMAC cron jobs (callers and the `hmac-cron-post` reusable) | `hmac-cron-post.yaml` |
+| `🏷️` | Label sync | reserved |
+| `🤖` | Claude / Copilot helpers | `claude-code.yaml`, `claude-code-fix.yaml` |
+| `🧰` / `🌲` | Trunk upgrade and other tooling bumps | `trunk-upgrade.yaml`, `trunk-upgrade-scheduled.yaml` |
+| `📤` | Promotion / release-orchestration triggers | `promote-to-main.yaml` |
 
 The main pipeline workflow keeps its bare `Navigaite Pipeline` name — that string is part of the required check naming contract.
 

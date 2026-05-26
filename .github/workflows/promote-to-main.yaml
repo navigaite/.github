@@ -1,5 +1,5 @@
 ---
-name: Promote dev → main
+name: 📤 Promote dev → main
 
 # Reusable workflow that opens a promotion PR from `dev` to `main` for
 # Profile B repos (large repos with dev + main + prereleases).
