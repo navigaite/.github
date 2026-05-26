@@ -87,10 +87,9 @@ jobs:
             exit 0
           fi
 
+          BODY=$(printf 'Automated promotion of %s commit(s) from `%s` to `%s`.\n\nMerge via the GitHub UI using **Merge commit** (not squash) to preserve conventional commit history and trigger downstream deploy/release workflows.\n' "$AHEAD" "$HEAD" "$BASE")
           URL=$(gh pr create --repo "$REPO" --base "$BASE" --head "$HEAD" \
             --title "chore: promote $HEAD → $BASE" \
-            --body "Automated promotion of $AHEAD commit(s) from \`$HEAD\` to \`$BASE\`.
-
-Merge via the GitHub UI using **Merge commit** (not squash) to preserve conventional commit history and trigger downstream deploy/release workflows.")
+            --body "$BODY")
           echo "Opened: $URL"
           echo "Opened promotion PR: [$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"
