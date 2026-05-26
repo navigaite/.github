@@ -94,10 +94,11 @@ jobs:
 
       # Code Scanning requires GHAS on private repos. When unavailable,
       # upload-sarif fails with "Code scanning is not enabled for this
-      # repository". `continue-on-error: true` keeps the nightly green
-      # while still surfacing the failure as an annotation and in the
-      # summary table below — repos that later enable GHAS will start
-      # publishing SARIF automatically without any caller change.
+      # repository". `continue-on-error: true` keeps the scheduled
+      # maintenance run green while still surfacing the failure as an
+      # annotation and in the summary table below — repos that later
+      # enable GHAS will start publishing SARIF automatically without
+      # any caller change.
       - name: Upload Trivy results to GitHub Security
         id: sarif-upload
         uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v3
