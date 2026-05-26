@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0](https://github.com/navigaite/.github/compare/v2.11.0...v2.12.0) (2026-05-26)
+
+
+### ✨ Features
+
+* **workflows:** add promote-to-main + hmac-cron-post reusables ([#161](https://github.com/navigaite/.github/issues/161)) ([c7e1912](https://github.com/navigaite/.github/commit/c7e19120cba7f96b670c0f770775560e103defb2))
+
 ## [2.11.0](https://github.com/navigaite/.github/compare/v2.10.0...v2.11.0) (2026-05-25)
 
 
