@@ -1,0 +1,95 @@
+---
+name: 📤 Promote dev → main
+
+# Reusable workflow that opens a promotion PR from `dev` to `main` for
+# Profile B repos (large repos with dev + main + prereleases).
+#
+# Why a workflow:
+#   - One-click promotion via Actions UI ("Run workflow" button) or via
+#     `gh workflow run promote.yml -R <owner>/<repo>` from external tools
+#     (AI-OS, automation).
+#   - Reusable so all Profile B repos share the same preconditions
+#     (no open release-please PR on dev, dev ahead of main, no duplicate
+#     promotion PR already open).
+#
+# The PR is intentionally NOT auto-merged: GitHub strips downstream
+# workflow triggers from GITHUB_TOKEN-initiated merges, and we want the
+# resulting push to main to fire the universal pipeline (deploy + Sentry
+# release). The operator merges the promotion PR via the GitHub UI.
+
+on:
+  workflow_call:
+    inputs:
+      head:
+        description: Source branch (default `dev`)
+        required: false
+        type: string
+        default: dev
+      base:
+        description: Target branch (default `main`)
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Serialize concurrent triggers so the duplicate-PR precondition isn't racy
+# (two parallel `workflow_dispatch` runs could otherwise both pass the
+# existing-PR check before either `gh pr create` lands).
+concurrency:
+  group: promote-${{ github.repository }}-${{ inputs.head }}-${{ inputs.base }}
+  cancel-in-progress: false
+
+jobs:
+  open-promotion-pr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.head }}
+          fetch-depth: 0
+
+      - name: Open promotion PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD: ${{ inputs.head }}
+          BASE: ${{ inputs.base }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Precondition 1: no open release-please PR on the source branch
+          # (would race with the promotion and produce inconsistent changelogs).
+          OPEN_RP=$(gh pr list --repo "$REPO" --base "$HEAD" \
+            --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("release-please"))] | length')
+          if [[ "$OPEN_RP" -gt 0 ]]; then
+            echo "::error::Open release-please PR on $HEAD. Merge or close it before promoting."
+            exit 1
+          fi
+
+          # Precondition 2: source must have commits the target lacks.
+          AHEAD=$(git rev-list --count "origin/$BASE..origin/$HEAD")
+          if [[ "$AHEAD" -eq 0 ]]; then
+            echo "::notice::$HEAD has no commits to promote to $BASE."
+            exit 0
+          fi
+
+          # Precondition 3: skip if a promotion PR is already open.
+          EXISTING=$(gh pr list --repo "$REPO" --base "$BASE" --head "$HEAD" \
+            --state open --json url --jq '.[0].url // empty')
+          if [[ -n "$EXISTING" ]]; then
+            echo "::notice::Promotion PR already open: $EXISTING"
+            echo "Promotion PR already open: [$EXISTING]($EXISTING)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          BODY=$(printf 'Automated promotion of %s commit(s) from `%s` to `%s`.\n\nMerge via the GitHub UI using **Merge commit** (not squash) to preserve conventional commit history and trigger downstream deploy/release workflows.\n' "$AHEAD" "$HEAD" "$BASE")
+          URL=$(gh pr create --repo "$REPO" --base "$BASE" --head "$HEAD" \
+            --title "chore: promote $HEAD → $BASE" \
+            --body "$BODY")
+          echo "Opened: $URL"
+          echo "Opened promotion PR: [$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"

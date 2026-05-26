@@ -1,7 +1,7 @@
 # Managed by navigaite/.github bootstrap. Do not edit manually —
 # changes will be overwritten the next time bootstrap-maintenance.sh runs.
 ---
-name: Claude Code Fix
+name: 🤖 Claude Fix
 
 on:
   # Only listen to top-level PR comments. We deliberately drop
