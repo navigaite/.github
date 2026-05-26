@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.1](https://github.com/navigaite/.github/compare/v2.12.0...v2.12.1) (2026-05-26)
+
+
+### 🐛 Bug Fixes
+
+* **docs:** nudge v2 sha (codeload wedged on 33701f1) ([#163](https://github.com/navigaite/.github/issues/163)) ([fbb8d76](https://github.com/navigaite/.github/commit/fbb8d76ff47f98dd556aafb8c18ba555d64e693c))
+
 ## [2.12.0](https://github.com/navigaite/.github/compare/v2.11.0...v2.12.0) (2026-05-26)
 
 
