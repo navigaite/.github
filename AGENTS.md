@@ -1,6 +1,6 @@
 # AGENTS.md — Navigaite Universal CI/CD Pipeline
 
-> Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2**. For the exact released version see `CLAUDE.md` (updated automatically by release-please).
+> Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2** (rolling tag). For the exact released version see `CLAUDE.md` (updated automatically by release-please).
 
 This file is the single source of truth for AI coding agents (Claude, Copilot, Cursor, Codex, etc.) working in this repo **or** setting up this pipeline in a consumer repo. `CLAUDE.md` delegates here via `@AGENTS.md`.
 
