@@ -1,0 +1,59 @@
+---
+name: HMAC Cron Post
+
+# Reusable workflow that POSTs an HMAC-signed empty request to a cron
+# endpoint on the deployed app. Callers supply only the endpoint path
+# (`/api/cron/dunning`, etc.) and a schedule. The signature scheme matches
+# the runtime `verifyCronHmac` helpers used across navigaite apps.
+#
+# Required secrets / vars on the caller repo:
+#   - `secrets.CRON_HMAC_KEY` — shared with the app server
+#   - `vars.CRON_BASE_URL` — public origin (no trailing slash), e.g. https://app.edilio.de
+
+on:
+  workflow_call:
+    inputs:
+      endpoint:
+        description: Endpoint path (must start with `/`), e.g. `/api/cron/dunning`.
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Build HMAC signature and POST
+        env:
+          CRON_BASE_URL: ${{ vars.CRON_BASE_URL }}
+          CRON_HMAC_KEY: ${{ secrets.CRON_HMAC_KEY }}
+          ENDPOINT: ${{ inputs.endpoint }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$CRON_HMAC_KEY" ]]; then
+            echo "::error::Secret CRON_HMAC_KEY is not configured on this repo."
+            exit 1
+          fi
+          if [[ -z "$CRON_BASE_URL" ]]; then
+            echo "::error::Repo variable CRON_BASE_URL is not configured."
+            exit 1
+          fi
+          if [[ "${ENDPOINT:0:1}" != "/" ]]; then
+            echo "::error::endpoint input must start with '/' (got '$ENDPOINT')."
+            exit 1
+          fi
+
+          TS=$(date +%s%3N)
+          NONCE=$(uuidgen)
+          PAYLOAD="${TS}.${NONCE}.${ENDPOINT}"
+          SIG=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$CRON_HMAC_KEY" -hex | awk '{print $2}')
+
+          echo "POSTing to ${CRON_BASE_URL}${ENDPOINT} at $TS"
+          curl --fail-with-body --silent --show-error -X POST \
+            "${CRON_BASE_URL}${ENDPOINT}" \
+            -H "X-Cron-Timestamp: $TS" \
+            -H "X-Cron-Nonce: $NONCE" \
+            -H "X-Cron-Signature: $SIG"

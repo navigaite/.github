@@ -30,6 +30,8 @@ Consumer repos integrate by adding a thin caller workflow + a `.github/pipeline.
     create-release-pr.yaml     # Reusable: generate release PRs with changelog
     build-executables.yaml     # Reusable: PyInstaller cross-platform builds
     claude-code.yaml           # Reusable: Claude Code AI for PR reviews + @claude
+    hmac-cron-post.yaml        # Reusable: HMAC-signed POST to an app cron endpoint
+    promote-to-main.yaml       # Reusable: open dev → main promotion PR (Profile B)
     nightly-maintenance.yaml   # Scheduled: cache cleanup, security audits
     ci.yaml                    # CI: validates the composite actions and required check names
   actions/
@@ -262,6 +264,69 @@ Set `deployment.provider: none` and add your own job depending on `pipeline`:
     steps:
       - run: curl -sf "${{ secrets.RENDER_DEPLOY_HOOK }}"  # project-defined secret
 ```
+
+### [OPTIONAL] Promotion workflow (Profile B only)
+
+Adds a "Run workflow" button in the repo's Actions tab that opens a `dev → main` promotion PR. Useful for one-click promotion from the UI or `gh workflow run promote.yml -R <repo>` from automation.
+
+`.github/workflows/promote.yml`:
+
+```yaml
+name: 📤 Promote dev → main
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  promote:
+    uses: navigaite/.github/.github/workflows/promote-to-main.yaml@v2
+```
+
+The reusable validates preconditions (no open release-please PR on `dev`, `dev` ahead of `main`, no duplicate promotion PR) before opening. The PR is intentionally not auto-merged — GITHUB_TOKEN merges strip downstream workflow triggers, so the operator merges via the UI (Merge commit).
+
+### [OPTIONAL] HMAC-signed cron jobs
+
+For scheduled HMAC-signed POSTs to an app endpoint (e.g. nightly billing tasks), use the `hmac-cron-post.yaml` reusable instead of hand-rolling the openssl pipeline per cron.
+
+Requires `secrets.CRON_HMAC_KEY` (matches runtime) and `vars.CRON_BASE_URL` (public origin, no trailing slash) on the repo.
+
+`.github/workflows/cron-<name>.yml`:
+
+```yaml
+name: 🕒 <Display Name>
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+concurrency:
+  group: cron-<name>
+  cancel-in-progress: false
+jobs:
+  run:
+    uses: navigaite/.github/.github/workflows/hmac-cron-post.yaml@v2
+    with:
+      endpoint: /api/cron/<name>
+    secrets: inherit
+```
+
+### [OPTIONAL] Workflow naming convention
+
+Use a single emoji prefix on each workflow `name:` field for visual scanning in the Actions tab. This is **purely cosmetic** and does **not** affect required check names (those come from job `name:` fields — see §8).
+
+| Prefix | Usage |
+| --- | --- |
+| `🌙` | Nightly / scheduled maintenance |
+| `🌍` | Translation / localization |
+| `🕒` | Scheduled HMAC cron jobs |
+| `🏷️` | Label sync |
+| `🤖` | Claude / Copilot helpers |
+| `🧰` | Trunk upgrade and other tooling bumps |
+| `📤` | Promotion / release-orchestration triggers |
+
+The main pipeline workflow keeps its bare `Navigaite Pipeline` name — that string is part of the required check naming contract.
 
 ---
 
