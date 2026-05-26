@@ -41,6 +41,10 @@ jobs:
             echo "::error::Repo variable CRON_BASE_URL is not configured."
             exit 1
           fi
+          # Strip trailing slash to keep the concatenated URL canonical — a
+          # trailing slash would produce `//api/...` which breaks routing and
+          # HMAC verification (signed path would differ from request path).
+          CRON_BASE_URL="${CRON_BASE_URL%/}"
           if [[ "${ENDPOINT:0:1}" != "/" ]]; then
             echo "::error::endpoint input must start with '/' (got '$ENDPOINT')."
             exit 1

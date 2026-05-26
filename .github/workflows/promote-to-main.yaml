@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.head }}
           fetch-depth: 0
@@ -72,8 +72,8 @@ jobs:
           fi
 
           # Precondition 2: source must have commits the target lacks.
-          BEHIND=$(git rev-list --count "origin/$BASE..origin/$HEAD")
-          if [[ "$BEHIND" -eq 0 ]]; then
+          AHEAD=$(git rev-list --count "origin/$BASE..origin/$HEAD")
+          if [[ "$AHEAD" -eq 0 ]]; then
             echo "::notice::$HEAD has no commits to promote to $BASE."
             exit 0
           fi
@@ -83,14 +83,14 @@ jobs:
             --state open --json url --jq '.[0].url // empty')
           if [[ -n "$EXISTING" ]]; then
             echo "::notice::Promotion PR already open: $EXISTING"
-            echo "summary=$EXISTING" >> "$GITHUB_STEP_SUMMARY"
+            echo "Promotion PR already open: [$EXISTING]($EXISTING)" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
           URL=$(gh pr create --repo "$REPO" --base "$BASE" --head "$HEAD" \
             --title "chore: promote $HEAD → $BASE" \
-            --body "Automated promotion of $BEHIND commit(s) from \`$HEAD\` to \`$BASE\`.
+            --body "Automated promotion of $AHEAD commit(s) from \`$HEAD\` to \`$BASE\`.
 
 Merge via the GitHub UI using **Merge commit** (not squash) to preserve conventional commit history and trigger downstream deploy/release workflows.")
           echo "Opened: $URL"
-          echo "Opened promotion PR: $URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Opened promotion PR: [$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"
