@@ -680,7 +680,19 @@ Optional stable-branch `release-please` config file path for Profile B repos.
 
 **Type:** `string`
 
-Optional `release-please` manifest file path.
+Optional `release-please` manifest file path. Used as the **default** manifest
+on every branch unless `manifest_file_stable` is set and the branch is a
+non-prerelease (stable) branch.
+
+#### `release.manifest_file_stable`
+
+**Type:** `string`
+
+Optional stable-branch `release-please` manifest file path for Profile B repos
+(beta on `dev`, stable on `main`). When set, non-prerelease branches read/write
+this manifest while prerelease branches use `manifest_file`. Giving each release
+stream its own manifest file keeps `dev`<->`main` promotions from ever
+conflicting on version state. Pair it with `config_file_stable`.
 
 #### `release.prerelease_branches`
 

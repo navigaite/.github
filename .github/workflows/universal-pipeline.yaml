@@ -205,6 +205,8 @@ jobs:
       release-config-file: ${{ steps.parse-config.outputs.release-config-file }}
       release-config-file-stable: ${{ steps.parse-config.outputs.release-config-file-stable }}
       release-manifest-file: ${{ steps.parse-config.outputs.release-manifest-file }}
+      release-manifest-file-stable: ${{ steps.parse-config.outputs.release-manifest-file-stable }}
+      release-manifest-file-resolved: ${{ steps.parse-config.outputs.release-manifest-file-resolved }}
       release-draft-pull-request: ${{ steps.parse-config.outputs.release-draft-pull-request }}
 
     steps:
@@ -279,6 +281,7 @@ jobs:
             RP_CONFIG_FILE=""
             RP_CONFIG_FILE_STABLE=""
             RP_MANIFEST_FILE=""
+            RP_MANIFEST_FILE_STABLE=""
             RP_DRAFT_PR="true"
           else
             echo "✓ Found configuration file: $CONFIG_FILE"
@@ -350,6 +353,7 @@ jobs:
             RP_CONFIG_FILE=$(yq -r '.release.config_file // ""' "$CONFIG_FILE")
             RP_CONFIG_FILE_STABLE=$(yq -r '.release.config_file_stable // ""' "$CONFIG_FILE")
             RP_MANIFEST_FILE=$(yq -r '.release.manifest_file // ""' "$CONFIG_FILE")
+            RP_MANIFEST_FILE_STABLE=$(yq -r '.release.manifest_file_stable // ""' "$CONFIG_FILE")
 
             # Open release-please PRs in draft by default so the caller's
             # full pipeline doesn't run on every merge to the release branch.
@@ -401,6 +405,24 @@ jobs:
           [[ "$SKIP_TEST" == "true" ]] && ENABLE_TEST="false"
           [[ "$SKIP_BUILD" == "true" ]] && ENABLE_BUILD="false"
           [[ "$SKIP_DEPLOY" == "true" ]] && ENABLE_DEPLOY="false"
+
+          # Resolve the branch-appropriate release-please manifest. On a
+          # non-prerelease branch (e.g. main) use the stable manifest when one
+          # is configured; otherwise the default manifest. Keeps the beta (dev)
+          # and stable (main) release streams in separate manifest files so
+          # dev<->main promotions never conflict on version state. Resolved
+          # once here so every consumer (release job + docker image tag) reads
+          # the same file.
+          RESOLVE_BRANCH="${GITHUB_REF#refs/heads/}"
+          RP_IS_PRERELEASE="false"
+          if [[ "$PRERELEASE_BRANCHES" != "[]" ]]; then
+            RP_LABEL=$(echo "$PRERELEASE_BRANCHES" | jq -r --arg b "$RESOLVE_BRANCH" '.[] | select(.branch == $b) | .label')
+            [[ -n "$RP_LABEL" ]] && RP_IS_PRERELEASE="true"
+          fi
+          RP_MANIFEST_RESOLVED="$RP_MANIFEST_FILE"
+          if [[ "$RP_IS_PRERELEASE" == "false" && -n "$RP_MANIFEST_FILE_STABLE" ]]; then
+            RP_MANIFEST_RESOLVED="$RP_MANIFEST_FILE_STABLE"
+          fi
 
           # Output configuration
           echo "configured-stack=$CONFIGURED_STACK" >> $GITHUB_OUTPUT
@@ -457,6 +479,8 @@ jobs:
           echo "release-config-file=$RP_CONFIG_FILE" >> $GITHUB_OUTPUT
           echo "release-config-file-stable=$RP_CONFIG_FILE_STABLE" >> $GITHUB_OUTPUT
           echo "release-manifest-file=$RP_MANIFEST_FILE" >> $GITHUB_OUTPUT
+          echo "release-manifest-file-stable=$RP_MANIFEST_FILE_STABLE" >> $GITHUB_OUTPUT
+          echo "release-manifest-file-resolved=$RP_MANIFEST_RESOLVED" >> $GITHUB_OUTPUT
           echo "release-draft-pull-request=$RP_DRAFT_PR" >> $GITHUB_OUTPUT
 
           echo ""
@@ -1226,7 +1250,7 @@ jobs:
           IMAGE_NAME_OVERRIDE: ${{ matrix.image.image_name }}
           IMAGE_SUFFIX: ${{ matrix.image.name }}
           RELEASE_VERSION: ${{ needs.release.outputs.release-version }}
-          MANIFEST_FILE: ${{ needs.setup.outputs.release-manifest-file }}
+          MANIFEST_FILE: ${{ needs.setup.outputs.release-manifest-file-resolved }}
           EXTRA_BUILD_ARGS: ${{ matrix.image.build_args }}
         run: |
           set -euo pipefail
@@ -1391,7 +1415,7 @@ jobs:
           force-patch-on-no-release: ${{ needs.setup.outputs.release-force-patch-on-no-release }}
           extra-plugins: ${{ needs.setup.outputs.release-extra-plugins }}
           config-file: ${{ steps.prerelease.outputs.config-file }}
-          manifest-file: ${{ needs.setup.outputs.release-manifest-file }}
+          manifest-file: ${{ needs.setup.outputs.release-manifest-file-resolved }}
           target-branch: ${{ github.ref_name }}
           prerelease: ${{ steps.prerelease.outputs.is-prerelease }}
           prerelease-type: ${{ steps.prerelease.outputs.prerelease-type }}
