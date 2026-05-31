@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.0](https://github.com/navigaite/.github/compare/v2.12.2...v2.13.0) (2026-05-31)
+
+
+### ✨ Features
+
+* **release:** add manifest_file_stable for per-stream manifests ([#167](https://github.com/navigaite/.github/issues/167)) ([d9a6154](https://github.com/navigaite/.github/commit/d9a615459289a402769389d3263995152fa53de0))
+
 ## [2.12.2](https://github.com/navigaite/.github/compare/v2.12.1...v2.12.2) (2026-05-31)
 
 
