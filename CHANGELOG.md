@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.2](https://github.com/navigaite/.github/compare/v2.12.1...v2.12.2) (2026-05-31)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** keep nightly green when Code Scanning is unavailable ([#165](https://github.com/navigaite/.github/issues/165)) ([5fdf159](https://github.com/navigaite/.github/commit/5fdf159eeb0289a7622f52653ee64c5056da3590))
+
 ## [2.12.1](https://github.com/navigaite/.github/compare/v2.12.0...v2.12.1) (2026-05-26)
 
 
