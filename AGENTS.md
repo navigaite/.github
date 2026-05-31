@@ -361,7 +361,8 @@ release:
   strategy: release-please
   config_file: release-please-config.json            # prerelease on dev
   config_file_stable: release-please-config.main.json # stable on main
-  manifest_file: .release-please-manifest.json
+  manifest_file: .release-please-manifest.dev.json    # beta stream (dev)
+  manifest_file_stable: .release-please-manifest.json # stable stream (main)
   sync_to_dev: true
   prerelease_branches:
     - branch: dev

@@ -342,6 +342,10 @@
           "type": "string",
           "description": "release-please manifest file path"
         },
+        "manifest_file_stable": {
+          "type": "string",
+          "description": "Optional stable-branch release-please manifest file path"
+        },
         "prerelease_branches": {
           "type": "array",
           "description": "Branches that should publish prerelease versions",
