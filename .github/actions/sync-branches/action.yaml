@@ -27,6 +27,33 @@ inputs:
     required: false
     default: 'true'
 
+  prerelease-manifest-file:
+    description: >-
+      Path to the dev/beta prerelease release-please manifest. When set
+      together with a different `stable-manifest-file`, the direct-push sync
+      reconciles each prerelease cursor in this file to the just-released
+      stable version (strips the `-beta.N` suffix) so the next dev release
+      computes a version above the released stable. Dual-track (Profile B)
+      repos only; leave empty to disable.
+    required: false
+    default: ''
+
+  stable-manifest-file:
+    description: >-
+      Path to the stable release-please manifest, used as the source of truth
+      for the reconciled base versions. Must differ from
+      `prerelease-manifest-file` for reconciliation to run.
+    required: false
+    default: ''
+
+  stable-version:
+    description: >-
+      Just-released stable version (e.g. release-please `release-version`).
+      Used as the fallback base for the root (".") manifest entry when the
+      stable manifest has no matching key.
+    required: false
+    default: ''
+
 runs:
   using: composite
   steps:
@@ -87,6 +114,9 @@ runs:
       env:
         SOURCE_BRANCH: ${{ inputs.source-branch }}
         TARGET_BRANCH: ${{ inputs.target-branch }}
+        PRERELEASE_MANIFEST_FILE: ${{ inputs.prerelease-manifest-file }}
+        STABLE_MANIFEST_FILE: ${{ inputs.stable-manifest-file }}
+        STABLE_VERSION: ${{ inputs.stable-version }}
       run: |
         set -euo pipefail
         echo "::group::🔄 Syncing $SOURCE_BRANCH → $TARGET_BRANCH"
@@ -103,6 +133,26 @@ runs:
           -m "chore: sync $SOURCE_BRANCH to $TARGET_BRANCH [skip ci]" \
           -m "Auto-sync from $SOURCE_BRANCH after release" \
           -m "This commit contains version updates and should not trigger a new release."
+
+        # Reconcile the dev (beta) prerelease manifest base to the just-released
+        # stable version so the next dev release computes a version ABOVE the
+        # released stable (dual-track / Profile B repos only). Folded into this
+        # sync push as a separate [skip ci] commit when a change is needed.
+        if [[ -n "$PRERELEASE_MANIFEST_FILE" && -n "$STABLE_MANIFEST_FILE" \
+              && "$PRERELEASE_MANIFEST_FILE" != "$STABLE_MANIFEST_FILE" ]]; then
+          echo "🔧 Reconciling prerelease manifest '$PRERELEASE_MANIFEST_FILE'"
+          bash "$GITHUB_ACTION_PATH/reconcile-prerelease-manifest.sh" \
+            "$PRERELEASE_MANIFEST_FILE" "$STABLE_MANIFEST_FILE" "$STABLE_VERSION"
+          if ! git diff --quiet -- "$PRERELEASE_MANIFEST_FILE"; then
+            git add -- "$PRERELEASE_MANIFEST_FILE"
+            git commit \
+              -m "chore: reconcile $TARGET_BRANCH prerelease manifest base [skip ci]" \
+              -m "Reset prerelease cursor(s) to the just-released stable version after promotion to $SOURCE_BRANCH so the next $TARGET_BRANCH release advances correctly." \
+              -m "This commit should not trigger a new release."
+          else
+            echo "✅ Prerelease manifest already reconciled — no extra commit"
+          fi
+        fi
 
         # Push to target branch
         git push origin $TARGET_BRANCH

@@ -1499,6 +1499,13 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token || secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           create-pr: false
           auto-merge-pr: true
+          # Dual-track (Profile B) reconcile: after the stable release lands on
+          # main, reset the dev (beta) prerelease manifest base to the released
+          # stable version so the next dev release stays above stable. No-op
+          # unless both manifests are configured and differ.
+          prerelease-manifest-file: ${{ needs.setup.outputs.release-manifest-file }}
+          stable-manifest-file: ${{ needs.setup.outputs.release-manifest-file-stable }}
+          stable-version: ${{ needs.release.outputs.release-version }}
 
   # =============================================================================
   # PIPELINE SUMMARY — aggregates results into a markdown table AND fails the

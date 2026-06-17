@@ -66,6 +66,31 @@ This commit contains version updates and should not trigger a new release.
 
 This ensures the sync commit **won't appear in your next release notes**.
 
+### Dual-track manifest reconciliation (Profile B)
+
+Repos that run a beta stream on `dev` and a stable stream on `main` keep two
+separate release-please manifests (`manifest_file` for dev, `manifest_file_stable`
+for main — see the Versioning Guide). When a stable release is cut on `main`,
+only the stable manifest advances; the dev prerelease manifest stays at its
+`X.Y.Z-beta.N` cursor. Because release-please's prerelease strategy only bumps
+the beta counter while the cursor sits at `patch === 0`, the dev base would
+otherwise never catch up and new betas would compute **lower** than the released
+stable.
+
+During the direct-push sync, the pipeline therefore resets each prerelease
+cursor in `manifest_file` to its just-released stable counterpart (stripping the
+`-beta.N` suffix). This is folded into the sync push as a second `[skip ci]`
+commit:
+
+```
+chore: reconcile dev prerelease manifest base [skip ci]
+```
+
+A package is only reset when its dev base is `<=` the stable version, so a dev
+package that legitimately raced ahead of stable is never downgraded. The
+reconcile is a no-op unless both `manifest_file` and `manifest_file_stable` are
+configured and differ — single-track repos are unaffected.
+
 ## ⚙️ Configuration
 
 ### Enable/Disable Sync
