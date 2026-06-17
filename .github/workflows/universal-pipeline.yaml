@@ -644,24 +644,30 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # =============================================================================
-  # SECURITY SCANNING
+  # STATIC CHECKS — security scan + lint merged onto one runner to cut per-job
+  # minute-rounding overhead (EDI-375). The job-level `if:` fires when *either*
+  # is enabled, so every step below carries its own enable-security /
+  # enable-lint guard (the old job-level `if:` no longer covers them).
   # =============================================================================
-  security:
-    name: 🔒 Security Scan
+  static-checks:
+    name: 🔎 Static Checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write
     needs: setup
-    if: needs.setup.outputs.enable-security == 'true' && needs.setup.outputs.docs-only != 'true'
+    if: |
+      (needs.setup.outputs.enable-security == 'true' || needs.setup.outputs.enable-lint == 'true') &&
+      needs.setup.outputs.docs-only != 'true'
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 0 # Required for TruffleHog
+          fetch-depth: 0 # Required for TruffleHog (security scan)
 
       - name: 🔍 Security Scanning
+        if: needs.setup.outputs.enable-security == 'true'
         uses: navigaite/.github/.github/actions/security-scan@v2
         with:
           enable-trufflehog: ${{ needs.setup.outputs.enable-trufflehog }}
@@ -669,23 +675,9 @@ jobs:
           fail-on-secrets: ${{ needs.setup.outputs.security-fail-on-secrets }}
           fail-on-vulnerabilities: ${{ needs.setup.outputs.security-fail-on-vulnerabilities }}
 
-  # =============================================================================
-  # LINT
-  # =============================================================================
-  lint:
-    name: 🧹 Lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      pull-requests: write
-    needs: setup
-    if: needs.setup.outputs.enable-lint == 'true' && needs.setup.outputs.docs-only != 'true'
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
+      # --- Lint (shares this runner with security; each step guarded) ---
       - name: 🔧 Setup Environment
+        if: needs.setup.outputs.enable-lint == 'true'
         uses: navigaite/.github/.github/actions/setup-environment@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
@@ -697,6 +689,7 @@ jobs:
           enable-caching: ${{ needs.setup.outputs.enable-caching }}
 
       - name: 📦 Install Dependencies
+        if: needs.setup.outputs.enable-lint == 'true'
         uses: navigaite/.github/.github/actions/install-dependencies@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
@@ -706,7 +699,7 @@ jobs:
 
       - name: 🔍 Detect React Project
         id: detect-react
-        if: needs.setup.outputs.stack == 'nodejs'
+        if: needs.setup.outputs.enable-lint == 'true' && needs.setup.outputs.stack == 'nodejs'
         shell: bash
         working-directory: ${{ inputs.working-directory }}
         run: |
@@ -727,7 +720,7 @@ jobs:
 
       - name: 🩺 Run React Doctor (PR)
         id: react-doctor-pr
-        if: steps.detect-react.outputs.enabled == 'true' && github.event_name == 'pull_request'
+        if: needs.setup.outputs.enable-lint == 'true' && steps.detect-react.outputs.enabled == 'true' && github.event_name == 'pull_request'
         uses: millionco/react-doctor@bac7c82950e2392ac4b21448f3e9cf86b605567f # main
         continue-on-error: true
         with:
@@ -738,7 +731,7 @@ jobs:
 
       - name: 🩺 Run React Doctor
         id: react-doctor
-        if: steps.detect-react.outputs.enabled == 'true' && github.event_name != 'pull_request'
+        if: needs.setup.outputs.enable-lint == 'true' && steps.detect-react.outputs.enabled == 'true' && github.event_name != 'pull_request'
         uses: millionco/react-doctor@bac7c82950e2392ac4b21448f3e9cf86b605567f # main
         continue-on-error: true
         with:
@@ -748,6 +741,7 @@ jobs:
 
       - name: 🔍 Detect Trunk Configuration
         id: detect-trunk
+        if: needs.setup.outputs.enable-lint == 'true'
         shell: bash
         working-directory: ${{ inputs.working-directory }}
         run: |
@@ -759,7 +753,7 @@ jobs:
           fi
 
       - name: 🩺 React Doctor Summary
-        if: always() && steps.detect-react.outputs.enabled == 'true'
+        if: always() && needs.setup.outputs.enable-lint == 'true' && steps.detect-react.outputs.enabled == 'true'
         shell: bash
         env:
           PR_OUTCOME: ${{ steps.react-doctor-pr.outcome }}
@@ -803,11 +797,11 @@ jobs:
 
       - name: 🧹 Run Trunk Lint
         id: trunk-lint
-        if: steps.detect-trunk.outputs.enabled == 'true' && inputs.working-directory == '.'
+        if: needs.setup.outputs.enable-lint == 'true' && steps.detect-trunk.outputs.enabled == 'true' && inputs.working-directory == '.'
         uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3 # v1.3.1
 
       - name: 📥 Install Trunk CLI (Subdirectory)
-        if: steps.detect-trunk.outputs.enabled == 'true' && inputs.working-directory != '.'
+        if: needs.setup.outputs.enable-lint == 'true' && steps.detect-trunk.outputs.enabled == 'true' && inputs.working-directory != '.'
         shell: bash
         run: |
           set -euo pipefail
@@ -816,7 +810,7 @@ jobs:
 
       - name: 🧹 Run Trunk Lint (Subdirectory)
         id: trunk-lint-subdir
-        if: steps.detect-trunk.outputs.enabled == 'true' && inputs.working-directory != '.'
+        if: needs.setup.outputs.enable-lint == 'true' && steps.detect-trunk.outputs.enabled == 'true' && inputs.working-directory != '.'
         shell: bash
         working-directory: ${{ inputs.working-directory }}
         env:
@@ -827,7 +821,7 @@ jobs:
 
       - name: 🧹 Run Lint
         id: fallback-lint
-        if: steps.detect-trunk.outputs.enabled != 'true'
+        if: needs.setup.outputs.enable-lint == 'true' && steps.detect-trunk.outputs.enabled != 'true'
         uses: navigaite/.github/.github/actions/run-lint@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
@@ -836,7 +830,7 @@ jobs:
           fail-on-error: ${{ needs.setup.outputs.lint-fail-on-error }}
 
       - name: 📋 Lint Summary
-        if: always()
+        if: always() && needs.setup.outputs.enable-lint == 'true'
         shell: bash
         env:
           TRUNK_ENABLED: ${{ steps.detect-trunk.outputs.enabled }}
@@ -897,80 +891,22 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # =============================================================================
-  # TEST
+  # VERIFY — test + build merged onto one runner (EDI-375). setup-env + install
+  # run ONCE, then tests, then build. Build steps skip automatically when tests
+  # fail (sequential steps, no continue-on-error) — an intentional minute
+  # saving. perms are the union of the old test + build jobs.
   # =============================================================================
-  test:
-    name: 🧪 Test
+  verify:
+    name: 🧪 Verify
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
-    needs: setup
-    if: needs.setup.outputs.enable-test == 'true' && needs.setup.outputs.docs-only != 'true'
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: 🔧 Setup Environment
-        uses: navigaite/.github/.github/actions/setup-environment@v2
-        with:
-          stack: ${{ needs.setup.outputs.stack }}
-          node-version: ${{ needs.setup.outputs.runtime-version }}
-          python-version: ${{ needs.setup.outputs.runtime-version }}
-          flutter-version: ${{ needs.setup.outputs.runtime-version }}
-          working-directory: ${{ inputs.working-directory }}
-          write-summary: 'false'
-          enable-caching: ${{ needs.setup.outputs.enable-caching }}
-
-      - name: 📦 Install Dependencies
-        uses: navigaite/.github/.github/actions/install-dependencies@v2
-        with:
-          stack: ${{ needs.setup.outputs.stack }}
-          package-manager: ${{ needs.setup.outputs.package-manager }}
-          working-directory: ${{ inputs.working-directory }}
-          write-summary: 'false'
-
-      - name: 🧪 Run Tests
-        uses: navigaite/.github/.github/actions/run-tests@v2
-        with:
-          stack: ${{ needs.setup.outputs.stack }}
-          test-command: ${{ needs.setup.outputs.test-command }}
-          working-directory: ${{ inputs.working-directory }}
-          coverage: ${{ needs.setup.outputs.test-coverage }}
-
-  # =============================================================================
-  # BUILD
-  # =============================================================================
-  build:
-    name: 🏗️ Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      id-token: write # SLSA attestation + OIDC
-      attestations: write # SLSA build provenance
-    # Build runs in parallel with lint + test (only blocked on `setup`) so the
-    # pipeline critical path is `setup + max(lint, test, build)` instead of
-    # `setup + max(lint, test) + build`. Downstream jobs (release, deploy)
-    # still gate on lint + test results — see their `if:` blocks.
-    #
-    # Trade-off: on a PR with broken lint/test, this job still runs to
-    # completion, which means it consumes Infisical secrets (loaded below)
-    # and CI minutes that the previous serial graph would have skipped.
-    # Acceptable because:
-    #   - Secret material is masked in logs by the Infisical action and only
-    #     reaches the user's build command — same surface area as a passing
-    #     build, just on a SHA that won't ship.
-    #   - SLSA attestation only fires when `upload-artifacts` AND
-    #     `attest-artifacts` are both true (see run-build action). Most
-    #     callers (e.g. edilio with `upload_artifacts: false`) don't attest,
-    #     so attestation pollution is not a concern in the common case.
-    #   - On `push` events, lint/test have already passed in the PR that
-    #     produced the merge commit, so the wasted-build case essentially
-    #     only applies to PR runs that were going to fail anyway.
+      id-token: write # SLSA attestation + OIDC (build)
+      attestations: write # SLSA build provenance (build)
     needs: [setup]
     if: |
-      needs.setup.outputs.enable-build == 'true' &&
+      (needs.setup.outputs.enable-test == 'true' || needs.setup.outputs.enable-build == 'true') &&
       needs.setup.outputs.docs-only != 'true'
     steps:
       - name: 📥 Checkout code
@@ -995,8 +931,19 @@ jobs:
           working-directory: ${{ inputs.working-directory }}
           write-summary: 'false'
 
+      - name: 🧪 Run Tests
+        if: needs.setup.outputs.enable-test == 'true'
+        uses: navigaite/.github/.github/actions/run-tests@v2
+        with:
+          stack: ${{ needs.setup.outputs.stack }}
+          test-command: ${{ needs.setup.outputs.test-command }}
+          working-directory: ${{ inputs.working-directory }}
+          coverage: ${{ needs.setup.outputs.test-coverage }}
+
+      # --- Build (runs after tests; skipped automatically if tests failed) ---
       - name: 🔍 Check Infisical Configuration
         id: infisical-config
+        if: needs.setup.outputs.enable-build == 'true'
         shell: bash
         env:
           INFISICAL_IDENTITY_ID: ${{ vars.INFISICAL_IDENTITY_ID || secrets.INFISICAL_IDENTITY_ID }}
@@ -1045,7 +992,7 @@ jobs:
           fi
 
       - name: 🔐 Load Infisical Secrets (OIDC)
-        if: steps.infisical-config.outputs.enabled == 'true' && steps.infisical-config.outputs.method == 'oidc'
+        if: needs.setup.outputs.enable-build == 'true' && steps.infisical-config.outputs.enabled == 'true' && steps.infisical-config.outputs.method == 'oidc'
         uses: Infisical/secrets-action@77ab1f4ccd183a543cb5b42435fbd181189f4995 # v1.0.16
         with:
           method: oidc
@@ -1056,7 +1003,7 @@ jobs:
           secret-path: ${{ vars.INFISICAL_SECRET_PATH || secrets.INFISICAL_SECRET_PATH || '/' }}
 
       - name: 🔐 Load Infisical Secrets (Universal Auth)
-        if: steps.infisical-config.outputs.enabled == 'true' && steps.infisical-config.outputs.method == 'universal'
+        if: needs.setup.outputs.enable-build == 'true' && steps.infisical-config.outputs.enabled == 'true' && steps.infisical-config.outputs.method == 'universal'
         uses: Infisical/secrets-action@77ab1f4ccd183a543cb5b42435fbd181189f4995 # v1.0.16
         with:
           method: universal
@@ -1068,6 +1015,7 @@ jobs:
           secret-path: ${{ vars.INFISICAL_SECRET_PATH || secrets.INFISICAL_SECRET_PATH || '/' }}
 
       - name: 🏗️ Run Build
+        if: needs.setup.outputs.enable-build == 'true'
         uses: navigaite/.github/.github/actions/run-build@v2
         with:
           stack: ${{ needs.setup.outputs.stack }}
@@ -1091,17 +1039,16 @@ jobs:
       deployments: write
       pull-requests: write
       id-token: write # OIDC for cloud providers
-    # `build` runs in parallel with lint + test, so we must gate on all three
-    # here (was previously implied via `build needs: [lint, test]`).
-    needs: [setup, lint, test, build]
+    # Gate on the merged static-checks (security + lint) and verify (test +
+    # build) jobs.
+    needs: [setup, static-checks, verify]
     if: |
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'vercel' &&
       needs.setup.outputs.docs-only != 'true' &&
-      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped')
+      (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
+      (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -1203,16 +1150,15 @@ jobs:
       deployments: write
       pull-requests: write
       id-token: write # OIDC for cloud providers
-    # `build` runs in parallel with lint + test — gate on all three explicitly.
-    needs: [setup, lint, test, build]
+    # Gate on the merged static-checks + verify jobs.
+    needs: [setup, static-checks, verify]
     if: |
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'digitalocean' &&
       needs.setup.outputs.docs-only != 'true' &&
-      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped')
+      (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
+      (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -1245,16 +1191,16 @@ jobs:
       deployments: write
       packages: write
       id-token: write # OIDC for cloud providers
-    # `build` runs in parallel with lint + test — gate on all three explicitly.
-    needs: [setup, lint, test, build, release]
+    # Gate on the merged static-checks + verify jobs; keep `release` (reads
+    # needs.release.outputs.release-version for the image tag).
+    needs: [setup, static-checks, verify, release]
     if: |
       always() &&
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'docker' &&
       needs.setup.outputs.docs-only != 'true' &&
-      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
+      (needs.verify.result == 'success' || needs.verify.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped')
     strategy:
       fail-fast: true
@@ -1349,8 +1295,8 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write # OIDC for release signing
-    # `build` runs in parallel with lint + test — gate on all three explicitly.
-    needs: [setup, lint, test, build]
+    # Gate on the merged static-checks + verify jobs.
+    needs: [setup, static-checks, verify]
     outputs:
       release-created: ${{ steps.release-mgmt.outputs.release-created }}
       release-version: ${{ steps.release-mgmt.outputs.release-version }}
@@ -1359,9 +1305,8 @@ jobs:
       always() &&
       needs.setup.outputs.enable-release == 'true' &&
       github.event_name == 'push' &&
-      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped')
+      (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
+      (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     steps:
       # Minting the installation token in-job is deliberate: passing a token
       # through `needs.*.outputs.*` makes GitHub Actions strip it with the
@@ -1522,10 +1467,8 @@ jobs:
       contents: read
     needs:
       - setup
-      - security
-      - lint
-      - test
-      - build
+      - static-checks
+      - verify
       - deploy-vercel
       - deploy-digitalocean
       - deploy-docker
@@ -1538,10 +1481,8 @@ jobs:
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
           SETUP: ${{ needs.setup.result }}
-          SECURITY: ${{ needs.security.result }}
-          LINT: ${{ needs.lint.result }}
-          TEST: ${{ needs.test.result }}
-          BUILD: ${{ needs.build.result }}
+          STATIC_CHECKS: ${{ needs.static-checks.result }}
+          VERIFY: ${{ needs.verify.result }}
           DEPLOY_VERCEL: ${{ needs.deploy-vercel.result }}
           DEPLOY_DO: ${{ needs.deploy-digitalocean.result }}
           DEPLOY_DOCKER: ${{ needs.deploy-docker.result }}
@@ -1567,10 +1508,8 @@ jobs:
             echo "| Stage | Status |"
             echo "| --- | --- |"
             echo "| Setup | $(status_icon "$SETUP") $SETUP |"
-            echo "| Security | $(status_icon "$SECURITY") $SECURITY |"
-            echo "| Lint | $(status_icon "$LINT") $LINT |"
-            echo "| Test | $(status_icon "$TEST") $TEST |"
-            echo "| Build | $(status_icon "$BUILD") $BUILD |"
+            echo "| Static Checks | $(status_icon "$STATIC_CHECKS") $STATIC_CHECKS |"
+            echo "| Verify | $(status_icon "$VERIFY") $VERIFY |"
             echo "| Deploy (Vercel) | $(status_icon "$DEPLOY_VERCEL") $DEPLOY_VERCEL |"
             echo "| Deploy (DO) | $(status_icon "$DEPLOY_DO") $DEPLOY_DO |"
             echo "| Deploy (Docker) | $(status_icon "$DEPLOY_DOCKER") $DEPLOY_DOCKER |"
