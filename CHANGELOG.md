@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/navigaite/.github/compare/v2.14.0...v3.0.0) (2026-06-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **pipeline:** consolidate CI jobs into static-checks + verify (EDI-389)
+
+### ✨ Features
+
+* **pipeline:** consolidate CI jobs into static-checks + verify (EDI-389) ([63532b5](https://github.com/navigaite/.github/commit/63532b5ff2a8015987e85b4e42f84b74c99a25e7))
+
 ## [2.14.0](https://github.com/navigaite/.github/compare/v2.13.1...v2.14.0) (2026-06-17)
 
 
