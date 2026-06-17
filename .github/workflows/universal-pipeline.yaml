@@ -1004,6 +1004,7 @@ jobs:
           INFISICAL_CLIENT_SECRET: ${{ secrets.INFISICAL_CLIENT_SECRET }}
           INFISICAL_PROJECT_SLUG: ${{ vars.INFISICAL_PROJECT_SLUG || secrets.INFISICAL_PROJECT_SLUG }}
           INFISICAL_ENV_SLUG: ${{ vars.INFISICAL_ENV_SLUG || secrets.INFISICAL_ENV_SLUG }}
+          INFISICAL_DOMAIN: ${{ vars.INFISICAL_DOMAIN || secrets.INFISICAL_DOMAIN || 'https://app.infisical.com' }}
         run: |
           set -euo pipefail
           if [[ -z "$INFISICAL_PROJECT_SLUG" || -z "$INFISICAL_ENV_SLUG" ]]; then
@@ -1012,14 +1013,35 @@ jobs:
             exit 0
           fi
           if [[ -n "$INFISICAL_IDENTITY_ID" ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "method=oidc" >> "$GITHUB_OUTPUT"
+            method=oidc
           elif [[ -n "$INFISICAL_CLIENT_ID" && -n "$INFISICAL_CLIENT_SECRET" ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "method=universal" >> "$GITHUB_OUTPUT"
+            method=universal
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Infisical auth incomplete (set vars.INFISICAL_IDENTITY_ID for OIDC, or secrets.INFISICAL_CLIENT_ID and secrets.INFISICAL_CLIENT_SECRET for Universal Auth), skipping secrets injection step"
+            exit 0
+          fi
+
+          # Reachability pre-check (EDI-381): a transient Infisical backend outage
+          # must NOT hard-fail a compile-only Build. Probe the API health endpoint
+          # with a short timeout; if the backend is unreachable or not serving its
+          # API (the EDI-379 "OIDC 404" outage class: proxy up, API route broken),
+          # skip injection with a ::warning:: and self-heal once the backend
+          # returns. This strictly improves availability — a build that genuinely
+          # needs these secrets still fails at the build step with a clear error;
+          # one that does not (e.g. edilio PR builds, upload_artifacts: false) now
+          # passes. This relaxation is scoped to the Build job ONLY — deploy and
+          # release jobs keep their Infisical load steps strict so missing/down
+          # secrets never silently ship an artifact.
+          probe_url="${INFISICAL_DOMAIN%/}/api/status"
+          http_code="$(curl -sSL -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 "$probe_url" 2>/dev/null || true)"
+          if [[ "$http_code" =~ ^2[0-9][0-9]$ ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "method=$method" >> "$GITHUB_OUTPUT"
+            echo "::notice::Infisical backend reachable ($probe_url -> HTTP $http_code); secrets injection enabled (method=$method)"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Infisical backend unreachable or unhealthy ($probe_url -> HTTP ${http_code:-000}); skipping secrets injection for this Build. Self-heals when the backend returns. A build that requires these secrets will fail at the build step with a clear error. See EDI-381 / EDI-380."
           fi
 
       - name: 🔐 Load Infisical Secrets (OIDC)
