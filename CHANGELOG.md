@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.0](https://github.com/navigaite/.github/compare/v2.13.1...v2.14.0) (2026-06-17)
+
+
+### ✨ Features
+
+* **release:** auto-reconcile dev prerelease manifest after promotion ([348f46b](https://github.com/navigaite/.github/commit/348f46b5e091cc41a4f10b20cb87a3b08ccbc2ac))
+
 ## [2.13.1](https://github.com/navigaite/.github/compare/v2.13.0...v2.13.1) (2026-06-17)
 
 
