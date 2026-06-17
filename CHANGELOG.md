@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.1](https://github.com/navigaite/.github/compare/v2.13.0...v2.13.1) (2026-06-17)
+
+
+### 🐛 Bug Fixes
+
+* **pipeline:** probe Infisical reachability before Build injection (EDI-381) ([9da43d8](https://github.com/navigaite/.github/commit/9da43d89b09223bcd4c99e58d804f14f43a1145b))
+
 ## [2.13.0](https://github.com/navigaite/.github/compare/v2.12.2...v2.13.0) (2026-05-31)
 
 
