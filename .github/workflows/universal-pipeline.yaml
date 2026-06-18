@@ -980,15 +980,30 @@ jobs:
           # passes. This relaxation is scoped to the Build job ONLY — deploy and
           # release jobs keep their Infisical load steps strict so missing/down
           # secrets never silently ship an artifact.
+          #
+          # EDI-404: a Cloudflare Access (Zero Trust) gate in front of the
+          # Infisical host answers unauthenticated machine requests with a 302
+          # to <team>.cloudflareaccess.com (or, on some Access configs, a 200
+          # HTML challenge page). Following that redirect lands on a 200 login
+          # page, which previously fooled the probe into "reachable" — the
+          # secrets-action then received HTML instead of JSON and crashed with
+          # "Cannot read properties of undefined (reading 'map')". So: do NOT
+          # follow redirects, and require Infisical's own JSON content-type.
+          # A 3xx (Access redirect) or non-JSON 200 (Access HTML challenge) now
+          # correctly skips injection instead of hard-failing the build.
           probe_url="${INFISICAL_DOMAIN%/}/api/status"
-          http_code="$(curl -sSL -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 "$probe_url" 2>/dev/null || true)"
-          if [[ "$http_code" =~ ^2[0-9][0-9]$ ]]; then
+          probe_out="$(curl -sS -o /dev/null -w '%{http_code} %{content_type}' --connect-timeout 5 --max-time 10 "$probe_url" 2>/dev/null || true)"
+          http_code="${probe_out%% *}"
+          content_type="${probe_out#* }"
+          : "${http_code:=000}"
+          : "${content_type:=none}"
+          if [[ "$http_code" =~ ^2[0-9][0-9]$ && "$content_type" == application/json* ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
             echo "method=$method" >> "$GITHUB_OUTPUT"
-            echo "::notice::Infisical backend reachable ($probe_url -> HTTP $http_code); secrets injection enabled (method=$method)"
+            echo "::notice::Infisical backend reachable ($probe_url -> HTTP $http_code, $content_type); secrets injection enabled (method=$method)"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Infisical backend unreachable or unhealthy ($probe_url -> HTTP ${http_code:-000}); skipping secrets injection for this Build. Self-heals when the backend returns. A build that requires these secrets will fail at the build step with a clear error. See EDI-381 / EDI-380."
+            echo "::warning::Infisical backend unreachable, unhealthy, or behind an auth gate ($probe_url -> HTTP ${http_code:-000}, type ${content_type:-none}); skipping secrets injection for this Build. A 3xx/non-JSON response usually means a Cloudflare Access gate is intercepting machine traffic (EDI-404). Self-heals when the API answers JSON directly. A build that requires these secrets will fail at the build step with a clear error. See EDI-404 / EDI-381 / EDI-380."
           fi
 
       - name: 🔐 Load Infisical Secrets (OIDC)
