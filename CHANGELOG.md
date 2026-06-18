@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/navigaite/.github/compare/v3.0.0...v3.0.1) (2026-06-18)
+
+
+### 🐛 Bug Fixes
+
+* **pipeline:** reject Cloudflare Access challenge in Infisical probe (EDI-404) ([#183](https://github.com/navigaite/.github/issues/183)) ([e4efc08](https://github.com/navigaite/.github/commit/e4efc089e872d83944427feedd70f209e025ec9b))
+
 ## [3.0.0](https://github.com/navigaite/.github/compare/v2.14.0...v3.0.0) (2026-06-17)
 
 
