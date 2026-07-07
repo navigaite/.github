@@ -124,8 +124,8 @@ on:
 
 # NOTE: Calling workflows must grant the permissions each job actually uses:
 #   setup:     contents: read, pull-requests: read (PR Files API for docs-only detection)
-#   security:  contents: read, pull-requests: write
-#   lint/test: contents: read
+#   security:      contents: read, pull-requests: write
+#   static-checks: contents: read, pull-requests: write, checks: write (trunk-action check annotations)
 #   build:     contents: read, id-token: write, attestations: write
 #   deploy:    contents: read, deployments: write, pull-requests: write, packages: write, id-token: write
 #   release:   contents: write, pull-requests: write, id-token: write
@@ -656,6 +656,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      checks: write # trunk-action posts lint results as check annotations (Checks API); without this it logs "Failed to post annotations to github: 403"
     needs: setup
     if: |
       (needs.setup.outputs.enable-security == 'true' || needs.setup.outputs.enable-lint == 'true') &&
