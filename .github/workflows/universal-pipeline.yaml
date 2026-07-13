@@ -721,7 +721,7 @@ jobs:
       - name: 🩺 Run React Doctor (PR)
         id: react-doctor-pr
         if: needs.setup.outputs.enable-lint == 'true' && steps.detect-react.outputs.enabled == 'true' && github.event_name == 'pull_request'
-        uses: millionco/react-doctor@1880b152e4d6aedd5c06cf2ca51783e53cfb4004 # main
+        uses: millionco/react-doctor@0a8d30b6df0a6b8336cee7ea1e30a18441a1780a # main
         continue-on-error: true
         with:
           directory: ${{ inputs.working-directory }}
@@ -732,7 +732,7 @@ jobs:
       - name: 🩺 Run React Doctor
         id: react-doctor
         if: needs.setup.outputs.enable-lint == 'true' && steps.detect-react.outputs.enabled == 'true' && github.event_name != 'pull_request'
-        uses: millionco/react-doctor@1880b152e4d6aedd5c06cf2ca51783e53cfb4004 # main
+        uses: millionco/react-doctor@0a8d30b6df0a6b8336cee7ea1e30a18441a1780a # main
         continue-on-error: true
         with:
           directory: ${{ inputs.working-directory }}
