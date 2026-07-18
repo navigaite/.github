@@ -242,6 +242,29 @@ When a pull request changes only files matching `**/*.md`, `**/*.mdx`, `docs/**`
 
 ---
 
+### `runner` (optional)
+
+**Type:** `object`
+
+Opt into a self-hosted runner for the `static-checks`, `verify`, and `deploy-docker` jobs. `setup`, `release`, and `sync-to-dev` always run on `ubuntu-latest`.
+
+#### `runner.labels`
+
+**Type:** `array` **Default:** `["ubuntu-latest"]`
+
+```yaml
+runner:
+  labels: [self-hosted, mainz-homelab]
+```
+
+Labels are matched against runners registered directly to *this* repository (runners are repo-scoped, not org-scoped here). If no runner with these labels is registered against the repo, the job just queues — there is no cross-repo execution risk from this field living in a shared, public workflow file.
+
+Only point this at a self-hosted runner on a **private** repo. A public repo's self-hosted runner would let an untrusted fork PR execute arbitrary code on that hardware — never set `runner.labels` to anything but `ubuntu-latest` (the default) on a public repo.
+
+See the Mainz homelab runner (labels: `self-hosted, mainz-homelab, linux, x64, docker`) — [PRI-625] for setup and rollback.
+
+---
+
 ### `security` (optional)
 
 **Type:** `object`

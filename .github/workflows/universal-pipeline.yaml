@@ -161,6 +161,9 @@ jobs:
       package-manager: ${{ steps.setup-env.outputs.package-manager }}
       enable-caching: ${{ steps.parse-config.outputs.enable-caching }}
 
+      # Runner targeting (self-hosted opt-in, defaults to ubuntu-latest)
+      runner-labels: ${{ steps.parse-config.outputs.runner-labels }}
+
       # Pipeline configuration
       enable-security: ${{ steps.parse-config.outputs.enable-security }}
       enable-trufflehog: ${{ steps.parse-config.outputs.enable-trufflehog }}
@@ -239,6 +242,7 @@ jobs:
             # Set sensible defaults
             CONFIGURED_STACK="auto"
             ENABLE_CACHING="true"
+            RUNNER_LABELS='["ubuntu-latest"]'
             RUNTIME_NODE_VERSION=""
             RUNTIME_PYTHON_VERSION=""
             RUNTIME_FLUTTER_VERSION=""
@@ -298,6 +302,12 @@ jobs:
             # Parse configuration using yq
             CONFIGURED_STACK=$(yq -r '.stack // "auto"' "$CONFIG_FILE")
             ENABLE_CACHING=$(yq '.pipeline.enable_caching // true' "$CONFIG_FILE")
+            # Self-hosted opt-in. Labels are only meaningful if a runner is
+            # actually registered against THIS repo (runners are repo-scoped),
+            # so an unrelated repo setting these labels just queues forever —
+            # there is no cross-repo execution risk from this being a shared,
+            # public workflow file.
+            RUNNER_LABELS=$(yq -o=json -I=0 '.runner.labels // ["ubuntu-latest"]' "$CONFIG_FILE" | jq -c '.')
             RUNTIME_NODE_VERSION=$(yq -r '.runtime.node_version // ""' "$CONFIG_FILE")
             RUNTIME_PYTHON_VERSION=$(yq -r '.runtime.python_version // ""' "$CONFIG_FILE")
             RUNTIME_FLUTTER_VERSION=$(yq -r '.runtime.flutter_version // ""' "$CONFIG_FILE")
@@ -427,6 +437,7 @@ jobs:
           # Output configuration
           echo "configured-stack=$CONFIGURED_STACK" >> $GITHUB_OUTPUT
           echo "enable-caching=$ENABLE_CACHING" >> $GITHUB_OUTPUT
+          echo "runner-labels=$RUNNER_LABELS" >> $GITHUB_OUTPUT
           echo "runtime-node-version=$RUNTIME_NODE_VERSION" >> $GITHUB_OUTPUT
           echo "runtime-python-version=$RUNTIME_PYTHON_VERSION" >> $GITHUB_OUTPUT
           echo "runtime-flutter-version=$RUNTIME_FLUTTER_VERSION" >> $GITHUB_OUTPUT
@@ -651,7 +662,7 @@ jobs:
   # =============================================================================
   static-checks:
     name: 🔎 Static Checks
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(needs.setup.outputs.runner-labels) }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -898,7 +909,7 @@ jobs:
   # =============================================================================
   verify:
     name: 🧪 Verify
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(needs.setup.outputs.runner-labels) }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -1199,7 +1210,7 @@ jobs:
 
   deploy-docker:
     name: 🐳 Docker / ${{ matrix.image.name }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(needs.setup.outputs.runner-labels) }}
     timeout-minutes: 20
     permissions:
       contents: read
