@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.2.1-beta.2](https://github.com/navigaite/.github/compare/v3.2.1-beta.1...v3.2.1-beta.2) (2026-07-18)
+
+
+### 🐛 Bug Fixes
+
+* **pipeline:** honor explicit enable: false in pipeline.yaml ([#216](https://github.com/navigaite/.github/issues/216)) ([a5921c6](https://github.com/navigaite/.github/commit/a5921c6f8dda425fb695028312078d34f3c6e29b))
+* **pipeline:** honor explicit enable: false in pipeline.yaml (PRI-674) ([a5921c6](https://github.com/navigaite/.github/commit/a5921c6f8dda425fb695028312078d34f3c6e29b))
+
 ## [3.2.1-beta.1](https://github.com/navigaite/.github/compare/v3.2.1-beta...v3.2.1-beta.1) (2026-07-18)
 
 
