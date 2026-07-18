@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/navigaite/.github/compare/v3.0.2...v3.1.0) (2026-07-18)
+
+
+### ✨ Features
+
+* **pipeline:** add runner.labels opt-in for self-hosted runners ([#202](https://github.com/navigaite/.github/issues/202)) ([a6728e9](https://github.com/navigaite/.github/commit/a6728e950f2f5a48de05196d2fd2c5fa44821dc1))
+
 ## [3.0.2](https://github.com/navigaite/.github/compare/v3.0.1...v3.0.2) (2026-07-18)
 
 
