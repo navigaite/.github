@@ -132,21 +132,109 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Inject prerelease config
-      id: inject-prerelease
+    # Prerelease settings CANNOT be injected at runtime. release-please-action
+    # calls Manifest.fromManifest(github, targetBranch, configFile, ...), which
+    # fetches the config file over the GitHub API from the tip of the target
+    # branch — it never reads the runner's checked-out copy. A previous version
+    # of this step rewrote the local file with jq; the edit was silently
+    # discarded and every prerelease branch kept cutting stable versions
+    # (PRI-662). The keys must therefore be COMMITTED to the config file that
+    # release.config_file points at.
+    #
+    # This step verifies that, against the same source release-please reads, and
+    # fails loudly when the keys are missing. Silent stable releases on a beta
+    # branch are far more expensive than a red pipeline.
+    - name: Verify prerelease config
+      id: verify-prerelease
       if: inputs.strategy == 'release-please' && inputs.config-file != '' && inputs.prerelease == 'true'
       shell: bash
       env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        API_URL: ${{ github.api_url }}
+        REPO: ${{ github.repository }}
         CONFIG_FILE: ${{ inputs.config-file }}
+        TARGET_BRANCH: ${{ inputs.target-branch || github.ref_name }}
         PRERELEASE_TYPE: ${{ inputs.prerelease-type }}
       run: |
         set -euo pipefail
-        echo "Injecting prerelease config into $CONFIG_FILE"
-        tmp=$(mktemp)
-        jq --arg ptype "$PRERELEASE_TYPE" '. + {"prerelease": true, "prerelease-type": $ptype, "versioning-strategy": "prerelease"}' "$CONFIG_FILE" > "$tmp"
-        mv "$tmp" "$CONFIG_FILE"
-        echo "Updated config:"
-        cat "$CONFIG_FILE"
+
+        # curl, not `gh` — the self-hosted runners do not ship the gh CLI.
+        echo "Reading $CONFIG_FILE from $REPO@$TARGET_BRANCH (the source release-please itself reads)"
+        if ! config=$(curl -sSfL \
+          -H "Authorization: Bearer $GH_TOKEN" \
+          -H "Accept: application/vnd.github.raw+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "$API_URL/repos/$REPO/contents/$CONFIG_FILE?ref=$TARGET_BRANCH"); then
+          echo "::error::Could not read $CONFIG_FILE from $REPO@$TARGET_BRANCH. Does release.config_file point at a file committed on that branch?"
+          exit 1
+        fi
+
+        if ! echo "$config" | jq empty 2>/dev/null; then
+          echo "::error::$CONFIG_FILE on $TARGET_BRANCH is not valid JSON."
+          exit 1
+        fi
+
+        # Root-level keys act as defaults for every package entry
+        # (manifest.ts: `pathConfig.versioning ?? defaultConfig.versioning`),
+        # so a key set at either level counts as present.
+        read_key() {
+          echo "$config" | jq -r --arg k "$1" \
+            '[.[$k]] + [(.packages // {} | to_entries[] | .value[$k])]
+             | map(select(. != null)) | first // "«unset»"'
+        }
+
+        versioning=$(read_key versioning)
+        prerelease=$(read_key prerelease)
+        ptype=$(read_key prerelease-type)
+
+        echo "  versioning      = $versioning"
+        echo "  prerelease      = $prerelease"
+        echo "  prerelease-type = $ptype"
+
+        errors=0
+
+        # The release-please config key is `versioning`. `versioning-strategy`
+        # is NOT a recognised key — release-please ignores it without warning
+        # and falls back to the `default` strategy, producing stable versions.
+        if echo "$config" | grep -q '"versioning-strategy"'; then
+          echo "::error::$CONFIG_FILE uses \"versioning-strategy\", which release-please does not recognise. Rename it to \"versioning\"."
+          errors=1
+        fi
+
+        if [[ "$versioning" != "prerelease" ]]; then
+          echo "::error::$CONFIG_FILE must set \"versioning\": \"prerelease\" (found: $versioning)."
+          errors=1
+        fi
+
+        # PrereleaseVersioningStrategy.determineReleaseType() strips the
+        # prerelease suffix unless `prerelease` is exactly true, so the
+        # versioning strategy alone still yields a stable version.
+        if [[ "$prerelease" != "true" ]]; then
+          echo "::error::$CONFIG_FILE must set \"prerelease\": true (found: $prerelease)."
+          errors=1
+        fi
+
+        if [[ -n "$PRERELEASE_TYPE" && "$ptype" != "$PRERELEASE_TYPE" ]]; then
+          echo "::error::$CONFIG_FILE must set \"prerelease-type\": \"$PRERELEASE_TYPE\" to match the pipeline.yaml prerelease_branches label (found: $ptype)."
+          errors=1
+        fi
+
+        if [[ "$errors" -ne 0 ]]; then
+          echo ""
+          echo "Branch '$TARGET_BRANCH' is configured as a prerelease branch, but"
+          echo "$CONFIG_FILE on that branch would make release-please cut a STABLE"
+          echo "version. Commit these keys to $CONFIG_FILE (root level is fine):"
+          echo ""
+          echo "  \"versioning\": \"prerelease\","
+          echo "  \"prerelease\": true,"
+          echo "  \"prerelease-type\": \"${PRERELEASE_TYPE:-beta}\""
+          echo ""
+          echo "Keep them OUT of the stable config (release.config_file_stable),"
+          echo "or main will cut prereleases too."
+          exit 1
+        fi
+
+        echo "✓ Prerelease config verified — release-please will cut ${PRERELEASE_TYPE:-prerelease} versions."
 
     - name: Run Release Please (manifest mode)
       id: release-please-manifest
