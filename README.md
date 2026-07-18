@@ -238,6 +238,14 @@ release:
   sync_target_branch: dev
 ```
 
+**Stage `enable:` vs. caller `skip-*` inputs:** the caller workflow can also pass
+`skip-security` / `skip-lint` / `skip-test` / `skip-build` / `skip-deploy` as
+`workflow_call` inputs. The two only ever combine to disable a stage, never
+to re-enable one: `pipeline.yaml`'s `enable: false` always turns a stage off
+regardless of the caller inputs, and a caller's `skip-*: true` turns a stage
+off even if `pipeline.yaml` says `enable: true`. Setting `skip-*: false` (or
+omitting it) never overrides an explicit `enable: false` in the config file.
+
 ---
 
 ## Security
