@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.1](https://github.com/navigaite/.github/compare/v3.1.0...v3.1.1) (2026-07-18)
+
+
+### 🐛 Bug Fixes
+
+* **hmac-cron-post:** harden against 3xx false-green + caller audit (PRI-633) ([#204](https://github.com/navigaite/.github/issues/204)) ([b517fc4](https://github.com/navigaite/.github/commit/b517fc41b24731b9a3b76bc7159137fc9a7e55ac))
+
 ## [3.1.0](https://github.com/navigaite/.github/compare/v3.0.2...v3.1.0) (2026-07-18)
 
 
