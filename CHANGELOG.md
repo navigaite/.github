@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/navigaite/.github/compare/v3.1.1...v3.2.0) (2026-07-18)
+
+
+### ✨ Features
+
+* **release:** migrate to two-branch model (PRI-637) ([#206](https://github.com/navigaite/.github/issues/206)) ([e7b35d8](https://github.com/navigaite/.github/commit/e7b35d874d7177bd72ad205877d11595de511263))
+
 ## [3.1.1](https://github.com/navigaite/.github/compare/v3.1.0...v3.1.1) (2026-07-18)
 
 
