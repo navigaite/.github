@@ -299,9 +299,24 @@ jobs:
               exit 1
             }
 
+            # yq/jq's `//` alternative operator substitutes its default on
+            # BOTH `null` and `false` — so `.security.enable // true` silently
+            # turns an explicit `enable: false` back into `true`. Boolean
+            # config keys must only fall back to their default when the key
+            # is genuinely absent (null), never when the owner wrote `false`.
+            yq_bool() {
+              local raw
+              raw=$(yq -r "$1" "$CONFIG_FILE")
+              if [[ "$raw" == "null" ]]; then
+                echo "$2"
+              else
+                echo "$raw"
+              fi
+            }
+
             # Parse configuration using yq
             CONFIGURED_STACK=$(yq -r '.stack // "auto"' "$CONFIG_FILE")
-            ENABLE_CACHING=$(yq '.pipeline.enable_caching // true' "$CONFIG_FILE")
+            ENABLE_CACHING=$(yq_bool '.pipeline.enable_caching' true)
             # Self-hosted opt-in. Labels are only meaningful if a runner is
             # actually registered against THIS repo (runners are repo-scoped),
             # so an unrelated repo setting these labels just queues forever —
@@ -311,23 +326,23 @@ jobs:
             RUNTIME_NODE_VERSION=$(yq -r '.runtime.node_version // ""' "$CONFIG_FILE")
             RUNTIME_PYTHON_VERSION=$(yq -r '.runtime.python_version // ""' "$CONFIG_FILE")
             RUNTIME_FLUTTER_VERSION=$(yq -r '.runtime.flutter_version // ""' "$CONFIG_FILE")
-            ENABLE_SECURITY=$(yq '.security.enable // true' "$CONFIG_FILE")
-            ENABLE_TRUFFLEHOG=$(yq '.security.trufflehog // true' "$CONFIG_FILE")
-            ENABLE_DEPENDENCY_REVIEW=$(yq '.security.dependency_review // true' "$CONFIG_FILE")
-            SECURITY_FAIL_ON_SECRETS=$(yq '.security.fail_on_secrets // true' "$CONFIG_FILE")
-            SECURITY_FAIL_ON_VULNERABILITIES=$(yq '.security.fail_on_vulnerabilities // false' "$CONFIG_FILE")
-            ENABLE_LINT=$(yq '.lint.enable // true' "$CONFIG_FILE")
+            ENABLE_SECURITY=$(yq_bool '.security.enable' true)
+            ENABLE_TRUFFLEHOG=$(yq_bool '.security.trufflehog' true)
+            ENABLE_DEPENDENCY_REVIEW=$(yq_bool '.security.dependency_review' true)
+            SECURITY_FAIL_ON_SECRETS=$(yq_bool '.security.fail_on_secrets' true)
+            SECURITY_FAIL_ON_VULNERABILITIES=$(yq_bool '.security.fail_on_vulnerabilities' false)
+            ENABLE_LINT=$(yq_bool '.lint.enable' true)
             LINT_COMMAND=$(yq -r '.lint.command // ""' "$CONFIG_FILE")
-            LINT_FAIL_ON_ERROR=$(yq '.lint.fail_on_error // true' "$CONFIG_FILE")
-            ENABLE_TEST=$(yq '.test.enable // true' "$CONFIG_FILE")
+            LINT_FAIL_ON_ERROR=$(yq_bool '.lint.fail_on_error' true)
+            ENABLE_TEST=$(yq_bool '.test.enable' true)
             TEST_COMMAND=$(yq -r '.test.command // ""' "$CONFIG_FILE")
-            TEST_COVERAGE=$(yq '.test.coverage // false' "$CONFIG_FILE")
-            ENABLE_BUILD=$(yq '.build.enable // true' "$CONFIG_FILE")
+            TEST_COVERAGE=$(yq_bool '.test.coverage' false)
+            ENABLE_BUILD=$(yq_bool '.build.enable' true)
             BUILD_COMMAND=$(yq -r '.build.command // ""' "$CONFIG_FILE")
-            BUILD_UPLOAD_ARTIFACTS=$(yq '.build.upload_artifacts // false' "$CONFIG_FILE")
+            BUILD_UPLOAD_ARTIFACTS=$(yq_bool '.build.upload_artifacts' false)
             BUILD_ARTIFACT_NAME=$(yq -r '.build.artifact_name // "build-output"' "$CONFIG_FILE")
             BUILD_ARTIFACT_PATH=$(yq -r '.build.artifact_path // ""' "$CONFIG_FILE")
-            BUILD_ATTEST_ARTIFACTS=$(yq '.build.attest_artifacts // false' "$CONFIG_FILE")
+            BUILD_ATTEST_ARTIFACTS=$(yq_bool '.build.attest_artifacts' false)
             BUILD_ARTIFACT_RETENTION_DAYS=$(yq -r '.build.artifact_retention_days // "7"' "$CONFIG_FILE")
             DEPLOY_PROVIDER=$(yq '.deployment.provider // "none"' "$CONFIG_FILE")
             ENABLE_DEPLOY=$([ "$DEPLOY_PROVIDER" != "none" ] && echo "true" || echo "false")
@@ -335,9 +350,9 @@ jobs:
             VERCEL_BUILD_COMMAND=$(yq -r '.deployment.vercel.build_command // ""' "$CONFIG_FILE")
             DIGITALOCEAN_APP_NAME=$(yq -r '.deployment.digitalocean.app_name // ""' "$CONFIG_FILE")
             DIGITALOCEAN_APP_SPEC=$(yq -r '.deployment.digitalocean.app_spec // ".do/app.yaml"' "$CONFIG_FILE")
-            DIGITALOCEAN_PRINT_BUILD_LOGS=$(yq '.deployment.digitalocean.print_logs // true' "$CONFIG_FILE")
+            DIGITALOCEAN_PRINT_BUILD_LOGS=$(yq_bool '.deployment.digitalocean.print_logs' true)
             DIGITALOCEAN_PRINT_DEPLOY_LOGS="$DIGITALOCEAN_PRINT_BUILD_LOGS"
-            ENABLE_RELEASE=$(yq '.release.enable // false' "$CONFIG_FILE")
+            ENABLE_RELEASE=$(yq_bool '.release.enable' false)
             RELEASE_STRATEGY=$(yq '.release.strategy // "release-please"' "$CONFIG_FILE")
             RELEASE_TYPE=$(yq -r '.release.type // ""' "$CONFIG_FILE")
             RELEASE_FORCE_PATCH_NO_RELEASE=$(yq -r '.release.force_patch_on_no_release // ""' "$CONFIG_FILE")
@@ -353,7 +368,7 @@ jobs:
             RELEASE_EXTRA_PLUGINS=$(yq -r '(.release.extra_plugins // []) | join("\n")' "$CONFIG_FILE")
 
             # Extract release sync configuration
-            ENABLE_SYNC=$(yq '.release.sync_to_dev // true' "$CONFIG_FILE")
+            ENABLE_SYNC=$(yq_bool '.release.sync_to_dev' true)
             SYNC_TARGET=$(yq '.release.sync_target_branch // "dev"' "$CONFIG_FILE")
 
             # Extract prerelease branch configuration
@@ -368,7 +383,7 @@ jobs:
             # Open release-please PRs in draft by default so the caller's
             # full pipeline doesn't run on every merge to the release branch.
             # Release PRs are human-gated: marking them ready re-triggers CI.
-            RP_DRAFT_PR=$(yq '.release.draft_pull_request // true' "$CONFIG_FILE")
+            RP_DRAFT_PR=$(yq_bool '.release.draft_pull_request' true)
 
             # Validate release strategy
             if [[ "$RELEASE_STRATEGY" != "release-please" && "$RELEASE_STRATEGY" != "semantic-release" ]]; then
@@ -392,7 +407,7 @@ jobs:
               --arg event "$GITHUB_EVENT_NAME" \
               --arg branch "$CURRENT_BRANCH" \
               '[.[] | select(
-                (.auto_deploy // true) == true and
+                .auto_deploy != false and
                 (.trigger == null or (
                   .trigger.event == $event and
                   (if .trigger.branch then .trigger.branch == $branch else true end) and
