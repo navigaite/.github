@@ -60,8 +60,26 @@ jobs:
           SIG=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$CRON_HMAC_KEY" -hex | awk '{print $2}')
 
           echo "POSTing to ${CRON_BASE_URL}${ENDPOINT} at $TS"
-          curl --fail-with-body --silent --show-error -X POST \
+
+          # No -L: following a redirect (e.g. to an auth wall) is not success,
+          # and the signed path would no longer match the requested path,
+          # breaking HMAC verification. We capture the status code explicitly
+          # instead of relying on --fail-with-body, which only trips on >= 400
+          # and lets a 3xx (redirect to a login/auth-wall page) exit 0.
+          HTTP_CODE=$(curl --silent --show-error -o /tmp/cron-response.txt -w '%{http_code}' -X POST \
             "${CRON_BASE_URL}${ENDPOINT}" \
             -H "X-Cron-Timestamp: $TS" \
             -H "X-Cron-Nonce: $NONCE" \
-            -H "X-Cron-Signature: $SIG"
+            -H "X-Cron-Signature: $SIG")
+
+          BODY_PREVIEW=$(head -c 500 /tmp/cron-response.txt || true)
+
+          echo "Response: HTTP $HTTP_CODE"
+          echo "Body (truncated to 500 bytes): $BODY_PREVIEW"
+
+          if [[ "$HTTP_CODE" -lt 200 || "$HTTP_CODE" -ge 300 ]]; then
+            echo "::error::Cron POST to ${CRON_BASE_URL}${ENDPOINT} returned HTTP $HTTP_CODE (expected 2xx). Not following redirects — a 3xx here usually means an auth wall (e.g. Cloudflare Access) intercepted the request before it reached the app."
+            exit 1
+          fi
+
+          echo "Cron POST succeeded with HTTP $HTTP_CODE"
