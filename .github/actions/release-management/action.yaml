@@ -143,7 +143,7 @@ runs:
         set -euo pipefail
         echo "Injecting prerelease config into $CONFIG_FILE"
         tmp=$(mktemp)
-        jq --arg ptype "$PRERELEASE_TYPE" '. + {"prerelease": true, "prerelease-type": $ptype}' "$CONFIG_FILE" > "$tmp"
+        jq --arg ptype "$PRERELEASE_TYPE" '. + {"prerelease": true, "prerelease-type": $ptype, "versioning-strategy": "prerelease"}' "$CONFIG_FILE" > "$tmp"
         mv "$tmp" "$CONFIG_FILE"
         echo "Updated config:"
         cat "$CONFIG_FILE"
