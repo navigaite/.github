@@ -407,7 +407,7 @@ jobs:
               --arg event "$GITHUB_EVENT_NAME" \
               --arg branch "$CURRENT_BRANCH" \
               '[.[] | select(
-                (.auto_deploy // true) == true and
+                .auto_deploy != false and
                 (.trigger == null or (
                   .trigger.event == $event and
                   (if .trigger.branch then .trigger.branch == $branch else true end) and
