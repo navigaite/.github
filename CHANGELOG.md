@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.2](https://github.com/navigaite/.github/compare/v3.0.1...v3.0.2) (2026-07-18)
+
+
+### 🐛 Bug Fixes
+
+* **release-management:** set versioning-strategy on prerelease branches ([#200](https://github.com/navigaite/.github/issues/200)) ([6cc8580](https://github.com/navigaite/.github/commit/6cc85801188ecaf7588463f63d59f2b6f64b3319))
+
 ## [3.0.1](https://github.com/navigaite/.github/compare/v3.0.0...v3.0.1) (2026-06-18)
 
 
