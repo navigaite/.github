@@ -7,6 +7,19 @@
 
 * **release:** migrate to two-branch model (PRI-637) ([#206](https://github.com/navigaite/.github/issues/206)) ([e7b35d8](https://github.com/navigaite/.github/commit/e7b35d874d7177bd72ad205877d11595de511263))
 
+
+### 🐛 Bug Fixes
+
+* **release:** correct dev manifest baseline after bad v4.0.0-beta.0 release (PRI-637) ([#210](https://github.com/navigaite/.github/issues/210)) ([9888bb8](https://github.com/navigaite/.github/commit/9888bb837b15c095714b166fd48685cad0523f9b))
+* **release:** seed dev manifest with prerelease cursor (PRI-637) ([#208](https://github.com/navigaite/.github/issues/208)) ([ad0f08b](https://github.com/navigaite/.github/commit/ad0f08b4d339f9c565d696c9693bb214d06f47f2))
+
+## [3.2.0](https://github.com/navigaite/.github/compare/v3.1.1...v3.2.0) (2026-07-18)
+
+
+### ✨ Features
+
+* **release:** migrate to two-branch model (PRI-637) ([#206](https://github.com/navigaite/.github/issues/206)) ([e7b35d8](https://github.com/navigaite/.github/commit/e7b35d874d7177bd72ad205877d11595de511263))
+
 ## [3.1.1](https://github.com/navigaite/.github/compare/v3.1.0...v3.1.1) (2026-07-18)
 
 
