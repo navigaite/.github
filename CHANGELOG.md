@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1-beta.1](https://github.com/navigaite/.github/compare/v3.2.1-beta...v3.2.1-beta.1) (2026-07-18)
+
+
+### ⚡ Performance Improvements
+
+* **ci:** fold Pipeline Summary into caller Check Gate (PRI-630) ([#214](https://github.com/navigaite/.github/issues/214)) ([6310de1](https://github.com/navigaite/.github/commit/6310de1a49123f07a9ada86f003ebce66c517d62))
+
 ## [3.2.1-beta](https://github.com/navigaite/.github/compare/v3.2.0...v3.2.1-beta) (2026-07-18)
 
 
