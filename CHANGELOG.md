@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1-beta](https://github.com/navigaite/.github/compare/v3.2.0...v3.2.1-beta) (2026-07-18)
+
+
+### 🐛 Bug Fixes
+
+* **release:** read prerelease config from branch, not runner disk ([#212](https://github.com/navigaite/.github/issues/212)) ([1306d8c](https://github.com/navigaite/.github/commit/1306d8c12a2b32a26ad55e42f727a8dede29d111))
+
 ## [3.2.0](https://github.com/navigaite/.github/compare/v3.1.1...v3.2.0) (2026-07-18)
 
 
