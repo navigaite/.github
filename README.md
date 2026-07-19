@@ -16,7 +16,7 @@
 
 The Universal Pipeline is a **reusable GitHub Actions workflow** that auto-detects your tech stack, runs security scans, lints, tests, builds, deploys, and releases — all from a single YAML config file.
 
-**Current version: `v3.1.1`** — consumers pin to `@v2` and always get the latest patch. <!-- x-release-please-version -->
+**Current version: `v3.2.1-beta.2`** — consumers pin to `@v2` and always get the latest patch. <!-- x-release-please-version -->
 
 ### Highlights
 
@@ -85,18 +85,58 @@ jobs:
     needs: [pipeline]
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    permissions:
+      # actions: read is required to list this run's jobs for the summary
+      # table. The reusable workflow no longer renders it in its own job.
+      actions: read
     steps:
+      # Best-effort rendering only — never let a summary failure flip the
+      # required status check. The gate step below is authoritative.
+      - name: Render pipeline summary
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          status_icon() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              skipped) echo "⏭️" ;;
+              cancelled) echo "🚫" ;;
+              *) echo "❓" ;;
+            esac
+          }
+          {
+            echo "## 📊 Pipeline Summary"
+            echo ""
+            echo "| Stage | Status |"
+            echo "| --- | --- |"
+            gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" --paginate \
+              --jq '.jobs[] | select(.conclusion != null) | "\(.name)\t\(.conclusion)"' \
+              | while IFS=$'\t' read -r job conclusion; do
+                  echo "| $job | $(status_icon "$conclusion") $conclusion |"
+                done
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Evaluate pipeline result
         shell: bash
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
           set -euo pipefail
+          command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
+          echo "Job results: $RESULTS"
           FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
           if [[ "$FAILURES" -gt 0 ]]; then
             echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
             exit 1
           fi
+          echo "All pipeline jobs passed"
 ```
 
 **2. Add a config** at `.github/pipeline.yaml`:
@@ -237,6 +277,14 @@ release:
   sync_to_dev: true
   sync_target_branch: dev
 ```
+
+**Stage `enable:` vs. caller `skip-*` inputs:** the caller workflow can also pass
+`skip-security` / `skip-lint` / `skip-test` / `skip-build` / `skip-deploy` as
+`workflow_call` inputs. The two only ever combine to disable a stage, never
+to re-enable one: `pipeline.yaml`'s `enable: false` always turns a stage off
+regardless of the caller inputs, and a caller's `skip-*: true` turns a stage
+off even if `pipeline.yaml` says `enable: true`. Setting `skip-*: false` (or
+omitting it) never overrides an explicit `enable: false` in the config file.
 
 ---
 

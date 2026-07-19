@@ -729,6 +729,40 @@ prerelease_branches:
     label: beta
 ```
 
+> **This setting alone does not produce prereleases.** It tells the pipeline
+> which branch is a prerelease branch and which manifest/config pair to use, but
+> the actual version shape is decided by `release-please` from its own config
+> file. `release-please-action` fetches that file over the GitHub API from the
+> tip of the target branch — it never reads the runner's checked-out copy — so
+> the keys below must be **committed** to the file `release.config_file` points
+> at:
+>
+> ```json
+> {
+>   "versioning": "prerelease",
+>   "prerelease": true,
+>   "prerelease-type": "beta"
+> }
+> ```
+>
+> Root level is fine; root values are inherited as defaults by every entry in
+> `packages`.
+>
+> Two traps, both of which fail **silently** as stable releases:
+>
+> - The key is `versioning`, **not** `versioning-strategy`. `release-please`
+>   ignores unknown keys without warning and falls back to the `default`
+>   strategy.
+> - `"prerelease": true` is required in addition to the versioning strategy.
+>   Without it, `PrereleaseVersioningStrategy` strips the prerelease suffix and
+>   emits a plain `x.y.z`.
+>
+> Keep all three keys **out** of `release.config_file_stable`, or `main` will
+> cut prereleases too.
+>
+> The `release-management` action verifies this against the target branch before
+> invoking `release-please` and fails the pipeline if the keys are missing.
+
 ---
 
 ## 📋 Minimal Configuration Examples

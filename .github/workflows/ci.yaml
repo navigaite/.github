@@ -3,30 +3,90 @@ name: Navigaite Pipeline
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 
 permissions: {}
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Branch guard — this repo has no dev branch, so all PRs to main are allowed.
-  # The job exists to satisfy the org ruleset's required "Branch Guard" check.
+  # Branch guard: PRs targeting dev are always allowed (feature branches land
+  # there). PRs targeting main must be one of: a promotion from dev, an
+  # automated release-please PR, or an emergency hotfix/* — mirrors the
+  # pattern other two-branch repos (e.g. edilio) already run.
   # ---------------------------------------------------------------------------
   branch-guard:
     name: Branch Guard
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    permissions:
+      pull-requests: read
     steps:
-      - name: Check PR target
-        run: echo "✅ PR targets main — allowed (no dev branch in this repo)"
+      - name: Check PR target branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_BASE_REPO: ${{ github.repository }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$PR_BASE" != "main" ]]; then
+            echo "✅ PR targets $PR_BASE — allowed"
+            exit 0
+          fi
+
+          if [[ "$PR_HEAD_REPO" != "$PR_BASE_REPO" ]]; then
+            echo "::error::❌ Fork PRs cannot target main. Please open a PR to dev instead."
+            exit 1
+          fi
+
+          if [[ "$PR_HEAD" == "dev" ]]; then
+            echo "ℹ️  Promotion PR from dev → main"
+
+            OPEN_RP=$(gh api "repos/$PR_BASE_REPO/pulls" \
+              --paginate \
+              --jq '[.[] | select(
+                .state=="open" and .base.ref=="dev" and
+                (.head.ref | startswith("release-please"))
+              )] | length')
+            if [[ "$OPEN_RP" -gt 0 ]]; then
+              echo "::error::❌ There is an open release-please PR on dev. Merge or close it before promoting to main."
+              exit 1
+            fi
+
+            echo "✅ Promotion allowed — no open release-please PR on dev"
+            exit 0
+          fi
+
+          if [[ "$PR_HEAD" == release-please--* ]]; then
+            if [[ "$PR_AUTHOR" == "github-actions[bot]" || "$PR_AUTHOR" == "navigaite-workflow-app[bot]" ]]; then
+              echo "✅ Release-please PR from bot — allowed"
+              exit 0
+            fi
+            echo "::error::❌ Branch name matches release-please pattern but author is '$PR_AUTHOR', not a bot."
+            exit 1
+          fi
+
+          if [[ "$PR_HEAD" == hotfix/* ]]; then
+            echo "⚠️  Hotfix PR targeting main — allowed"
+            echo "::warning::Remember to cherry-pick this hotfix back to dev after merging."
+            exit 0
+          fi
+
+          echo "::error::❌ PRs targeting main must come from:"
+          echo "::error::  dev (promotion), release-please (bot), or hotfix/* (emergency)."
+          echo "::error::Please retarget this PR to dev instead."
+          exit 1
 
   # ---------------------------------------------------------------------------
   # Lint — validate all workflow and action definitions with actionlint
