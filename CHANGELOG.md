@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.2](https://github.com/navigaite/.github/compare/v3.2.1...v3.2.2) (2026-07-19)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** downgrade dependency-review unsupported-repo case to warning ([#225](https://github.com/navigaite/.github/issues/225)) ([a432042](https://github.com/navigaite/.github/commit/a43204200c2c1540854778d7a8ea9bb88be6ca5b))
+
 ## [3.2.1](https://github.com/navigaite/.github/compare/v3.2.0...v3.2.1) (2026-07-19)
 
 
