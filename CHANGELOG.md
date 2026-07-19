@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1-beta.3](https://github.com/navigaite/.github/compare/v3.2.1-beta.2...v3.2.1-beta.3) (2026-07-19)
+
+
+### 🐛 Bug Fixes
+
+* **release:** sync main manifest baseline to 3.2.0 (PRI-675) ([#220](https://github.com/navigaite/.github/issues/220)) ([c4299d7](https://github.com/navigaite/.github/commit/c4299d7fa7d984050f0299454b727bdd1d91feaf))
+
 ## [3.2.1-beta.2](https://github.com/navigaite/.github/compare/v3.2.1-beta.1...v3.2.1-beta.2) (2026-07-18)
 
 
