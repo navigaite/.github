@@ -13,6 +13,16 @@ inputs:
     required: false
     default: 'true'
 
+  dependency-review-ghas:
+    description: >-
+      Set 'true' only for private repos with GitHub Advanced Security
+      licensed (Enterprise). The dependency-review-action hard-errors on
+      private repos without it, so by default we skip with a warning
+      instead of running it there. Public repos always run it regardless
+      of this flag.
+    required: false
+    default: 'false'
+
   trufflehog-extra-args:
     description: Extra arguments for TruffleHog
     required: false
@@ -82,13 +92,28 @@ runs:
 
     - name: Dependency Vulnerability Scan (PR only)
       id: dependency_review
-      if: inputs.enable-dependency-review == 'true' && github.event_name == 'pull_request'
+      if: |
+        inputs.enable-dependency-review == 'true' &&
+        github.event_name == 'pull_request' &&
+        (github.event.repository.private == false || inputs.dependency-review-ghas == 'true')
       continue-on-error: true
       uses: actions/dependency-review-action@9129d7d40b8c12c1ed0f60400d00c92d437adcce # v4.1.3
       with:
         fail-on-severity: ${{ inputs.fail-on-vulnerabilities == 'true' && 'moderate' || 'critical' }}
         comment-summary-in-pr: true
         warn-only: ${{ inputs.fail-on-vulnerabilities != 'true' }}
+
+    - name: Dependency Review Unsupported (private repo, no GHAS)
+      id: dependency_review_unsupported
+      if: |
+        inputs.enable-dependency-review == 'true' &&
+        github.event_name == 'pull_request' &&
+        github.event.repository.private == true &&
+        inputs.dependency-review-ghas != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::warning::Dependency review skipped — GitHub Advanced Security is not available on this private repository (team plan needs Enterprise). See PRI-715."
 
     - name: Security Summary
       shell: bash
@@ -97,6 +122,7 @@ runs:
         ENABLE_DEP_REVIEW: ${{ inputs.enable-dependency-review }}
         EVENT_NAME: ${{ github.event_name }}
         DEP_REVIEW_OUTCOME: ${{ steps.dependency_review.outcome }}
+        DEP_REVIEW_UNSUPPORTED: ${{ steps.dependency_review_unsupported.outcome }}
       run: |
         set -euo pipefail
         TRUFFLEHOG=$([[ "$ENABLE_TRUFFLEHOG" == "true" ]] \
@@ -108,6 +134,8 @@ runs:
           || echo "false")
         if [[ "$DEP_CHECK" != "true" ]]; then
           DEP_REVIEW="⏭️ Skipped (push event)"
+        elif [[ "$DEP_REVIEW_UNSUPPORTED" == "success" ]]; then
+          DEP_REVIEW="⚠️ Skipped (no GHAS — team plan)"
         elif [[ "$DEP_REVIEW_OUTCOME" == "success" ]]; then
           DEP_REVIEW="✅ Passed"
         elif [[ "$DEP_REVIEW_OUTCOME" == "failure" ]]; then
