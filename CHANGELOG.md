@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1-beta.4](https://github.com/navigaite/.github/compare/v3.2.1-beta.3...v3.2.1-beta.4) (2026-07-19)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** grant static-checks checks:write for trunk annotations (EDI-669) ([#196](https://github.com/navigaite/.github/issues/196)) ([8ea6c2f](https://github.com/navigaite/.github/commit/8ea6c2f3318ef3de3125b819be9ea78ef7d97529))
+
 ## [3.2.1-beta.3](https://github.com/navigaite/.github/compare/v3.2.1-beta.2...v3.2.1-beta.3) (2026-07-19)
 
 
