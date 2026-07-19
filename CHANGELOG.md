@@ -1,18 +1,19 @@
 # Changelog
 
-## [3.2.1-beta.5](https://github.com/navigaite/.github/compare/v3.2.1-beta.4...v3.2.1-beta.5) (2026-07-19)
+## [3.2.1](https://github.com/navigaite/.github/compare/v3.2.0...v3.2.1) (2026-07-19)
 
 
 ### 🐛 Bug Fixes
 
-* **ci:** downgrade dependency-review unsupported-repo case to warning ([#225](https://github.com/navigaite/.github/issues/225)) ([a432042](https://github.com/navigaite/.github/commit/a43204200c2c1540854778d7a8ea9bb88be6ca5b))
+* **pipeline:** honor explicit enable: false in pipeline.yaml ([#216](https://github.com/navigaite/.github/issues/216)) ([a5921c6](https://github.com/navigaite/.github/commit/a5921c6f8dda425fb695028312078d34f3c6e29b))
+* **pipeline:** honor explicit enable: false in pipeline.yaml (PRI-674) ([a5921c6](https://github.com/navigaite/.github/commit/a5921c6f8dda425fb695028312078d34f3c6e29b))
+* **release:** read prerelease config from branch, not runner disk ([#212](https://github.com/navigaite/.github/issues/212)) ([1306d8c](https://github.com/navigaite/.github/commit/1306d8c12a2b32a26ad55e42f727a8dede29d111))
+* **release:** sync main manifest baseline to 3.2.0 (PRI-675) ([#220](https://github.com/navigaite/.github/issues/220)) ([c4299d7](https://github.com/navigaite/.github/commit/c4299d7fa7d984050f0299454b727bdd1d91feaf))
 
-## [3.2.1-beta.4](https://github.com/navigaite/.github/compare/v3.2.1-beta.3...v3.2.1-beta.4) (2026-07-19)
 
+### ⚡ Performance Improvements
 
-### 🐛 Bug Fixes
-
-* **ci:** grant static-checks checks:write for trunk annotations (EDI-669) ([#196](https://github.com/navigaite/.github/issues/196)) ([8ea6c2f](https://github.com/navigaite/.github/commit/8ea6c2f3318ef3de3125b819be9ea78ef7d97529))
+* **ci:** fold Pipeline Summary into caller Check Gate (PRI-630) ([#214](https://github.com/navigaite/.github/issues/214)) ([6310de1](https://github.com/navigaite/.github/commit/6310de1a49123f07a9ada86f003ebce66c517d62))
 
 ## [3.2.1-beta.3](https://github.com/navigaite/.github/compare/v3.2.1-beta.2...v3.2.1-beta.3) (2026-07-19)
 
