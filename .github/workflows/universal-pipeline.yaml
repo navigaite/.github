@@ -1089,6 +1089,7 @@ jobs:
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'vercel' &&
       needs.setup.outputs.docs-only != 'true' &&
+      needs.setup.outputs.deploy-environments != '[]' &&
       (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
       (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     strategy:
@@ -1199,6 +1200,7 @@ jobs:
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'digitalocean' &&
       needs.setup.outputs.docs-only != 'true' &&
+      needs.setup.outputs.deploy-environments != '[]' &&
       (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
       (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     strategy:
@@ -1241,6 +1243,7 @@ jobs:
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'docker' &&
       needs.setup.outputs.docs-only != 'true' &&
+      needs.setup.outputs.docker-images != '[]' &&
       (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
       (needs.verify.result == 'success' || needs.verify.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped')
