@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1-beta.6](https://github.com/navigaite/.github/compare/v3.2.1-beta.5...v3.2.1-beta.6) (2026-07-21)
+
+
+### ⚡ Performance Improvements
+
+* **ci:** skip deploy jobs on empty matrix — stop phantom runners (PRI-721 Scope A) ([#234](https://github.com/navigaite/.github/issues/234)) ([23b5739](https://github.com/navigaite/.github/commit/23b5739cd647d8645451016a3a3b2b17ef2b48a7))
+
 ## [3.2.1](https://github.com/navigaite/.github/compare/v3.2.0...v3.2.1) (2026-07-19)
 
 
