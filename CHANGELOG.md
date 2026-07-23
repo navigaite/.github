@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1-beta.9](https://github.com/navigaite/.github/compare/v3.2.1-beta.8...v3.2.1-beta.9) (2026-07-23)
+
+
+### 📚 Documentation
+
+* **runner:** hardened self-hosted runner + library/WP pipeline templates (NAV-27) ([#242](https://github.com/navigaite/.github/issues/242)) ([a45241c](https://github.com/navigaite/.github/commit/a45241cad983ae16e495086aa683258f35edaa37))
+
 ## [3.2.1-beta.8](https://github.com/navigaite/.github/compare/v3.2.1-beta.7...v3.2.1-beta.8) (2026-07-23)
 
 
