@@ -10,6 +10,7 @@
 | [Versioning Guide](./VERSIONING_GUIDE.md) | Semantic versioning + conventional commits |
 | [Auto Sync Feature](./AUTO_SYNC_FEATURE.md) | Post-release main → dev sync |
 | [GitHub Settings Guide](./GITHUB_SETTINGS_GUIDE.md) | Repo & org configuration |
+| [Self-Hosted Runner](./SELF_HOSTED_RUNNER.md) | Hardened homelab runner — protects the Actions budget |
 | [Actions Marketplace](./GITHUB_ACTIONS_MARKETPLACE.md) | Curated actions used in the pipeline |
 
 ## Examples
@@ -20,3 +21,5 @@ See [`.github/config/examples/`](../.github/config/examples/) for ready-to-use c
 - [Python + DigitalOcean](../.github/config/examples/python-digitalocean-pipeline.yaml)
 - [Flutter](../.github/config/examples/flutter-pipeline.yaml)
 - [Docker Only](../.github/config/examples/docker-only-pipeline.yaml)
+- [npm Library](../.github/config/examples/library-npm-pipeline.yaml)
+- [WordPress Theme](../.github/config/examples/wordpress-theme-pipeline.yaml)
