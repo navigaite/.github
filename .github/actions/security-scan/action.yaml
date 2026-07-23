@@ -115,6 +115,28 @@ runs:
         set -euo pipefail
         echo "::warning::Dependency review skipped — GitHub Advanced Security is not available on this private repository (team plan needs Enterprise). See PRI-715."
 
+    - name: Check Dependency Review Results
+      # dependency_review runs with continue-on-error so the Security Summary
+      # always renders. That means a failing review never fails the action on
+      # its own — re-check the outcome here and fail explicitly when the caller
+      # opted into fail-on-vulnerabilities. Mirrors the TruffleHog gate above.
+      if: |
+        inputs.enable-dependency-review == 'true' &&
+        inputs.fail-on-vulnerabilities == 'true' &&
+        github.event_name == 'pull_request' &&
+        steps.dependency_review.outcome == 'failure'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::error::Dependency review found vulnerabilities at or above the configured severity threshold (fail-on-vulnerabilities is enabled)."
+        {
+          echo "### ⚠️ Security Alert: Vulnerable Dependencies"
+          echo ""
+          echo "The dependency review detected vulnerabilities at or above the configured severity threshold."
+          echo "Review the dependency-review findings on the PR and update or remove the affected packages."
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit 1
+
     - name: Security Summary
       shell: bash
       env:
