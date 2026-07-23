@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1-beta.8](https://github.com/navigaite/.github/compare/v3.2.1-beta.7...v3.2.1-beta.8) (2026-07-23)
+
+
+### 🐛 Bug Fixes
+
+* land NAV-21 audit fixes to the universal pipeline ([#236](https://github.com/navigaite/.github/issues/236)) ([90e59cb](https://github.com/navigaite/.github/commit/90e59cb771988ef10d7399cdcf345924577a228a))
+
 ## [3.2.1-beta.7](https://github.com/navigaite/.github/compare/v3.2.1-beta.6...v3.2.1-beta.7) (2026-07-23)
 
 
