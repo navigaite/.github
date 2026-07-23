@@ -62,8 +62,16 @@ runs:
           # Auto-detect and run appropriate linter
           case "$STACK" in
             nodejs)
+              # jq is required to read package.json scripts. If it is missing,
+              # the old `if command -v jq && ...` guard silently skipped linting
+              # and the step passed as a no-op — dangerous on self-hosted runner
+              # images that may not ship jq. Fail hard instead.
+              if ! command -v jq &> /dev/null; then
+                echo "::error::jq is required to detect Node.js lint scripts but is not installed on this runner. Add jq to the runner image."
+                exit 1
+              fi
               # Check for common linting scripts in package.json
-              if command -v jq &> /dev/null && [[ -f "package.json" ]]; then
+              if [[ -f "package.json" ]]; then
                 HAS_LINT=$(jq -r '.scripts.lint // empty' package.json)
                 HAS_ESLINT=$(jq -r '.scripts.eslint // empty' package.json)
 
@@ -84,6 +92,8 @@ runs:
                 else
                   echo "::warning::No lint script found in package.json, skipping linting"
                 fi
+              else
+                echo "::warning::No package.json found, skipping linting"
               fi
               ;;
 

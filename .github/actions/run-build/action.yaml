@@ -125,7 +125,15 @@ runs:
           # Auto-detect and run appropriate build
           case "$STACK" in
             nodejs)
-              if command -v jq &> /dev/null && [[ -f "package.json" ]]; then
+              # jq is required to read package.json scripts. If it is missing,
+              # the old `if command -v jq && ...` guard silently skipped the
+              # build and the step passed as a no-op — dangerous on self-hosted
+              # runner images that may not ship jq. Fail hard instead.
+              if ! command -v jq &> /dev/null; then
+                echo "::error::jq is required to detect the Node.js build script but is not installed on this runner. Add jq to the runner image."
+                exit 1
+              fi
+              if [[ -f "package.json" ]]; then
                 HAS_BUILD=$(jq -r '.scripts.build // empty' package.json)
 
                 if [[ -n "$HAS_BUILD" ]]; then
@@ -134,6 +142,8 @@ runs:
                 else
                   echo "::warning::No build script found in package.json, skipping build"
                 fi
+              else
+                echo "::warning::No package.json found, skipping build"
               fi
               ;;
 
