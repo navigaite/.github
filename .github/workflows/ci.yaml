@@ -259,12 +259,21 @@ jobs:
           set -euo pipefail
           command -v jq >/dev/null || { echo "::error::jq not available"; exit 1; }
           echo "Job results: $RESULTS"
-          FAILURES=$(echo "$RESULTS" | jq -r 'map(select(. == "failure" or . == "cancelled")) | length')
-          if [[ "$FAILURES" -gt 0 ]]; then
-            echo "::error::Pipeline failed — ${FAILURES} job(s) failed or were cancelled"
+          # Root-cause fix (NAV-20): a required gate must NEVER pass on a
+          # skipped required job. The old logic counted only 'failure' and
+          # 'cancelled', so a required check reported as 'skipped' (e.g. Test
+          # not run on a synchronize push) slipped through as green. This gate
+          # aggregates the required validation jobs (lint, test, build), every
+          # one of which must run on every PR, so we assert each is exactly
+          # 'success' — anything else (skipped/failure/cancelled) fails the gate.
+          NOT_PASSED=$(echo "$RESULTS" | jq -r 'map(select(. != "success")) | length')
+          if [[ "$NOT_PASSED" -gt 0 ]]; then
+            BAD=$(echo "$RESULTS" | jq -rc 'map(select(. != "success"))')
+            echo "::error::Pipeline gate failed — ${NOT_PASSED} required job(s) did not succeed (non-success results: ${BAD})."
+            echo "::error::A required check reported as skipped/failure/cancelled cannot satisfy the gate."
             exit 1
           fi
-          echo "✅ All pipeline jobs passed"
+          echo "✅ All required pipeline jobs ran and passed"
 
   # ---------------------------------------------------------------------------
   # Auto-merge — enable auto-merge for dependabot PRs
