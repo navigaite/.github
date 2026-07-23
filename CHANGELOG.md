@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1-beta.7](https://github.com/navigaite/.github/compare/v3.2.1-beta.6...v3.2.1-beta.7) (2026-07-23)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** a required gate can never pass on skipped validation (NAV-20) ([#237](https://github.com/navigaite/.github/issues/237)) ([f93bf86](https://github.com/navigaite/.github/commit/f93bf86743f38e3e6b64658a0f1c15e5de2da152))
+
 ## [3.2.1-beta.6](https://github.com/navigaite/.github/compare/v3.2.1-beta.5...v3.2.1-beta.6) (2026-07-21)
 
 
