@@ -173,7 +173,16 @@ runs:
           # Auto-detect and run appropriate tests
           case "$STACK" in
             nodejs)
-              if command -v jq &> /dev/null && [[ -f "package.json" ]]; then
+              # jq is required to read package.json scripts. If it is missing,
+              # the old `if command -v jq && ...` guard silently skipped the
+              # whole block, leaving TEST_EXIT_CODE unset so `exit ${VAR:-0}`
+              # reported a false pass. Fail hard instead — critical on
+              # self-hosted runner images that may not ship jq.
+              if ! command -v jq &> /dev/null; then
+                echo "::error::jq is required to detect Node.js test scripts but is not installed on this runner. Add jq to the runner image."
+                exit 1
+              fi
+              if [[ -f "package.json" ]]; then
                 HAS_TEST=$(jq -r '.scripts.test // empty' package.json)
                 HAS_TEST_CI=$(jq -r '.scripts["test:ci"] // empty' package.json)
 
@@ -192,6 +201,10 @@ runs:
                   TEST_COMMAND_USED="none"
                   TEST_EXIT_CODE=0
                 fi
+              else
+                echo "::warning::No package.json found, skipping tests"
+                TEST_COMMAND_USED="none"
+                TEST_EXIT_CODE=0
               fi
               ;;
 

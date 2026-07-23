@@ -145,7 +145,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          actionlint -color || true
           echo "### 🔍 Workflow Lint" >> "$GITHUB_STEP_SUMMARY"
           ERRORS=$(actionlint -format '{{range $err := .}}{{$err}}\n{{end}}' 2>&1 || true)
           if [[ -z "$ERRORS" ]]; then
@@ -156,6 +155,11 @@ jobs:
             echo "$ERRORS" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
+          # Surface the findings with color in the job log AND fail the job when
+          # actionlint reports issues. The previous `actionlint -color || true`
+          # swallowed the exit code, so workflow-lint errors never failed
+          # nightly maintenance.
+          actionlint -color
 
   maintenance-summary:
     name: 📊 Maintenance Summary

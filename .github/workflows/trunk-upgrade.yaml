@@ -55,15 +55,31 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - name: Check for App secrets
+        id: check-app
+        shell: bash
+        env:
+          APP_ID: ${{ secrets.WORKFLOW_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$APP_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Generate App token
         id: app-token
-        if: env.HAS_APP == 'true'
+        # A step's own `env:` is not visible to its `if:`, so the previous
+        # `if: env.HAS_APP == 'true'` was always false and the app token was
+        # never generated. Gate on a prior step output instead (secrets are not
+        # allowed directly in step `if:` expressions).
+        if: steps.check-app.outputs.available == 'true'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v2.1.4
         with:
           app-id: ${{ secrets.WORKFLOW_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
-        env:
-          HAS_APP: ${{ secrets.WORKFLOW_APP_ID != '' && secrets.WORKFLOW_APP_PRIVATE_KEY != '' }}
 
       - name: Resolve token
         id: token

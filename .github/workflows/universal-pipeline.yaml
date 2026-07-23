@@ -590,8 +590,17 @@ jobs:
             [[ -z "$file" ]] && continue
             case "$file" in
               *.md|*.mdx) ;;
-              docs/*|*/docs/*) ;;
               LICENSE|LICENSE.*|*/LICENSE|*/LICENSE.*) ;;
+              docs/*|*/docs/*)
+                # A file merely living under a docs/ directory is NOT enough to
+                # treat the change-set as docs-only: code such as docs/deploy.sh
+                # or src/docs/loader.ts must still run the full pipeline. Only
+                # count files under docs/ that carry a documentation extension.
+                case "$file" in
+                  *.md|*.mdx|*.txt|*.rst|*.adoc|*.png|*.jpg|*.jpeg|*.gif|*.svg|*.webp) ;;
+                  *) DOCS_ONLY=false; NON_DOC_FILE="$file"; break ;;
+                esac
+                ;;
               *) DOCS_ONLY=false; NON_DOC_FILE="$file"; break ;;
             esac
           done <<< "$CHANGED"

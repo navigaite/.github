@@ -123,7 +123,9 @@ runs:
           done
 
           echo "deployment-status=timeout" >> $GITHUB_OUTPUT
-          echo "::warning::Deployment did not complete within ${TIMEOUT}s"
+          echo "::error::Deployment did not reach 'running' within ${TIMEOUT}s (repeated status-check errors or a stuck deploy). Failing the job."
+          echo "::endgroup::"
+          exit 1
         else
           echo "deployment-status=triggered" >> $GITHUB_OUTPUT
           echo "Deployment triggered, not waiting for completion"

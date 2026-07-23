@@ -47,6 +47,21 @@
         }
       }
     },
+    "runner": {
+      "type": "object",
+      "description": "Runner selection for the static-checks, verify and deploy-docker jobs. Only meaningful when a matching runner is registered against this repo (runners are repo-scoped).",
+      "additionalProperties": false,
+      "properties": {
+        "labels": {
+          "type": "array",
+          "description": "Labels passed to runs-on. Defaults to [\"ubuntu-latest\"] when omitted.",
+          "items": {
+            "type": "string"
+          },
+          "default": ["ubuntu-latest"]
+        }
+      }
+    },
     "security": {
       "type": "object",
       "description": "Security scanning configuration",

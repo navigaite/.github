@@ -95,7 +95,7 @@ runs:
         MERGE_BASE=$(git merge-base "origin/$SOURCE_BRANCH" "origin/$TARGET_BRANCH")
 
         # Get the latest commit on source branch
-        SOURCE_COMMIT=$(git rev-parse origin/$SOURCE_BRANCH)
+        SOURCE_COMMIT=$(git rev-parse "origin/$SOURCE_BRANCH")
 
         # Check if target is already up to date
         if [[ "$MERGE_BASE" == "$SOURCE_COMMIT" ]]; then
@@ -127,7 +127,7 @@ runs:
         # Merge source branch
         # Use --no-ff to create a merge commit (important for release-please to skip it)
         # Use special commit message format that release-please ignores
-        git merge origin/$SOURCE_BRANCH \
+        git merge "origin/$SOURCE_BRANCH" \
           --no-ff \
           --no-edit \
           -m "chore: sync $SOURCE_BRANCH to $TARGET_BRANCH [skip ci]" \
@@ -155,7 +155,7 @@ runs:
         fi
 
         # Push to target branch
-        git push origin $TARGET_BRANCH
+        git push origin "$TARGET_BRANCH"
 
         echo "✅ Successfully synced $SOURCE_BRANCH to $TARGET_BRANCH"
         echo "::endgroup::"
