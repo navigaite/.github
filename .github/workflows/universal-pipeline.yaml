@@ -590,8 +590,17 @@ jobs:
             [[ -z "$file" ]] && continue
             case "$file" in
               *.md|*.mdx) ;;
-              docs/*|*/docs/*) ;;
               LICENSE|LICENSE.*|*/LICENSE|*/LICENSE.*) ;;
+              docs/*|*/docs/*)
+                # A file merely living under a docs/ directory is NOT enough to
+                # treat the change-set as docs-only: code such as docs/deploy.sh
+                # or src/docs/loader.ts must still run the full pipeline. Only
+                # count files under docs/ that carry a documentation extension.
+                case "$file" in
+                  *.md|*.mdx|*.txt|*.rst|*.adoc|*.png|*.jpg|*.jpeg|*.gif|*.svg|*.webp) ;;
+                  *) DOCS_ONLY=false; NON_DOC_FILE="$file"; break ;;
+                esac
+                ;;
               *) DOCS_ONLY=false; NON_DOC_FILE="$file"; break ;;
             esac
           done <<< "$CHANGED"
@@ -748,7 +757,7 @@ jobs:
       - name: 🩺 Run React Doctor (PR)
         id: react-doctor-pr
         if: needs.setup.outputs.enable-lint == 'true' && steps.detect-react.outputs.enabled == 'true' && github.event_name == 'pull_request'
-        uses: millionco/react-doctor@0a8d30b6df0a6b8336cee7ea1e30a18441a1780a # main
+        uses: millionco/react-doctor@61bf03eedcc602b2e21c45e1a5f2e3f012c7201c # main
         continue-on-error: true
         with:
           directory: ${{ inputs.working-directory }}
@@ -759,7 +768,7 @@ jobs:
       - name: 🩺 Run React Doctor
         id: react-doctor
         if: needs.setup.outputs.enable-lint == 'true' && steps.detect-react.outputs.enabled == 'true' && github.event_name != 'pull_request'
-        uses: millionco/react-doctor@0a8d30b6df0a6b8336cee7ea1e30a18441a1780a # main
+        uses: millionco/react-doctor@61bf03eedcc602b2e21c45e1a5f2e3f012c7201c # main
         continue-on-error: true
         with:
           directory: ${{ inputs.working-directory }}
@@ -1089,6 +1098,7 @@ jobs:
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'vercel' &&
       needs.setup.outputs.docs-only != 'true' &&
+      needs.setup.outputs.deploy-environments != '[]' &&
       (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
       (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     strategy:
@@ -1103,7 +1113,7 @@ jobs:
 
       - name: 🔧 Setup Node Runtime
         if: needs.setup.outputs.stack == 'nodejs'
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ needs.setup.outputs.runtime-version }}
 
@@ -1199,6 +1209,7 @@ jobs:
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'digitalocean' &&
       needs.setup.outputs.docs-only != 'true' &&
+      needs.setup.outputs.deploy-environments != '[]' &&
       (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
       (needs.verify.result == 'success' || needs.verify.result == 'skipped')
     strategy:
@@ -1241,6 +1252,7 @@ jobs:
       needs.setup.outputs.enable-deploy == 'true' &&
       needs.setup.outputs.deploy-provider == 'docker' &&
       needs.setup.outputs.docs-only != 'true' &&
+      needs.setup.outputs.docker-images != '[]' &&
       (needs.static-checks.result == 'success' || needs.static-checks.result == 'skipped') &&
       (needs.verify.result == 'success' || needs.verify.result == 'skipped') &&
       (needs.release.result == 'success' || needs.release.result == 'skipped')
@@ -1493,3 +1505,86 @@ jobs:
           prerelease-manifest-file: ${{ needs.setup.outputs.release-manifest-file }}
           stable-manifest-file: ${{ needs.setup.outputs.release-manifest-file-stable }}
           stable-version: ${{ needs.release.outputs.release-version }}
+
+  # =============================================================================
+  # PIPELINE GATE — hard invariant: a required check never passes on skipped tests
+  # =============================================================================
+  # Root-cause fix for the logical hole where `verify` (Test/Build) or
+  # `static-checks` (Lint/Security) were *skipped* for a non-legitimate reason
+  # yet the reusable workflow still reported success — GitHub treats an
+  # `if:`-skipped job as non-failing, so the caller's `Check Gate`
+  # (`case failure|cancelled) exit 1`) went green without validation ever running.
+  # The `gh pr ready --undo && ready` dance was a manual workaround for this.
+  #
+  # This job runs with `always()` and fails the whole reusable workflow (hence
+  # the caller's Check Gate) when, on a *validating* pull_request (ready, not
+  # docs-only), a stage that is ENABLED in pipeline.yaml did not actually run and
+  # succeed. Push events legitimately skip validation (the PR already proved it),
+  # so the strict must-run assertion is scoped to pull_request events only.
+  #
+  # Because every consumer calls this reusable workflow at a moving major tag
+  # (`@v3`), this fix propagates to the whole org with no per-repo change.
+  pipeline-gate:
+    name: 🚦 Pipeline Gate
+    if: always()
+    needs: [setup, static-checks, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Enforce validation invariants
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          DOCS_ONLY: ${{ needs.setup.outputs.docs-only }}
+          ENABLE_TEST: ${{ needs.setup.outputs.enable-test }}
+          ENABLE_BUILD: ${{ needs.setup.outputs.enable-build }}
+          ENABLE_LINT: ${{ needs.setup.outputs.enable-lint }}
+          ENABLE_SECURITY: ${{ needs.setup.outputs.enable-security }}
+          SETUP_RESULT: ${{ needs.setup.result }}
+          STATIC_RESULT: ${{ needs.static-checks.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          set -euo pipefail
+          echo "event=$EVENT_NAME draft=${IS_DRAFT:-n/a} docs_only=${DOCS_ONLY:-false}"
+          echo "results: setup=$SETUP_RESULT static-checks=$STATIC_RESULT verify=$VERIFY_RESULT"
+
+          # Setup is the source of truth for what should run; if it did not
+          # succeed the whole run is untrustworthy.
+          if [[ "$SETUP_RESULT" != "success" ]]; then
+            echo "::error::Setup did not succeed (result=$SETUP_RESULT); cannot certify pipeline."
+            exit 1
+          fi
+
+          # Any hard failure/cancellation in a validation stage fails the gate.
+          for pair in "static-checks:$STATIC_RESULT" "verify:$VERIFY_RESULT"; do
+            stage="${pair%%:*}"; res="${pair#*:}"
+            if [[ "$res" == "failure" || "$res" == "cancelled" ]]; then
+              echo "::error::Validation stage '$stage' $res."
+              exit 1
+            fi
+          done
+
+          # Strict must-run enforcement only on validating pull_request events.
+          # Draft PRs cannot be merged; docs-only changes legitimately skip.
+          if [[ "$EVENT_NAME" != "pull_request" || "$IS_DRAFT" == "true" || "$DOCS_ONLY" == "true" ]]; then
+            echo "✅ Non-validating context — gate satisfied."
+            exit 0
+          fi
+
+          fail=0
+          if [[ "$ENABLE_TEST" == "true" || "$ENABLE_BUILD" == "true" ]]; then
+            if [[ "$VERIFY_RESULT" != "success" ]]; then
+              echo "::error::Test/Build are enabled but the Verify stage did not run (result=$VERIFY_RESULT). A required gate must not pass on skipped tests."
+              fail=1
+            fi
+          fi
+          if [[ "$ENABLE_LINT" == "true" || "$ENABLE_SECURITY" == "true" ]]; then
+            if [[ "$STATIC_RESULT" != "success" ]]; then
+              echo "::error::Lint/Security are enabled but Static Checks did not run (result=$STATIC_RESULT)."
+              fail=1
+            fi
+          fi
+          [[ "$fail" -eq 0 ]] || exit 1
+          echo "✅ All enabled validation stages ran and passed."

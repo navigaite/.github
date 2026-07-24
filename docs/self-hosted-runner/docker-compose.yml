@@ -1,0 +1,112 @@
+---
+# Navigaite hardened self-hosted GitHub Actions runner (homelab / Unraid).
+#
+# This replaces the legacy `gh-actions-runner` stack that ran
+# `myoung34/github-runner:latest` with `privileged: true` and in-container
+# Docker-in-Docker. See docs/SELF_HOSTED_RUNNER.md for the full rationale.
+#
+# Hardening applied vs. the legacy stack:
+#   1. Image pinned by digest (no `:latest` — supply-chain integrity).
+#   2. `privileged: true` REMOVED. `no-new-privileges:true` applied.
+#      NOTE: `cap_drop: ALL` is deliberately NOT used. The myoung34 entrypoint
+#      starts as root and drops to the `runner` user, and the runner writes its
+#      own `/actions-runner/_diag` + `.env`. Dropping ALL caps strips
+#      CAP_SETUID/CAP_SETGID (privilege-drop fails) and CAP_DAC_OVERRIDE/
+#      CAP_FOWNER (root can no longer write runner-owned paths), so the runner
+#      aborts on start. Verified against this digest on 2026-07-24 (NAV-27).
+#      `no-new-privileges` already blocks setuid escalation, which is the key
+#      win now that `privileged`/dind are gone. Per-capability tightening is a
+#      tested follow-up, not a drop-in.
+#   3. In-container Docker DISABLED by default (DOCKER_ENABLED/START_DOCKER
+#      _SERVICE=false). The Navigaite fleet is Node/Vercel, libraries and a WP
+#      theme — none of which build container images in CI. Repos that DO need
+#      image builds use rootless BuildKit (see the `runner-docker` profile
+#      below and the guide), never privileged dind.
+#   4. The `docker` label is dropped from the default runner (it no longer has
+#      a Docker daemon). pipeline.yaml `runner.labels` for the fleet is:
+#        [self-hosted, mainz-homelab, linux, x64]
+#
+# PUBLIC repos (navigaite/.github, navigaite/nvgt-trunk-plugin) are NEVER
+# assigned to this runner: untrusted fork-PR code must not execute on the
+# homelab. Keep them on GitHub-hosted `ubuntu-latest`.
+#
+# ACCESS_TOKEN is injected from the host environment / secret store, never
+# committed. For the org-level runner group variant it must carry `admin:org`.
+
+x-runner-base: &runner-base
+  image: myoung34/github-runner@sha256:6c4650a57d7727419ebb11ca1d7f054e971b9f0769c27118b185302cbf09c282
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  # No `cap_drop: ALL` — see the header note (#2). This image's root→runner
+  # privilege drop and runner-owned writes need SETUID/SETGID/DAC_OVERRIDE.
+  environment: &runner-env
+    EPHEMERAL: "true"          # fresh runner per job — no state carried between jobs
+    DISABLE_AUTO_UPDATE: "true"
+    START_DOCKER_SERVICE: "false"
+    DOCKER_ENABLED: "false"
+    RUNNER_WORKDIR: /_work
+  # jq is baked into the myoung34 image; the pipeline's Node lint/test/build
+  # steps depend on it (a missing jq silently no-ops to success — NAV-22).
+  tmpfs:
+    - /tmp
+  volumes:
+    - /_work
+
+services:
+  # ---------------------------------------------------------------------------
+  # Option A (preferred once the CTO token has `admin:org`): ONE org-level
+  # runner group serving all PRIVATE navigaite repos. Replaces the per-repo
+  # containers. Requires an ACCESS_TOKEN with `admin:org` and a runner group
+  # (`homelab`) created at the org level with access limited to private repos.
+  # ---------------------------------------------------------------------------
+  runner-org:
+    <<: *runner-base
+    container_name: gh-runner-navigaite-homelab
+    profiles: ["org"]
+    environment:
+      <<: *runner-env
+      RUNNER_SCOPE: org
+      ORG_NAME: navigaite
+      RUNNER_GROUP: homelab
+      RUNNER_NAME: mainz-homelab-navigaite
+      LABELS: self-hosted,mainz-homelab,linux,x64
+      ACCESS_TOKEN: ${RUNNER_ORG_TOKEN}   # PAT with admin:org
+
+  # ---------------------------------------------------------------------------
+  # Option B (interim, no admin:org): repo-scoped runner. Duplicate this
+  # service per private repo that opts in. This mirrors the legacy topology
+  # but hardened. Prefer Option A.
+  # ---------------------------------------------------------------------------
+  runner-repo-example:
+    <<: *runner-base
+    container_name: gh-runner-example
+    profiles: ["repo"]
+    environment:
+      <<: *runner-env
+      RUNNER_SCOPE: repo
+      REPO_URL: https://github.com/navigaite/REPLACE_ME
+      RUNNER_NAME: mainz-homelab-REPLACE_ME
+      LABELS: self-hosted,mainz-homelab,linux,x64
+      ACCESS_TOKEN: ${RUNNER_REPO_TOKEN}  # PAT with repo scope
+
+  # ---------------------------------------------------------------------------
+  # Docker-capable variant — ONLY for repos whose pipeline.yaml deploys a
+  # container image (deployment.provider: docker → deploy-docker job). Uses a
+  # ROOTLESS BuildKit sidecar instead of privileged dind. Point the deploy job
+  # at the buildkit builder; the runner itself stays unprivileged.
+  # ---------------------------------------------------------------------------
+  buildkit-rootless:
+    image: moby/buildkit:rootless
+    container_name: gh-runner-buildkit
+    profiles: ["docker"]
+    restart: unless-stopped
+    security_opt:
+      - seccomp=unconfined       # required by rootless buildkitd (userns)
+      - apparmor=unconfined
+    # NOTE: rootless BuildKit still needs userns; it does NOT need full
+    # `privileged`. See https://github.com/moby/buildkit/blob/master/docs/rootless.md
+    command:
+      - --addr
+      - tcp://0.0.0.0:1234
+      - --oci-worker-no-process-sandbox
