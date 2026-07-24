@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1-beta.10](https://github.com/navigaite/.github/compare/v3.2.1-beta.9...v3.2.1-beta.10) (2026-07-24)
+
+
+### 🐛 Bug Fixes
+
+* **runner:** drop cap_drop ALL from hardened self-hosted runner compose ([#244](https://github.com/navigaite/.github/issues/244)) ([9ff4047](https://github.com/navigaite/.github/commit/9ff404796f7d99b5fdb8c6932f3a9bc3120b84b0))
+
 ## [3.2.1-beta.9](https://github.com/navigaite/.github/compare/v3.2.1-beta.8...v3.2.1-beta.9) (2026-07-23)
 
 
