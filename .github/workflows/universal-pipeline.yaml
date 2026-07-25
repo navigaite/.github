@@ -125,7 +125,10 @@ on:
 # NOTE: Calling workflows must grant the permissions each job actually uses:
 #   setup:     contents: read, pull-requests: read (PR Files API for docs-only detection)
 #   security:      contents: read, pull-requests: write
-#   static-checks: contents: read, pull-requests: write, checks: write (trunk-action check annotations)
+#   static-checks: contents: read, pull-requests: write
+#     (optional: add `checks: write` in the caller to let trunk-action post
+#      check annotations — never request it in this reusable workflow, it would
+#      exceed the caller's grant and fail every run at startup)
 #   build:     contents: read, id-token: write, attestations: write
 #   deploy:    contents: read, deployments: write, pull-requests: write, packages: write, id-token: write
 #   release:   contents: write, pull-requests: write, id-token: write
@@ -691,7 +694,14 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      checks: write # trunk-action posts lint results as check annotations (Checks API); without this it logs "Failed to post annotations to github: 403"
+      # NOTE: do NOT request `checks: write` here. A reusable workflow job may
+      # only request permissions the CALLER already grants; every consumer
+      # caller sets an explicit `permissions:` block that omits `checks`, so
+      # requesting `checks: write` makes GitHub reject the whole run at load
+      # time (startup_failure) for every repo. trunk-action degrades gracefully
+      # without it — it just logs "Failed to post annotations to github: 403"
+      # and lint still runs and gates correctly. A repo that wants the check
+      # annotations opts in by adding `checks: write` to its own caller.
     needs: setup
     if: |
       (needs.setup.outputs.enable-security == 'true' || needs.setup.outputs.enable-lint == 'true') &&
