@@ -20,6 +20,13 @@
 
 * **runner:** hardened self-hosted runner + library/WP pipeline templates (NAV-27) ([#242](https://github.com/navigaite/.github/issues/242)) ([a45241c](https://github.com/navigaite/.github/commit/a45241cad983ae16e495086aa683258f35edaa37))
 
+## [3.2.1-beta.11](https://github.com/navigaite/.github/compare/v3.2.1-beta.10...v3.2.1-beta.11) (2026-07-25)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** drop checks:write over-request that startup-fails every consumer on [@v3](https://github.com/v3) ([#248](https://github.com/navigaite/.github/issues/248)) ([8819bd1](https://github.com/navigaite/.github/commit/8819bd18bad6209fda7ad671abd33b091db31486))
+
 ## [3.2.1-beta.10](https://github.com/navigaite/.github/compare/v3.2.1-beta.9...v3.2.1-beta.10) (2026-07-24)
 
 
