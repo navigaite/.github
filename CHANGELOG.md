@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.2.2](https://github.com/navigaite/.github/compare/v3.2.1...v3.2.2) (2026-07-24)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** a required gate can never pass on skipped validation (NAV-20) ([#237](https://github.com/navigaite/.github/issues/237)) ([f93bf86](https://github.com/navigaite/.github/commit/f93bf86743f38e3e6b64658a0f1c15e5de2da152))
+* **ci:** downgrade dependency-review unsupported-repo case to warning ([#225](https://github.com/navigaite/.github/issues/225)) ([a432042](https://github.com/navigaite/.github/commit/a43204200c2c1540854778d7a8ea9bb88be6ca5b))
+* land NAV-21 audit fixes to the universal pipeline ([#236](https://github.com/navigaite/.github/issues/236)) ([90e59cb](https://github.com/navigaite/.github/commit/90e59cb771988ef10d7399cdcf345924577a228a))
+* **runner:** drop cap_drop ALL from hardened self-hosted runner compose ([#244](https://github.com/navigaite/.github/issues/244)) ([9ff4047](https://github.com/navigaite/.github/commit/9ff404796f7d99b5fdb8c6932f3a9bc3120b84b0))
+
+
+### ⚡ Performance Improvements
+
+* **ci:** skip deploy jobs on empty matrix — stop phantom runners (PRI-721 Scope A) ([#234](https://github.com/navigaite/.github/issues/234)) ([23b5739](https://github.com/navigaite/.github/commit/23b5739cd647d8645451016a3a3b2b17ef2b48a7))
+
+
+### 📚 Documentation
+
+* **runner:** hardened self-hosted runner + library/WP pipeline templates (NAV-27) ([#242](https://github.com/navigaite/.github/issues/242)) ([a45241c](https://github.com/navigaite/.github/commit/a45241cad983ae16e495086aa683258f35edaa37))
+
 ## [3.2.1-beta.11](https://github.com/navigaite/.github/compare/v3.2.1-beta.10...v3.2.1-beta.11) (2026-07-25)
 
 
