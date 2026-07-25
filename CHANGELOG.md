@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.3](https://github.com/navigaite/.github/compare/v3.2.2...v3.2.3) (2026-07-25)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** drop checks:write over-request that startup-fails every consumer on [@v3](https://github.com/v3) ([#248](https://github.com/navigaite/.github/issues/248)) ([8819bd1](https://github.com/navigaite/.github/commit/8819bd18bad6209fda7ad671abd33b091db31486))
+
 ## [3.2.2](https://github.com/navigaite/.github/compare/v3.2.1...v3.2.2) (2026-07-24)
 
 
