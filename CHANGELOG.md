@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0-beta.14](https://github.com/navigaite/.github/compare/v3.3.0-beta.13...v3.3.0-beta.14) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **sync:** retire impossible main→dev back-merge; reconcile via auto-merged PR (NAV-50) ([#261](https://github.com/navigaite/.github/issues/261)) ([bc566cc](https://github.com/navigaite/.github/commit/bc566ccbdcacff2bf3732474615a4ac362fe9aee))
+
 ## [3.3.0-beta.13](https://github.com/navigaite/.github/compare/v3.3.0-beta.12...v3.3.0-beta.13) (2026-07-26)
 
 
