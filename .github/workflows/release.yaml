@@ -76,7 +76,14 @@ jobs:
     permissions:
       contents: write
     needs: release-please
-    if: needs.release-please.outputs.release-created == 'true'
+    # Run regardless of the release-please step outcome. release-please creates
+    # the GitHub release + tag first, then builds the *next* release PR; a
+    # transient GraphQL error in that second phase exits the step non-zero and
+    # used to strand the rolling tags (v<MAJOR>/latest) because this job was
+    # gated on release-created. We now derive the target from the newest stable
+    # tag reachable on main and reconcile every run, so a failed/re-run release
+    # or any plain main push self-heals drift. Skips only on cancellation.
+    if: ${{ !cancelled() }}
     steps:
       - name: 🔍 Check for GitHub App secrets
         id: check-app
@@ -106,40 +113,80 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
 
-      - name: 🏷️ Update rolling tags
+      - name: 🏷️ Reconcile rolling tags from newest stable tag on main
+        id: reconcile
         shell: bash
-        env:
-          MAJOR: ${{ needs.release-please.outputs.release-major }}
-          TAG: ${{ needs.release-please.outputs.release-tag }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Target = newest STABLE semver tag reachable on the current branch
+          # (main), derived from git rather than this run's release-please
+          # output. This is independent of whether release-please reported a new
+          # release, so it self-heals when a release was published but the
+          # rolling-tag update was skipped (release-please exited non-zero after
+          # creating the release, or the job was re-run with release_created=false).
+          # The glob narrows candidates; the regex enforces full vX.Y.Z and
+          # excludes the rolling tags themselves (`v3`, `latest`) and prereleases.
+          # `|| true` guards against pipefail/SIGPIPE: `head` closing after one
+          # line can kill `grep` (141), and a no-match `grep` exits 1 — either
+          # would abort under `set -e` before the empty-check below runs.
+          LATEST_TAG="$(
+            git tag --list 'v[0-9]*' --merged HEAD --sort=-v:refname \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              | head -n1 || true
+          )"
+
+          if [[ -z "${LATEST_TAG}" ]]; then
+            echo "::notice::No stable semver tag reachable on main — nothing to reconcile."
+            echo "latest_tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          MAJOR="${LATEST_TAG#v}"
+          MAJOR="${MAJOR%%.*}"
+          TARGET_SHA="$(git rev-parse "${LATEST_TAG}^{commit}")"
+          echo "Newest stable tag on main: ${LATEST_TAG} (${TARGET_SHA})"
+
+          CHANGED=false
           for ROLLING_TAG in "v${MAJOR}" "latest"; do
-            echo "Updating ${ROLLING_TAG} to point to ${TAG}"
-            git tag -f "${ROLLING_TAG}" "${TAG}"
+            CURRENT_SHA="$(git rev-parse -q --verify "${ROLLING_TAG}^{commit}" || true)"
+            if [[ "${CURRENT_SHA}" == "${TARGET_SHA}" ]]; then
+              echo "✅ ${ROLLING_TAG} already at ${LATEST_TAG}"
+              continue
+            fi
+            echo "Updating ${ROLLING_TAG}: ${CURRENT_SHA:-<none>} → ${TARGET_SHA} (${LATEST_TAG})"
+            git tag -f "${ROLLING_TAG}" "${LATEST_TAG}"
             git push --force origin "refs/tags/${ROLLING_TAG}"
-            echo "✅ ${ROLLING_TAG} → ${TAG}"
+            echo "✅ ${ROLLING_TAG} → ${LATEST_TAG}"
+            CHANGED=true
           done
 
+          {
+            echo "latest_tag=${LATEST_TAG}"
+            echo "major=${MAJOR}"
+            echo "reconciled=${CHANGED}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: 📋 Summary
+        if: steps.reconcile.outputs.latest_tag != ''
         shell: bash
         env:
-          MAJOR: ${{ needs.release-please.outputs.release-major }}
-          TAG: ${{ needs.release-please.outputs.release-tag }}
-          VERSION: ${{ needs.release-please.outputs.release-version }}
+          TAG: ${{ steps.reconcile.outputs.latest_tag }}
+          MAJOR: ${{ steps.reconcile.outputs.major }}
+          RECONCILED: ${{ steps.reconcile.outputs.reconciled }}
         run: |
           set -euo pipefail
           {
-            echo "### 🏷️ Release Published"
+            echo "### 🏷️ Rolling Tags Reconciled"
             echo ""
             echo "| | |"
             echo "|:---|:---|"
-            echo "| **Version** | \`${VERSION}\` |"
-            echo "| **Tag** | \`${TAG}\` |"
+            echo "| **Stable Tag** | \`${TAG}\` |"
             echo "| **Major Tag** | \`v${MAJOR}\` → \`${TAG}\` |"
             echo "| **Latest Tag** | \`latest\` → \`${TAG}\` |"
+            echo "| **Updated this run** | \`${RECONCILED}\` |"
             echo ""
-            echo "Consumers using \`@v${MAJOR}\` or \`@latest\` will now get \`${TAG}\`."
+            echo "Consumers using \`@v${MAJOR}\` or \`@latest\` now get \`${TAG}\`."
           } >> "$GITHUB_STEP_SUMMARY"
