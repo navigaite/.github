@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0-beta.11](https://github.com/navigaite/.github/compare/v3.2.1-beta.11...v3.3.0-beta.11) (2026-07-26)
+
+
+### ✨ Features
+
+* **pipeline:** add fast|major repo profile knob (NAV-21) ([#254](https://github.com/navigaite/.github/issues/254)) ([88322aa](https://github.com/navigaite/.github/commit/88322aaa8ec6721b2592711e4125e124f07e7fbe))
+
 ## [3.2.2](https://github.com/navigaite/.github/compare/v3.2.1...v3.2.2) (2026-07-24)
 
 
