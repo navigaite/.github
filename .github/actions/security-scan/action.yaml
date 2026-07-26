@@ -41,54 +41,83 @@ inputs:
 runs:
   using: composite
   steps:
+    # TruffleHog runs Docker-less: the pinned CLI binary is installed and
+    # invoked directly instead of the `trufflesecurity/trufflehog` container
+    # action. The org-level self-hosted homelab runner (NAV-27 scope-2) is
+    # rootless with NO Docker socket, so the container action fails there with
+    # "Cannot connect to the Docker daemon" (NAV-39/NAV-33). The binary path
+    # keeps identical diff-scan semantics on both GitHub-hosted and self-hosted
+    # runners. Version is pinned; the installer is fetched from the matching
+    # release tag (not `main`) so the supply chain stays pinned.
     - name: TruffleHog Secret Scanning
       id: trufflehog-scan
-      if: |
-        inputs.enable-trufflehog == 'true' &&
-        (
-          github.event_name != 'push' ||
-          (github.event.before != github.sha && github.event.before != '0000000000000000000000000000000000000000')
-        )
-      uses: trufflesecurity/trufflehog@7c0734f987ad0bb30ee8da210773b800ee2016d3 # v3.93.4
-      with:
-        path: ./
-        base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-        extra_args: ${{ inputs.trufflehog-extra-args }}
-
-    - name: TruffleHog Full Scan (Initial Push)
-      id: trufflehog-initial
-      if: |
-        inputs.enable-trufflehog == 'true' &&
-        github.event_name == 'push' &&
-        (github.event.before == github.sha || github.event.before == '0000000000000000000000000000000000000000')
-      uses: trufflesecurity/trufflehog@7c0734f987ad0bb30ee8da210773b800ee2016d3 # v3.93.4
-      with:
-        path: ./
-        extra_args: --since-commit=HEAD~10 ${{ inputs.trufflehog-extra-args }}
-
-    - name: Check TruffleHog Results
-      if: inputs.enable-trufflehog == 'true' && inputs.fail-on-secrets == 'true'
+      if: inputs.enable-trufflehog == 'true'
       shell: bash
       env:
-        TRUFFLEHOG_OUTCOME: ${{ steps.trufflehog-scan.outcome }}
-        TRUFFLEHOG_INITIAL_OUTCOME: ${{ steps.trufflehog-initial.outcome }}
+        TRUFFLEHOG_VERSION: v3.93.4
+        EVENT_NAME: ${{ github.event_name }}
+        PUSH_BEFORE: ${{ github.event.before }}
+        COMMIT_SHA: ${{ github.sha }}
+        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        EXTRA_ARGS: ${{ inputs.trufflehog-extra-args }}
+        FAIL_ON_SECRETS: ${{ inputs.fail-on-secrets }}
       run: |
         set -euo pipefail
-        echo "::group::🔍 TruffleHog Secret Scan Results"
-        if [[ "$TRUFFLEHOG_OUTCOME" == "failure" ]] || [[ "$TRUFFLEHOG_INITIAL_OUTCOME" == "failure" ]]; then
-          echo "::error::TruffleHog detected secrets in the codebase"
+        ZERO_SHA=0000000000000000000000000000000000000000
+
+        # Install the pinned TruffleHog binary into a runner-writable dir
+        # (works on rootless runners where /usr/local/bin is not writable).
+        BIN_DIR="${RUNNER_TEMP}/trufflehog-bin"
+        mkdir -p "$BIN_DIR"
+        curl -sSfL "https://raw.githubusercontent.com/trufflesecurity/trufflehog/${TRUFFLEHOG_VERSION}/scripts/install.sh" \
+          | sh -s -- -b "$BIN_DIR" "${TRUFFLEHOG_VERSION}"
+        "$BIN_DIR/trufflehog" --version
+
+        # Build the scan range, mirroring the container action's base/head
+        # inputs and its initial-push (no diff base) fallback.
+        ARGS=(git "file://${GITHUB_WORKSPACE}" --no-update --fail)
+        if [[ "$EVENT_NAME" == "pull_request" ]]; then
+          ARGS+=(--since-commit "$PR_BASE_SHA" --branch "$PR_HEAD_SHA")
+        elif [[ "$EVENT_NAME" == "push" && ( "$PUSH_BEFORE" == "$COMMIT_SHA" || "$PUSH_BEFORE" == "$ZERO_SHA" ) ]]; then
+          ARGS+=(--since-commit "HEAD~10")
+        else
+          ARGS+=(--since-commit "$PUSH_BEFORE" --branch "$COMMIT_SHA")
+        fi
+        # Caller-supplied extra args (default: --only-verified). Word-split intentional.
+        # shellcheck disable=SC2206
+        ARGS+=($EXTRA_ARGS)
+
+        echo "::group::🔍 TruffleHog Secret Scan (${EVENT_NAME})"
+        set +e
+        "$BIN_DIR/trufflehog" "${ARGS[@]}"
+        SCAN_CODE=$?
+        set -e
+        echo "::endgroup::"
+
+        # `--fail` makes TruffleHog exit 183 when results are found; 0 = clean.
+        # Any other non-zero is a real scan error → fail closed regardless of
+        # the fail-on-secrets toggle.
+        if [[ "$SCAN_CODE" -eq 0 ]]; then
+          echo "✅ No secrets detected"
+          exit 0
+        elif [[ "$SCAN_CODE" -eq 183 ]]; then
           {
             echo "### ⚠️ Security Alert: Secrets Detected"
             echo ""
-            echo "TruffleHog has detected potential secrets in your code."
-            echo "Please review the findings above and remove any sensitive data."
+            echo "TruffleHog detected potential secrets in your code."
+            echo "Review the findings above and remove any sensitive data."
           } >> "$GITHUB_STEP_SUMMARY"
-          exit 1
+          if [[ "$FAIL_ON_SECRETS" == "true" ]]; then
+            echo "::error::TruffleHog detected secrets in the codebase"
+            exit 1
+          fi
+          echo "::warning::TruffleHog detected secrets, but fail-on-secrets is disabled"
+          exit 0
         else
-          echo "✅ No secrets detected"
+          echo "::error::TruffleHog failed to run (exit code ${SCAN_CODE})"
+          exit "$SCAN_CODE"
         fi
-        echo "::endgroup::"
 
     - name: Dependency Vulnerability Scan (PR only)
       id: dependency_review
