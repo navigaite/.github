@@ -63,14 +63,50 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Mint a `navigaite-workflow-app` installation token. The promote PR must
+      # be authored by the app, not `github.token`: GitHub suppresses workflow
+      # runs for `GITHUB_TOKEN`-authored PR events (anti-recursion), so a
+      # token-opened promote PR never fires the pipeline and its required checks
+      # stay pending forever. Branch Guard already whitelists the app's
+      # `promote/*` heads. Falls back to `github.token` when the app secrets are
+      # absent (promote PR then needs a manual close/reopen to trigger checks).
+      - name: 🔍 Check for GitHub App secrets
+        id: check-app
+        shell: bash
+        env:
+          APP_ID: ${{ secrets.WORKFLOW_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+        run: |
+          if [[ -n "$APP_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            missing=()
+            [[ -z "$APP_ID" ]] && missing+=("WORKFLOW_APP_ID")
+            [[ -z "$APP_PRIVATE_KEY" ]] && missing+=("WORKFLOW_APP_PRIVATE_KEY")
+            echo "::warning::${missing[*]} not set — falling back to GITHUB_TOKEN. The promote PR won't trigger its pipeline until manually reopened."
+          fi
+
+      - name: 🔑 Generate GitHub App token
+        id: app-token
+        if: steps.check-app.outputs.available == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.base }}
           fetch-depth: 0
+          # Persist the app token (when available) so `git push` of the
+          # `promote/*` branch is attributed to the app and triggers the
+          # pipeline, matching the `gh pr create` author below.
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: Open promotion PR
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
           HEAD: ${{ inputs.head }}
           BASE: ${{ inputs.base }}
           REPO: ${{ github.repository }}
