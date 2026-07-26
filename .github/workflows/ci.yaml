@@ -17,8 +17,9 @@ permissions: {}
 jobs:
   # ---------------------------------------------------------------------------
   # Branch guard: PRs targeting dev are always allowed (feature branches land
-  # there). PRs targeting main must be one of: a promotion from dev, an
-  # automated release-please PR, or an emergency hotfix/* — mirrors the
+  # there). PRs targeting main must be one of: a promotion from dev or a
+  # bot-authored promote/* staging branch (NAV-46 conflict-free promotion),
+  # an automated release-please PR, or an emergency hotfix/* — mirrors the
   # pattern other two-branch repos (e.g. edilio) already run.
   #
   # The `if:` also gates on `base.ref == 'main'` (PRI-630). Every code path in
@@ -78,6 +79,36 @@ jobs:
             exit 0
           fi
 
+          if [[ "$PR_HEAD" == promote/* ]]; then
+            # Staging branch built by the promote-to-main workflow (NAV-46):
+            # main + merge(dev) with release-managed files pre-resolved to main.
+            # A raw dev → main PR three-way-conflicts on the changelog/version
+            # manifests every release, so the promote/* branch is the ONLY
+            # conflict-free promotion path. Trusted only when authored by the
+            # pipeline bot — a human-pushed promote/* branch could carry
+            # arbitrary content to main, so gate on author exactly like the
+            # release-please path below.
+            if [[ "$PR_AUTHOR" != "github-actions[bot]" && "$PR_AUTHOR" != "navigaite-workflow-app[bot]" ]]; then
+              echo "::error::❌ promote/* branch author is '$PR_AUTHOR', not the pipeline bot. Promotion staging branches must be created by the promote-to-main workflow."
+              exit 1
+            fi
+            echo "ℹ️  Promotion PR from staging branch $PR_HEAD → main"
+
+            OPEN_RP=$(gh api "repos/$PR_BASE_REPO/pulls" \
+              --paginate \
+              --jq '[.[] | select(
+                .state=="open" and .base.ref=="dev" and
+                (.head.ref | startswith("release-please"))
+              )] | length')
+            if [[ "$OPEN_RP" -gt 0 ]]; then
+              echo "::error::❌ There is an open release-please PR on dev. Merge or close it before promoting to main."
+              exit 1
+            fi
+
+            echo "✅ Promotion allowed — staging branch from pipeline bot, no open release-please PR on dev"
+            exit 0
+          fi
+
           if [[ "$PR_HEAD" == release-please--* ]]; then
             if [[ "$PR_AUTHOR" == "github-actions[bot]" || "$PR_AUTHOR" == "navigaite-workflow-app[bot]" ]]; then
               echo "✅ Release-please PR from bot — allowed"
@@ -94,7 +125,7 @@ jobs:
           fi
 
           echo "::error::❌ PRs targeting main must come from:"
-          echo "::error::  dev (promotion), release-please (bot), or hotfix/* (emergency)."
+          echo "::error::  dev or promote/* (promotion), release-please (bot), or hotfix/* (emergency)."
           echo "::error::Please retarget this PR to dev instead."
           exit 1
 
