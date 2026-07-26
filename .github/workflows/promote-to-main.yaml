@@ -12,10 +12,24 @@ name: 📤 Promote dev → main
 #     (no open release-please PR on dev, dev ahead of main, no duplicate
 #     promotion PR already open).
 #
-# The PR is intentionally NOT auto-merged: GitHub strips downstream
-# workflow triggers from GITHUB_TOKEN-initiated merges, and we want the
-# resulting push to main to fire the universal pipeline (deploy + Sentry
-# release). The operator merges the promotion PR via the GitHub UI.
+# Why a `promote/*` staging branch instead of a raw `dev → main` PR:
+#   The org ruleset makes `dev` squash-only, so `main` is never an ancestor of
+#   `dev`. release-please writes the changelog AND the version-bearing files on
+#   BOTH tracks (beta on `dev`, stable on `main`), so after any stable release
+#   those files three-way-conflict on every promotion — a raw `dev → main` PR
+#   is unmergeable in the UI (this is what forced the manual conflict surgery in
+#   #250/#252). This workflow builds a pre-resolved `promote/*` branch =
+#   `main` + merge(`dev`) with the release-managed files resolved to `main`'s
+#   side (its stable changelog is authoritative; release-please re-derives the
+#   stable entry for the promoted commits after the merge lands). Any OTHER
+#   conflict is a genuine code conflict — the workflow fails closed so a human
+#   resolves it rather than silently dropping a change.
+#
+# The promotion PR is intentionally NOT auto-merged: GitHub strips downstream
+# workflow triggers from token-initiated merges, and we want the resulting push
+# to `main` to fire the universal pipeline (deploy + Sentry release). The board
+# merges the `promote/* → main` PR via the GitHub UI (a GitHub-signed merge
+# commit, satisfying `required_signatures` on `main`).
 
 on:
   workflow_call:
@@ -31,13 +45,15 @@ on:
         type: string
         default: main
 
+# `contents: write` is required to push the `promote/*` staging branch and to
+# create the signed merge commit via the Git Data API.
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
-# Serialize concurrent triggers so the duplicate-PR precondition isn't racy
-# (two parallel `workflow_dispatch` runs could otherwise both pass the
-# existing-PR check before either `gh pr create` lands).
+# Serialize concurrent triggers so the duplicate-PR / staging-branch
+# preconditions aren't racy (two parallel `workflow_dispatch` runs could
+# otherwise both pass the existing-PR check before either lands).
 concurrency:
   group: promote-${{ github.repository }}-${{ inputs.head }}-${{ inputs.base }}
   cancel-in-progress: false
@@ -45,11 +61,11 @@ concurrency:
 jobs:
   open-promotion-pr:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.head }}
+          ref: ${{ inputs.base }}
           fetch-depth: 0
 
       - name: Open promotion PR
@@ -60,6 +76,9 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Precondition 1: no open release-please PR on the source branch
           # (would race with the promotion and produce inconsistent changelogs).
@@ -78,17 +97,89 @@ jobs:
             exit 0
           fi
 
-          # Precondition 3: skip if a promotion PR is already open.
-          EXISTING=$(gh pr list --repo "$REPO" --base "$BASE" --head "$HEAD" \
-            --state open --json url --jq '.[0].url // empty')
+          # Precondition 3: skip if a promotion PR is already open (its head is a
+          # `promote/*` branch targeting BASE).
+          EXISTING=$(gh pr list --repo "$REPO" --base "$BASE" --state open \
+            --json url,headRefName \
+            --jq '[.[] | select(.headRefName | startswith("promote/"))][0].url // empty')
           if [[ -n "$EXISTING" ]]; then
             echo "::notice::Promotion PR already open: $EXISTING"
             echo "Promotion PR already open: [$EXISTING]($EXISTING)" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          BODY=$(printf 'Automated promotion of %s commit(s) from `%s` to `%s`.\n\nMerge via the GitHub UI using **Merge commit** (not squash) to preserve conventional commit history and trigger downstream deploy/release workflows.\n' "$AHEAD" "$HEAD" "$BASE")
-          URL=$(gh pr create --repo "$REPO" --base "$BASE" --head "$HEAD" \
+          BASE_SHA=$(git rev-parse "origin/$BASE")
+          HEAD_SHA=$(git rev-parse "origin/$HEAD")
+          PROMOTE_BRANCH="promote/${BASE}-$(git rev-parse --short "origin/$HEAD")"
+
+          # ------------------------------------------------------------------
+          # Build the pre-resolved staging merge on top of BASE.
+          # ------------------------------------------------------------------
+          git checkout -B "$PROMOTE_BRANCH" "origin/$BASE"
+
+          set +e
+          git merge --no-ff --no-commit "origin/$HEAD"
+          set -e
+
+          CONFLICTS=$(git diff --name-only --diff-filter=U || true)
+          if [[ -n "$CONFLICTS" ]]; then
+            # Files release-please owns and rewrites on both tracks: the
+            # changelog, the version manifests/locks, and any `extra-files`
+            # declared in the stable release-please config. These are the only
+            # files it is safe to resolve to BASE (main re-derives the stable
+            # entry after the promotion lands).
+            ALLOW=$'CHANGELOG.md\npackage.json\npackage-lock.json\npnpm-lock.yaml\nyarn.lock'
+            EXTRA=$(jq -r '
+              .packages // {} | to_entries[] | .value["extra-files"] // []
+              | .[] | if type == "object" then .path else . end
+            ' .github/release-please-config.json 2>/dev/null || true)
+            ALLOW=$(printf '%s\n%s\n' "$ALLOW" "$EXTRA" | sed '/^[[:space:]]*$/d' | sort -u)
+
+            UNEXPECTED=""
+            while IFS= read -r f; do
+              [[ -z "$f" ]] && continue
+              grep -qxF "$f" <<<"$ALLOW" || UNEXPECTED+="  - $f"$'\n'
+            done <<<"$CONFLICTS"
+
+            if [[ -n "$UNEXPECTED" ]]; then
+              git merge --abort
+              echo "::error::Promotion has conflicts outside release-managed files; resolve $HEAD → $BASE manually."
+              printf 'Unexpected conflicting files:\n%s' "$UNEXPECTED"
+              exit 1
+            fi
+
+            # Keep BASE's version of every (release-managed) conflicting file.
+            while IFS= read -r f; do
+              [[ -z "$f" ]] && continue
+              git checkout --ours -- "$f"
+              git add -- "$f"
+            done <<<"$CONFLICTS"
+            echo "::notice::Resolved release-managed conflicts to $BASE: $(tr '\n' ' ' <<<"$CONFLICTS")"
+          fi
+
+          MSG=$(printf 'chore: promote %s → %s\n\nRelease-managed files resolved to %s; release-please re-derives the stable changelog entry for the promoted commits after this lands.' "$HEAD" "$BASE" "$BASE")
+
+          # Local merge commit (unsigned) — used only to upload the composed
+          # merge tree to the remote.
+          git commit --no-edit -m "$MSG"
+          git push --force origin "HEAD:refs/heads/$PROMOTE_BRANCH"
+
+          # Replace the unsigned runner commit with a GitHub-signed commit that
+          # carries the identical tree and parents. Commits created through the
+          # Git Data API with the Actions token are verified by GitHub, so the
+          # eventual `promote/* → main` merge satisfies `required_signatures`.
+          TREE=$(git rev-parse 'HEAD^{tree}')
+          SIGNED=$(gh api "repos/$REPO/git/commits" \
+            -f "message=$MSG" \
+            -f "tree=$TREE" \
+            -f "parents[]=$BASE_SHA" \
+            -f "parents[]=$HEAD_SHA" \
+            --jq '.sha')
+          gh api -X PATCH "repos/$REPO/git/refs/heads/$PROMOTE_BRANCH" \
+            -f "sha=$SIGNED" -F "force=true" >/dev/null
+
+          BODY=$(printf 'Automated promotion of %s commit(s) from `%s` to `%s`, staged via `%s`.\n\nRelease-managed files (changelog, version manifests, extra-files) were auto-resolved to `%s`; all other changes merged normally. Merge via the GitHub UI using **Merge commit** (not squash) to preserve conventional commit history and trigger downstream deploy/release workflows.\n' "$AHEAD" "$HEAD" "$BASE" "$PROMOTE_BRANCH" "$BASE")
+          URL=$(gh pr create --repo "$REPO" --base "$BASE" --head "$PROMOTE_BRANCH" \
             --title "chore: promote $HEAD → $BASE" \
             --body "$BODY")
           echo "Opened: $URL"
