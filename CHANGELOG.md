@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0-beta.17](https://github.com/navigaite/.github/compare/v3.3.0-beta.16...v3.3.0-beta.17) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **pipeline:** point TMPDIR at RUNNER_TEMP on self-hosted jobs (NAV-54) ([#274](https://github.com/navigaite/.github/issues/274)) ([42192e7](https://github.com/navigaite/.github/commit/42192e73ef28dfe92a103f9e45dcb20a0a2fe323))
+
 ## [3.3.0-beta.16](https://github.com/navigaite/.github/compare/v3.3.0-beta.15...v3.3.0-beta.16) (2026-07-26)
 
 
