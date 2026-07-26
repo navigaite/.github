@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0-beta.15](https://github.com/navigaite/.github/compare/v3.3.0-beta.14...v3.3.0-beta.15) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** allow bot-authored promote/* heads in Branch Guard (NAV-21) ([#265](https://github.com/navigaite/.github/issues/265)) ([d3fc194](https://github.com/navigaite/.github/commit/d3fc194e1cdb589a1d8d7c50c59996678497d868))
+
 ## [3.3.0-beta.14](https://github.com/navigaite/.github/compare/v3.3.0-beta.13...v3.3.0-beta.14) (2026-07-26)
 
 
