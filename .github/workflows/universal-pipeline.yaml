@@ -1478,10 +1478,17 @@ jobs:
           release-type: ${{ needs.setup.outputs.release-type != '' && needs.setup.outputs.release-type || (needs.setup.outputs.stack == 'nodejs' && 'node' || needs.setup.outputs.stack == 'python' && 'python' || 'simple') }}
           draft-pull-request: ${{ needs.setup.outputs.release-draft-pull-request }}
   # =============================================================================
-  # SYNC MAIN TO DEV (After Release)
+  # RECONCILE DEV MANIFEST (After Stable Release)
   # =============================================================================
+  # The former `main` -> `dev` back-merge ("sync to dev") is retired: it never
+  # landed and cannot, because `dev` requires a PR + signed commits + status
+  # checks, so an unsigned runner direct-push is rejected. Its purpose
+  # (conflict-free promotions) is now handled defensively on the promote side
+  # (navigaite/.github#259 / NAV-46). This job now only performs the dual-track
+  # (Profile B) prerelease-manifest reconcile, delivered via an auto-merged
+  # squash PR. It is a no-op for non-dual-track repos. See NAV-50.
   sync-to-dev:
-    name: 🔄 Sync to Dev
+    name: 🔄 Reconcile Dev Manifest
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -1525,18 +1532,18 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token || secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: 🔄 Sync Branches
+      - name: 🔄 Reconcile Dev Manifest
         uses: navigaite/.github/.github/actions/sync-branches@v3
         with:
           source-branch: main
           target-branch: ${{ needs.setup.outputs.sync-target-branch }}
           github-token: ${{ steps.app-token.outputs.token || secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-          create-pr: false
           auto-merge-pr: true
           # Dual-track (Profile B) reconcile: after the stable release lands on
           # main, reset the dev (beta) prerelease manifest base to the released
-          # stable version so the next dev release stays above stable. No-op
-          # unless both manifests are configured and differ.
+          # stable version so the next dev release stays above stable, delivered
+          # via an auto-merged squash PR. No-op unless both manifests are
+          # configured and differ.
           prerelease-manifest-file: ${{ needs.setup.outputs.release-manifest-file }}
           stable-manifest-file: ${{ needs.setup.outputs.release-manifest-file-stable }}
           stable-version: ${{ needs.release.outputs.release-version }}
