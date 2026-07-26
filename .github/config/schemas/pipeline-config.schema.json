@@ -12,6 +12,12 @@
       "pattern": "^2\\.\\d+$",
       "default": "2.0"
     },
+    "profile": {
+      "type": "string",
+      "description": "Repo delivery profile. 'major' = two-branch (feature -> dev -> main): beta prereleases on dev, board-only dev->main promotion cuts stable. 'fast' = single-branch (feature -> main squash): release-please cuts stable directly on main, no dev branch, no back-merge. On the 'fast' profile the pipeline forces the main->dev back-merge off, so a repo with no dev branch never fails the sync step.",
+      "enum": ["major", "fast"],
+      "default": "major"
+    },
     "stack": {
       "type": "string",
       "description": "Technology stack (auto-detected if not specified)",

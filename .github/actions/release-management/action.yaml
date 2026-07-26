@@ -7,6 +7,13 @@ inputs:
     description: GitHub token with contents write and pull-requests write permissions
     required: true
 
+  npm-token:
+    description: >-
+      npm registry auth token, consumed by @semantic-release/npm to publish
+      packages. Leave empty for repos that do not publish to npm.
+    required: false
+    default: ''
+
   strategy:
     description: Release strategy (release-please or semantic-release)
     required: false
@@ -264,6 +271,11 @@ runs:
         extra_plugins: ${{ inputs.extra-plugins }}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        # @semantic-release/npm reads NPM_TOKEN from the environment and writes
+        # the registry .npmrc itself. Without this, verifyConditions fails with
+        # "No npm token specified" for any repo whose .releaserc enables the npm
+        # plugin (the pipeline previously plumbed no npm auth at all — NAV-41).
+        NPM_TOKEN: ${{ inputs.npm-token }}
 
     - name: Fallback Patch Release (Semantic Release No-Op)
       id: fallback-release
