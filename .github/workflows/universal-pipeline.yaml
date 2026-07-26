@@ -715,6 +715,15 @@ jobs:
     name: 🔎 Static Checks
     runs-on: ${{ fromJSON(needs.setup.outputs.runner-labels) }}
     timeout-minutes: 15
+    # Hardened rootless self-hosted runners mount /tmp noexec, so tools that
+    # mktemp+exec (the trunk launcher extracts+runs the CLI from a mktemp dir;
+    # prebuilt native binaries do the same) fail with exit 126. Point TMPDIR at
+    # the exec-capable runner workdir so every mktemp lands there. Setting
+    # TRUNK_TMPDIR is not enough: setup/locate_trunk.sh in trunk-action does its
+    # own `mktemp -d` (honoring TMPDIR) and overwrites TRUNK_TMPDIR afterwards.
+    # No-op on GitHub-hosted runners, where RUNNER_TEMP is already exec-capable.
+    env:
+      TMPDIR: ${{ runner.temp }}
     permissions:
       contents: read
       pull-requests: write
@@ -970,6 +979,11 @@ jobs:
     name: 🧪 Verify
     runs-on: ${{ fromJSON(needs.setup.outputs.runner-labels) }}
     timeout-minutes: 45
+    # See static-checks: /tmp is noexec on hardened rootless runners. Tests and
+    # builds routinely exec prebuilt binaries from a tmp dir (esbuild, swc,
+    # native modules), so keep tmp on the exec-capable runner workdir.
+    env:
+      TMPDIR: ${{ runner.temp }}
     permissions:
       contents: read
       id-token: write # SLSA attestation + OIDC (build)
@@ -1273,6 +1287,10 @@ jobs:
     name: 🐳 Docker / ${{ matrix.image.name }}
     runs-on: ${{ fromJSON(needs.setup.outputs.runner-labels) }}
     timeout-minutes: 20
+    # See static-checks: /tmp is noexec on hardened rootless runners; keep tmp
+    # on the exec-capable runner workdir for any build tooling that mktemp+execs.
+    env:
+      TMPDIR: ${{ runner.temp }}
     permissions:
       contents: read
       deployments: write
