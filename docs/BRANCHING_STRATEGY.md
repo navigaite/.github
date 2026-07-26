@@ -2,7 +2,34 @@
 
 This document explains how the Universal Pipeline v2 works with your Git branching strategy and automates deployments.
 
-## 📋 Recommended Branching Strategy
+## 🧭 Repo Profiles: Major vs Fast
+
+Every navigaite repo declares a delivery **profile** in `.github/pipeline.yaml`
+via the top-level `profile:` key (default `major`). Both profiles get
+release-please versioning + release notes + GitHub Releases — they differ only
+in branching and who ships production.
+
+| | **Major** (`profile: major`) | **Fast** (`profile: fast`) |
+| --- | --- | --- |
+| Use for | Customer / production repos | Small, internal, non-customer (libs, templates, tooling) |
+| Branches | `feature/*` → `dev` → `main` | `feature/*` → `main` |
+| Feature merge | squash into `dev` | squash into `main` |
+| Release channel | **beta** on `dev`, **stable** on `main` | **stable** on `main` only |
+| `dev` → `main` promotion | **board only** (merge commit) | n/a (no `dev` branch) |
+| Feature PR merge | CTO self-merge into `dev` | CTO self-merge into `main` (0 approvals) |
+| Back-merge (`sync_to_dev`) | on (main → dev after release) | off (forced off by profile) |
+
+**Always enforced on both profiles:** PR required into a protected branch,
+signed commits, `Check Gate` + full pipeline green, squash-only feature merges.
+
+**How Fast works with no `dev` branch:** the caller's `Branch Guard` allows a
+PR into `main` when the repo has no `dev` branch, and the reusable pipeline
+forces the main → dev back-merge off when `profile: fast`, so a stable release
+never fails trying to push to a branch that doesn't exist. See
+[`fast-library-pipeline.yaml`](../.github/config/examples/fast-library-pipeline.yaml)
+for a complete Fast config; the sections below describe the **Major** flow.
+
+## 📋 Recommended Branching Strategy (Major profile)
 
 The pipeline is optimized for a **main/dev branching strategy** with optional feature branches:
 

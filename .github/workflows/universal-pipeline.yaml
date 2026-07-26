@@ -158,6 +158,9 @@ jobs:
       # Change classification
       docs-only: ${{ steps.docs-check.outputs.docs-only }}
 
+      # Delivery profile: 'major' (two-branch) or 'fast' (single-branch main)
+      profile: ${{ steps.parse-config.outputs.profile }}
+
       # Tech stack detection
       stack: ${{ steps.setup-env.outputs.detected-stack }}
       runtime-version: ${{ steps.setup-env.outputs.runtime-version }}
@@ -280,6 +283,7 @@ jobs:
             ENABLE_RELEASE="false"
             ENABLE_SYNC="true"
             SYNC_TARGET="dev"
+            PROFILE="major"
             RELEASE_STRATEGY="release-please"
             RELEASE_TYPE=""
             RELEASE_FORCE_PATCH_NO_RELEASE="false"
@@ -318,6 +322,11 @@ jobs:
             }
 
             # Parse configuration using yq
+            PROFILE=$(yq -r '.profile // "major"' "$CONFIG_FILE")
+            if [[ "$PROFILE" != "major" && "$PROFILE" != "fast" ]]; then
+              echo "::error::Invalid profile '$PROFILE' in $CONFIG_FILE — must be 'major' or 'fast'."
+              exit 1
+            fi
             CONFIGURED_STACK=$(yq -r '.stack // "auto"' "$CONFIG_FILE")
             ENABLE_CACHING=$(yq_bool '.pipeline.enable_caching' true)
             # Self-hosted opt-in. Labels are only meaningful if a runner is
@@ -434,6 +443,15 @@ jobs:
           [[ "$SKIP_BUILD" == "true" ]] && ENABLE_BUILD="false"
           [[ "$SKIP_DEPLOY" == "true" ]] && ENABLE_DEPLOY="false"
 
+          # Fast profile: single-branch (main only), no dev branch. Force the
+          # main->dev back-merge off so the sync-to-dev job never tries to push
+          # to a dev branch that does not exist (which would hard-fail every
+          # stable release). This is enforced by profile, not left to the
+          # per-repo sync_to_dev flag, so a Fast repo cannot misconfigure it.
+          if [[ "$PROFILE" == "fast" ]]; then
+            ENABLE_SYNC="false"
+          fi
+
           # Resolve the branch-appropriate release-please manifest. On a
           # non-prerelease branch (e.g. main) use the stable manifest when one
           # is configured; otherwise the default manifest. Keeps the beta (dev)
@@ -453,6 +471,7 @@ jobs:
           fi
 
           # Output configuration
+          echo "profile=$PROFILE" >> $GITHUB_OUTPUT
           echo "configured-stack=$CONFIGURED_STACK" >> $GITHUB_OUTPUT
           echo "enable-caching=$ENABLE_CACHING" >> $GITHUB_OUTPUT
           echo "runner-labels=$RUNNER_LABELS" >> $GITHUB_OUTPUT
@@ -514,6 +533,7 @@ jobs:
 
           echo ""
           echo "📦 Configuration Summary:"
+          echo "  Profile: $PROFILE"
           echo "  Stack: $CONFIGURED_STACK"
           echo "  Caching: $ENABLE_CACHING"
           echo "  Security: $ENABLE_SECURITY"
