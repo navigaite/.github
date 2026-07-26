@@ -67,6 +67,10 @@ on:
         value: ${{ jobs.release.outputs.release-tag }}
 
     secrets:
+      # npm publish auth for @semantic-release/npm (release strategy: semantic-release)
+      NPM_TOKEN:
+        required: false
+
       # Vercel secrets
       VERCEL_TOKEN:
         required: false
@@ -1462,6 +1466,7 @@ jobs:
         uses: navigaite/.github/.github/actions/release-management@v3
         with:
           github-token: ${{ steps.app-token.outputs.token || secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          npm-token: ${{ secrets.NPM_TOKEN }}
           strategy: ${{ needs.setup.outputs.release-strategy }}
           force-patch-on-no-release: ${{ needs.setup.outputs.release-force-patch-on-no-release }}
           extra-plugins: ${{ needs.setup.outputs.release-extra-plugins }}
