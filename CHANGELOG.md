@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.3.0-beta.13](https://github.com/navigaite/.github/compare/v3.3.0-beta.12...v3.3.0-beta.13) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **promote:** durable conflict-free dev→main promotion (NAV-46) ([#259](https://github.com/navigaite/.github/issues/259)) ([7c9db56](https://github.com/navigaite/.github/commit/7c9db56a62a4e4abbe5ba7afd924a709fc1442a7))
+* **security-scan:** run TruffleHog Docker-less for self-hosted runners ([#258](https://github.com/navigaite/.github/issues/258)) ([515e08a](https://github.com/navigaite/.github/commit/515e08a16af5e40c7f89d22a7ff37fc508e147e5))
+
 ## [3.3.0-beta.12](https://github.com/navigaite/.github/compare/v3.3.0-beta.11...v3.3.0-beta.12) (2026-07-26)
 
 
