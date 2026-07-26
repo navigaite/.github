@@ -67,6 +67,10 @@ on:
         value: ${{ jobs.release.outputs.release-tag }}
 
     secrets:
+      # npm publish auth for @semantic-release/npm (release strategy: semantic-release)
+      NPM_TOKEN:
+        required: false
+
       # Vercel secrets
       VERCEL_TOKEN:
         required: false
