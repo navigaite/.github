@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0-beta.16](https://github.com/navigaite/.github/compare/v3.3.0-beta.15...v3.3.0-beta.16) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** reconcile rolling tags decoupled from release-please outcome (NAV-53) ([#270](https://github.com/navigaite/.github/issues/270)) ([d42ff42](https://github.com/navigaite/.github/commit/d42ff42b188076224f8efe867ce1b40be280b8fb))
+
 ## [3.3.0-beta.15](https://github.com/navigaite/.github/compare/v3.3.0-beta.14...v3.3.0-beta.15) (2026-07-26)
 
 
