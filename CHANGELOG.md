@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0-beta.12](https://github.com/navigaite/.github/compare/v3.3.0-beta.11...v3.3.0-beta.12) (2026-07-26)
+
+
+### 🐛 Bug Fixes
+
+* **pipeline:** plumb NPM_TOKEN into semantic-release publish (NAV-41) ([#256](https://github.com/navigaite/.github/issues/256)) ([736289c](https://github.com/navigaite/.github/commit/736289ce4e2bd59fc9af91821857461194364bbc))
+
 ## [3.3.0-beta.11](https://github.com/navigaite/.github/compare/v3.2.1-beta.11...v3.3.0-beta.11) (2026-07-26)
 
 
