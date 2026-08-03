@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   branch-guard:
-    uses: maxbec/flama-delivery-platform/.github/workflows/reusable-branch-guard.yml@1e3a00aaace716e8d5f6ea475985857f98377f26
+    uses: maxbec/flama-delivery-platform/.github/workflows/reusable-branch-guard.yml@8b4fca4b84b7d90de424b3ff58d4fb20195edd10
     with:
       head-sha: ${{ github.event.pull_request.head.sha }}
       profile: major
