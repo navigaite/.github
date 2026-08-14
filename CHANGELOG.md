@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0-beta.19](https://github.com/navigaite/.github/compare/v3.3.0-beta.18...v3.3.0-beta.19) (2026-08-14)
+
+
+### 📚 Documentation
+
+* pipeline rehomed to maxbec/pipeline (freeze banner) ([#293](https://github.com/navigaite/.github/issues/293)) ([5e2db00](https://github.com/navigaite/.github/commit/5e2db002084a92bfc5ae30335b290b20dfc5518d))
+
 ## [3.3.0-beta.18](https://github.com/navigaite/.github/compare/v3.3.0-beta.17...v3.3.0-beta.18) (2026-08-13)
 
 
