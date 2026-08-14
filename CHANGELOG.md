@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0-beta.20](https://github.com/navigaite/.github/compare/v3.3.0-beta.19...v3.3.0-beta.20) (2026-08-14)
+
+
+### 🐛 Bug Fixes
+
+* **bootstrap:** rehome org maintenance bootstrap to maxbec/pipeline ([#296](https://github.com/navigaite/.github/issues/296)) ([8924a2b](https://github.com/navigaite/.github/commit/8924a2b6a43d684a913c140a693b6666c3211636))
+
 ## [3.3.0-beta.19](https://github.com/navigaite/.github/compare/v3.3.0-beta.18...v3.3.0-beta.19) (2026-08-14)
 
 
