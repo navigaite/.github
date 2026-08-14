@@ -1,3 +1,17 @@
+# ⚠️ MOVED — pipeline now lives in maxbec/pipeline
+
+> **2026-08-14: the universal pipeline was rehomed to
+> [`maxbec/pipeline`](https://github.com/maxbec/pipeline)** (full git history
+> mirrored, stable v3.4.x line). All caller repos across navigaite, edilio-app
+> and maxbec pin `maxbec/pipeline/.github/workflows/universal-pipeline.yaml@SHA`.
+> The pipeline files still present in this repo are FROZEN and no longer
+> released — do not open pipeline PRs here. This repo remains for org community
+> files (profile, templates).
+>
+> New-repo gotcha: repos restricting Actions must allow `maxbec/pipeline/*`
+> in Settings → Actions, or every pipeline call dies with a silent
+> `startup_failure`.
+
 # CLAUDE.md — Navigaite Universal CI/CD Pipeline
 
 > Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2** (version 3.3.0-beta.18). <!-- x-release-please-version -->
