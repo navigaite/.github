@@ -6,11 +6,11 @@
 #   2. Writes .github/workflows/trunk-upgrade-scheduled.yaml from
 #      templates/trunk-upgrade-scheduled.yaml with a staggered cron
 #      (hashed by repo name, Mon–Fri, 04:00–10:00 UTC). Distinct filename
-#      so it can coexist with the reusable `trunk-upgrade.yaml` inside
-#      navigaite/.github itself.
+#      so it never collides with a reusable `trunk-upgrade.yaml` a repo
+#      may define (historic collision before the pipeline rehome).
 #   3. Writes .github/workflows/claude-code-fix.yaml from
 #      templates/claude-code-fix.yaml (thin caller that delegates to the
-#      reusable claude-code workflow in navigaite/.github).
+#      reusable claude-code workflow in maxbec/pipeline).
 #   4. Removes any legacy caller-style workflows at
 #      .github/workflows/claude-code.yaml and
 #      .github/workflows/trunk-upgrade.yaml (files that are NOT reusable
@@ -48,8 +48,8 @@ ONLY=""
 AUDIT_ONLY=false
 # No repos are skipped — every caller-template now uses a distinct
 # filename (`claude-code-fix.yaml`, `trunk-upgrade-scheduled.yaml`),
-# so they no longer collide with the reusable workflows' paths inside
-# navigaite/.github itself.
+# so they never collide with reusable workflow paths. The reusable
+# workflows themselves live in maxbec/pipeline since 2026-08-14.
 SKIP_REPOS=()
 
 while [[ $# -gt 0 ]]; do
@@ -160,14 +160,16 @@ audit_repo() {
   # OPTIONAL — Consumer Integration Checklist".
   local repo="$1"
 
-  # The .github meta repo itself PROVIDES the universal pipeline; it does
-  # not consume it as a caller. Skip the consumer-side audit here and emit
-  # a short note instead so the bootstrap PR body still has content.
+  # The .github meta repo hosts the bootstrap machinery and community
+  # files; the universal pipeline itself lives in maxbec/pipeline. Either
+  # way this repo does not consume the pipeline as a caller. Skip the
+  # consumer-side audit here and emit a short note instead so the
+  # bootstrap PR body still has content.
   if [[ "$repo" == ".github" ]]; then
     cat <<'EOF'
 ## Pipeline Compliance Audit
 
-Not applicable — this is `navigaite/.github`, the meta repo that *provides* the universal pipeline. Consumer-side checks (caller `ci.yaml` shape, `pipeline.yaml`, etc.) don't apply.
+Not applicable — this is `navigaite/.github`, the org meta repo (bootstrap machinery + community files). The universal pipeline lives in `maxbec/pipeline`; consumer-side checks (caller `ci.yaml` shape, `pipeline.yaml`, etc.) don't apply here.
 
 See [AGENTS.md §10](https://github.com/navigaite/.github/blob/main/AGENTS.md) for conventions that govern this repo's own release/versioning workflow.
 EOF
@@ -214,12 +216,14 @@ EOF
       lines+=("| Workflow \`name: Navigaite Pipeline\` | ⚠️ | Current: \`${actual_name:-<none>}\` — required for uniform UI grouping |")
     fi
 
-    if grep -qE "uses:[[:space:]]+$ORG/\.github/\.github/workflows/universal-pipeline\.yaml@v2" <<< "$ci_yaml"; then
-      lines+=("| Pipeline delegates to \`universal-pipeline.yaml@v2\` | ✅ | |")
-    elif grep -qE "uses:[[:space:]]+$ORG/\.github/\.github/workflows/universal-pipeline\.yaml@" <<< "$ci_yaml"; then
+    if grep -qE 'uses:[[:space:]]+maxbec/pipeline/\.github/workflows/universal-pipeline\.yaml@[0-9a-f]{40}' <<< "$ci_yaml"; then
+      lines+=("| Pipeline delegates to \`maxbec/pipeline\` universal-pipeline (SHA-pinned) | ✅ | |")
+    elif grep -qE 'uses:[[:space:]]+maxbec/pipeline/\.github/workflows/universal-pipeline\.yaml@' <<< "$ci_yaml"; then
       local pin
       pin="$(grep -oE 'universal-pipeline\.yaml@[^[:space:]]+' <<< "$ci_yaml" | head -1 | sed 's|.*@||')"
-      lines+=("| Pipeline pinned to mandatory \`@v2\` tag | 🚫 | Currently pinned to \`@${pin}\` — non-\`@v2\` pins violate AGENTS.md requirements |")
+      lines+=("| Pipeline pinned to a full commit SHA | ⚠️ | Currently pinned to \`@${pin}\` — pin the stable release SHA with a short \`# vX.Y.Z\` comment |")
+    elif grep -qE "uses:[[:space:]]+$ORG/\.github/\.github/workflows/universal-pipeline\.yaml@" <<< "$ci_yaml"; then
+      lines+=("| Pipeline delegates to \`maxbec/pipeline\` universal-pipeline | 🚫 | Still calls the retired \`navigaite/.github\` pipeline home — repoint to \`maxbec/pipeline/.github/workflows/universal-pipeline.yaml@<sha>\` |")
     else
       lines+=("| Pipeline delegates to \`universal-pipeline.yaml\` | 🚫 | No \`uses:\` of the universal pipeline — caller may be misconfigured |")
     fi
@@ -237,9 +241,11 @@ EOF
     fi
 
     if grep -qE '^[[:space:]]+secrets:[[:space:]]+inherit[[:space:]]*$' <<< "$ci_yaml"; then
-      lines+=("| \`secrets: inherit\` on pipeline job | ✅ | |")
+      lines+=("| Explicit \`secrets:\` forwarding (no \`inherit\`) | 🚫 | \`secrets: inherit\` DROPS org-level secrets across the owner boundary (pipeline lives in \`maxbec/pipeline\`) — forward CF_ACCESS_CLIENT_ID/SECRET, WORKFLOW_APP_ID/PRIVATE_KEY, NPM_TOKEN, VERCEL_TOKEN/ORG_ID/PROJECT_ID explicitly |")
+    elif grep -qE 'CF_ACCESS_CLIENT_ID:[[:space:]]*\$\{\{[[:space:]]*secrets\.CF_ACCESS_CLIENT_ID[[:space:]]*\}\}' <<< "$ci_yaml"; then
+      lines+=("| Explicit \`secrets:\` forwarding (no \`inherit\`) | ✅ | |")
     else
-      lines+=("| \`secrets: inherit\` on pipeline job | 🚫 | Not found — required by AGENTS.md §4; caller may fail at runtime without inherited secrets |")
+      lines+=("| Explicit \`secrets:\` forwarding (no \`inherit\`) | 🚫 | No explicit forwarding block found — pipeline jobs run without org secrets (see \`navigaite/nvgt-repo-template\` \`ci.yaml\` for the reference block) |")
     fi
 
     if awk '
@@ -295,6 +301,31 @@ EOF
         ;;
     esac
   fi
+
+  # --- Actions allowlist (repos with allowed_actions: selected MUST
+  #     allow maxbec/pipeline/* or every reusable-workflow call dies with
+  #     a silent startup_failure — no logs, no run) ---
+  local actions_allowed patterns
+  actions_allowed="$(gh api "repos/$ORG/$repo/actions/permissions" --jq '.allowed_actions // "all"' 2>/dev/null || echo "")"
+  case "$actions_allowed" in
+    selected)
+      patterns="$(gh api "repos/$ORG/$repo/actions/permissions/selected-actions" --jq '(.patterns_allowed // []) | join(" ")' 2>/dev/null || echo "")"
+      if [[ " $patterns " == *" maxbec/pipeline/* "* ]]; then
+        lines+=("| Actions allowlist permits \`maxbec/pipeline/*\` | ✅ | \`allowed_actions: selected\` with pattern present |")
+      else
+        lines+=("| Actions allowlist permits \`maxbec/pipeline/*\` | 🚫 | \`allowed_actions: selected\` but \`maxbec/pipeline/*\` missing from \`patterns_allowed\` — every pipeline call fails with a silent \`startup_failure\` |")
+      fi
+      ;;
+    local_only)
+      lines+=("| Actions allowlist permits \`maxbec/pipeline/*\` | 🚫 | \`allowed_actions: local_only\` blocks the external \`maxbec/pipeline\` reusable workflows — silent \`startup_failure\` |")
+      ;;
+    all)
+      lines+=("| Actions allowlist permits \`maxbec/pipeline/*\` | ✅ | \`allowed_actions: all\` |")
+      ;;
+    *)
+      lines+=("| Actions allowlist permits \`maxbec/pipeline/*\` | ℹ️ | Could not read \`actions/permissions\` — verify manually |")
+      ;;
+  esac
 
   # --- items we cannot verify via API ---
   lines+=("| Secrets per deploy provider | ℹ️ | Not auto-checkable — verify in repo Settings → Secrets → Actions (see AGENTS.md §6) |")
@@ -413,8 +444,10 @@ apply_repo() {
 Automated bootstrap from \`navigaite/.github\`. Installs:
 
 - Weekly Dependabot updates (github-actions ecosystem).
-- Staggered \`Trunk Upgrade Scheduled\` caller at \`.github/workflows/trunk-upgrade-scheduled.yaml\` that delegates to the reusable \`trunk-upgrade\` workflow in \`navigaite/.github\`. Auto-merges after CI.
-- Thin \`Claude Code Fix\` caller at \`.github/workflows/claude-code-fix.yaml\` that delegates to the reusable \`claude-code\` workflow in \`navigaite/.github\`.
+- Staggered \`Trunk Upgrade Scheduled\` caller at \`.github/workflows/trunk-upgrade-scheduled.yaml\` that delegates to the reusable \`trunk-upgrade\` workflow in \`maxbec/pipeline\`. Auto-merges after CI.
+- Thin \`Claude Code Fix\` caller at \`.github/workflows/claude-code-fix.yaml\` that delegates to the reusable \`claude-code\` workflow in \`maxbec/pipeline\`.
+
+Both callers forward secrets explicitly — \`secrets: inherit\` does not cross the owner boundary into \`maxbec/pipeline\`, so org-level secrets would silently drop.
 
 If this repo previously had caller-style \`trunk-upgrade.yaml\` or \`claude-code.yaml\` at those shared paths, they are removed here in favor of the new \`-fix\` / \`-scheduled\` naming. Reusable-workflow definitions (files with \`on: workflow_call\`) are preserved.
 

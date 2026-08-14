@@ -4,9 +4,11 @@
 # Scope:
 # - This bootstrap-managed file ONLY configures the github-actions
 #   ecosystem (third-party action bumps).
-# - The reusable `navigaite/.github` pipeline is pinned via rolling `@v2` tag,
-#   which release-please retargets on every release. Do NOT let Dependabot
-#   SHA-pin it — that would cause noise PRs on every pipeline patch.
+# - The reusable pipeline lives in `maxbec/pipeline` (rehomed 2026-08-14).
+#   The universal pipeline is SHA-pinned by the fleet repin tooling and the
+#   maintenance callers use rolling `@v3`, which release-please retargets on
+#   every release. Do NOT let Dependabot touch either — that would cause
+#   noise PRs on every pipeline patch (or fight the managed SHA pin).
 # - Native package ecosystems (npm, pip, docker, etc.) are NOT auto-added
 #   here. If a repo has a bespoke `dependabot.yml` (without the "Managed by"
 #   header above), the bootstrap script preserves it and skips this file.
@@ -27,7 +29,11 @@ updates:
       github-actions:
         patterns: ['*']
     ignore:
-      # Rolling major tag — never pin. Updates come from retagging in navigaite/.github.
+      # Managed pins — never bump. Updates come from retagging / fleet
+      # repin tooling in maxbec/pipeline.
+      - dependency-name: maxbec/pipeline/*
+      # Legacy pipeline home — kept ignored so repos with stale refs don't
+      # get noise PRs while the fleet migration completes.
       - dependency-name: navigaite/.github/*
     commit-message:
       prefix: chore
