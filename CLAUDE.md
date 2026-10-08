@@ -1,30 +1,6 @@
-# ⚠️ MOVED — pipeline now lives in maxbec/pipeline
+# CLAUDE.md — navigaite/.github
 
-> **2026-08-14: the universal pipeline was rehomed to
-> [`maxbec/pipeline`](https://github.com/maxbec/pipeline)** (full git history
-> mirrored, stable v3.4.x line). All caller repos across navigaite, edilio-app
-> and maxbec pin `maxbec/pipeline/.github/workflows/universal-pipeline.yaml@SHA`.
-> The pipeline files still present in this repo are FROZEN and no longer
-> released — do not open pipeline PRs here. This repo remains for org community
-> files (profile, templates).
->
-> New-repo gotcha: repos restricting Actions must allow `maxbec/pipeline/*`
-> in Settings → Actions, or every pipeline call dies with a silent
-> `startup_failure`.
+@AGENTS.md
 
-# CLAUDE.md — Navigaite Universal CI/CD Pipeline
-
-> Organization-wide reusable GitHub Actions pipeline (`navigaite/.github`), currently at **v2** (version 3.3.0-beta.20). <!-- x-release-please-version -->
-
-All project-specific guidance for coding agents lives in [AGENTS.md](./AGENTS.md) at the repository root (agent-include directive: `@AGENTS.md`). That file is the single source of truth for:
-
-- What this repo is and how its pipeline is structured
-- The **setup Q&A flow** for adding the pipeline to a consumer repo
-- **MANDATORY vs OPTIONAL** parts of the caller workflow and `pipeline.yaml`
-- Branching profiles (A: `main` only, B: `dev` + `main`)
-- CI check naming convention and org-level rulesets
-- Secrets per deploy provider
-- Commit / versioning / release conventions
-- Key design decisions and common tasks
-
-Before taking any action in this repo — or when asked to set up this pipeline elsewhere — read [AGENTS.md](./AGENTS.md) first.
+All guidance for coding agents in this repository lives in [AGENTS.md](./AGENTS.md): what the repository holds (the
+organization profile and org defaults) and where CI/CD lives now (`maxbec/pipeline` and Flaiky).
