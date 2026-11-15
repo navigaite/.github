@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.4.0-beta.2](https://github.com/navigaite/.github/compare/v3.4.0-beta.1...v3.4.0-beta.2) (2026-11-15)
+
+
+### 🐛 Bug Fixes
+
+* **release:** take main's history into dev ([#325](https://github.com/navigaite/.github/issues/325)) ([4c95c63](https://github.com/navigaite/.github/commit/4c95c6341256eff36f85b12b4338e1449e1918cc))
+* **release:** take main's history into dev ([00bd6a4](https://github.com/navigaite/.github/commit/00bd6a4b22e1a1c0dd009a09604b3767895508c6))
+
 ## [3.4.0-beta.1](https://github.com/navigaite/.github/compare/v3.3.2...v3.4.0-beta.1) (2026-11-14)
 
 
